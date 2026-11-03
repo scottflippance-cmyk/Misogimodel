@@ -17,22 +17,42 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 /* The hidden contours (banner-contours.js) lie under everything on the bar and never take a click. */
 .site-banner__contours{position:absolute;inset:0;pointer-events:none;z-index:0}
 .site-banner__inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
-  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
-.site-banner__brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--sb-ink)}
+  min-height:70px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+/* The mark, Puncak Jaya in two tones, cut from a photograph: the banner's ink where the rock is in
+   shadow, and the banner itself where it catches the sun, so it reads in either look. It stands on
+   the banner's bottom edge and rises three quarters of its height: the brand runs the full height
+   of the bar (the margins undo the bar's padding) and the drawing sits at its foot, while the
+   wordmark stays centred. */
+.site-banner__brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--sb-ink);
+  align-self:stretch;margin:-14px 0}
+.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end}
 .site-banner__brand:hover{color:var(--sb-ink)}
 .site-banner__brand span{font-size:20px;font-weight:700;letter-spacing:-0.02em}
 .site-banner__nav{display:flex;flex-wrap:wrap;align-items:center;gap:28px;font-size:15px}
 .site-banner__link{color:var(--sb-link);text-decoration:none}
 .site-banner__link:hover{color:var(--sb-ink)}
 .cta--sm{padding:9px 18px;font-size:15px}
+/* The cart: a bag, with the number of models in it on a small blue badge once there are any. */
+.site-banner__cart{position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;
+  margin:0 -8px;border-radius:999px;color:var(--sb-ink);text-decoration:none}
+.site-banner__cart:hover{background:rgba(127,127,127,.12)}
+.site-banner__cart svg{display:block;width:24px;height:24px}
+.site-banner__count{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
+  border-radius:999px;background:var(--accent,#2F5BD8);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.site-banner__count[hidden]{display:none}
 /* On a phone the banner stays one slim row: the section links step out (they are in the page
    anyway) and the mark, wordmark and button tighten to fit. */
 @media (max-width:640px){
   .site-banner__link{display:none}
-  .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px}
-  .site-banner__brand svg{width:34px;height:34px}
-  .site-banner__brand span{font-size:18px}
-  .cta--sm{padding:7px 14px;font-size:14px}}
+  .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px;min-height:0}
+  .site-banner__nav{gap:16px;flex-wrap:nowrap}
+  .site-banner__brand{margin:-10px 0;gap:6px}
+  .site-banner__brand span{font-size:16px}
+  .cta--sm{padding:7px 12px;font-size:13.5px}}
+/* On phones the drawing stands for the name on its own, so the cart and the button fit beside it
+   without anything overlapping. */
+@media (max-width:439px){
+  .site-banner__brand span{display:none}}
 /* The call-to-action buttons: flat, with a light diagonal sheen (lighter top left, deeper bottom
    right). The sheen is painted under the border too, so no seam of another colour shows at the
    rounded ends. On hover a soft glow, and a border whose light runs round it every 2.5 seconds:
