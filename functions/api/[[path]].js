@@ -264,6 +264,14 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url), m = request.method;
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
+  // Not set up yet (no storage bound, or no secrets): say so plainly rather than failing half way.
+  const missing = ["ORDERS", "ORDER_SECRET"].concat(parts[0] === "checkout" ? ["STRIPE_SECRET_KEY"] : [])
+    .concat(parts[0] === "stripe-webhook" ? ["STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "ORDER_EMAIL_TO"] : [])
+    .filter((k) => !env[k]);
+  if (missing.length) {
+    console.log("misogimodel orders are not set up: missing " + missing.join(", "));
+    return fail(503, "Ordering isn't switched on just yet");
+  }
   try {
     if (parts[0] === "stripe-webhook" && m === "POST") return await webhook(request, env);
     if (parts[0] === "checkout" && m === "POST") return await checkout(request, env);
