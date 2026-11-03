@@ -21,10 +21,15 @@ a{color:#2F5BD8}a:hover{color:#1F45B0}
 summary{cursor:pointer}
 </style>
 <style id="site-chrome">
-html{scroll-padding-top:96px}
+/* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
+   same place on the homepage (which scrolls) and in the studio (which doesn't). */
+html{scroll-padding-top:96px;scrollbar-gutter:stable}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 /* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
+/* The banner sets its own type rather than taking the page's, so its lettering sits at the same
+   height whichever page it is on. */
 .site-banner{position:sticky;top:0;z-index:1000;display:block;margin:0;padding:0;border:0;
+  font-family:Inter,system-ui,sans-serif;line-height:normal;
   --sb-bg:rgba(255,255,255,.72);--sb-ink:#0B0E12;--sb-link:#3A424C;
   --sb-shadow:0 1px 0 rgba(11,14,18,.05),0 8px 24px rgba(11,14,18,.08);
   background:var(--sb-bg);box-shadow:var(--sb-shadow);
@@ -48,14 +53,16 @@ html{scroll-padding-top:96px}
   .cta--sm{padding:7px 14px;font-size:14px}}
 /* The call-to-action buttons: flat, with a light diagonal sheen (lighter top left, deeper bottom
    right). The sheen is painted under the border too, so no seam of another colour shows at the
-   rounded ends. On hover a soft glow, and a border whose light runs round it every 2.5 seconds. */
+   rounded ends. On hover a soft glow, and a border whose light runs round it every 2.5 seconds:
+   a pale tint of the button's own colour, never pure white, which read as a hard line on a
+   straight edge. */
 @property --cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
 .cta{--cta-accent:var(--accent,#2F5BD8);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   display:inline-block;color:#FFFFFF;text-decoration:none;font-weight:600;border-radius:999px;
   border:2px solid transparent;background:var(--cta-sheen) border-box;box-shadow:none;
   transition:box-shadow .25s ease}
 .cta:hover{color:#FFFFFF;
-  background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),#FFFFFF,color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),var(--cta-accent)) border-box;
+  background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),var(--cta-accent)) border-box;
   box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
   animation:cta-spin 2.5s linear infinite}
 @keyframes cta-spin{to{--cta-angle:360deg}}

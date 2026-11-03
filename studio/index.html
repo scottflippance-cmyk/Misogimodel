@@ -160,6 +160,10 @@ body:not(.none) .head-btn.on small{color:var(--muted); font-weight:400}
 
 /* The site banner, shared with every page (its styles come from /site.css). In the app it is laid
    out exactly as on the homepage, sits under dialogs, and follows the light and dark looks. */
+#themeBtn[hidden]{display:none}
+/* the banner wears the site's blue, not the studio's own slightly brighter one, so its button
+   matches the homepage's exactly */
+.site-banner{--accent:#2F5BD8}
 header.site-banner{flex:0 0 auto}
 .site-banner--app{z-index:40}
 .site-banner .theme-btn{margin-left:0}
@@ -275,12 +279,14 @@ button:hover:not(:disabled){background:var(--btn-hover); border-color:var(--btn-
 button:disabled{opacity:.45; cursor:not-allowed}
 /* The main buttons share the homepage's call-to-action look: flat with a light diagonal sheen,
    painted under the border too so no seam shows at the ends; on hover a soft glow and a border
-   whose light runs round it every 2.5 s. In the accent of each look: blue in the light, amber in the dark. */
+   whose light runs round it every 2.5 s, a pale tint of the accent rather than pure white (white
+   read as a hard line down the straight end of a square-cornered button). In the accent of each
+   look: blue in the light, amber in the dark. */
 button.primary{--cta-accent:var(--accent); --cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   color:var(--accent-ink); font-weight:600; border:2px solid transparent;
   background:var(--cta-sheen) border-box; box-shadow:none; transition:box-shadow .25s ease}
 button.primary:hover:not(:disabled){border-color:transparent;
-  background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),#FFFFFF,color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),var(--cta-accent)) border-box;
+  background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),var(--cta-accent)) border-box;
   box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
   animation:cta-spin 2.5s linear infinite}
 @media (prefers-reduced-motion:reduce){button.primary:hover:not(:disabled){animation:none}}
@@ -820,7 +826,8 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
 <a class="site-banner__link" href="/#sizes">Sizes</a>
 <a class="site-banner__link" href="/#faq">FAQ</a>
 <a class="site-banner__link" href="/contact">Contact</a>
-<button id="themeBtn" class="theme-btn" title="Light or dark" aria-label="Switch between the light and dark looks">
+<a class="cta cta--sm" href="/studio/">Start designing</a>
+<button id="themeBtn" hidden class="theme-btn" title="Light or dark" aria-label="Switch between the light and dark looks">
     <svg id="thSun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
     <svg id="thMoon" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M13.4 9.6A5.6 5.6 0 0 1 6.4 2.6a5.6 5.6 0 1 0 7 7z"/></svg>
   </button>
@@ -3634,6 +3641,9 @@ function initThree() {
   const fill = new THREE.DirectionalLight(0x9fb8c8, 0.18);
   fill.position.set(120, 40, 100);
   scene.add(fill);
+  const under = new THREE.DirectionalLight(0xffffff, 0.55);   // reaches only faces pointing down
+  under.position.set(-60, -170, 80);
+  scene.add(under);
 
   const group = new THREE.Group();
   scene.add(group);
@@ -3644,17 +3654,24 @@ function initThree() {
     ctrl.target.x + ctrl.radius * Math.sin(ctrl.phi) * Math.sin(ctrl.theta),
     ctrl.target.y + ctrl.radius * Math.cos(ctrl.phi),
     ctrl.target.z + ctrl.radius * Math.sin(ctrl.phi) * Math.cos(ctrl.theta)];
+  /* The view turns all the way round, over the top and underneath, so the back of the model (and
+     the web address cut into it) can be seen. Only straight up and straight down are kept out,
+     where the view would spin about itself. */
+  const PHI_MAX = Math.PI - 0.05;
   const place = () => {
-    ctrl.phi = clamp(ctrl.phi, 0.05, 1.45);
+    ctrl.phi = clamp(ctrl.phi, 0.05, PHI_MAX);
     ctrl.radius = clamp(ctrl.radius, 40, 420);     // far enough to see it all, not so far it disappears
     const lim = WORLD * 0.75;                        // don't let panning lose the model
     ctrl.target.x = clamp(ctrl.target.x, -lim, lim); ctrl.target.z = clamp(ctrl.target.z, -lim, lim);
-    // Keep the camera above the ground: if it would end up inside a hill, tilt it up (then back off).
+    // Keep the camera out of the model: above the ground or below the base, never inside the
+    // solid. Looking down from above, it tilts up out of a hill; from underneath, further under.
     const G = typeof three !== "undefined" && three && three.geom;
+    const floorY = G ? G.baseY - ($("showFrame").checked ? frameVals.d * (WORLD / frameVals.modelMM) : 0) : 0;
     for (let k = 0; G && k < 60; k++) {
       const [cx, cy, cz] = camAt();
-      if (Math.abs(cx) > WORLD / 2 || Math.abs(cz) > WORLD / 2 || cy >= G.groundY(cx, cz) + 3) break;
-      if (ctrl.phi > 0.12) ctrl.phi -= 0.04; else ctrl.radius = Math.min(700, ctrl.radius * 1.06);
+      if (Math.abs(cx) > WORLD / 2 || Math.abs(cz) > WORLD / 2 || cy >= G.groundY(cx, cz) + 3 || cy <= floorY - 3) break;
+      if (ctrl.phi > Math.PI / 2) { if (ctrl.phi < PHI_MAX - 0.04) ctrl.phi += 0.04; else ctrl.radius = Math.min(700, ctrl.radius * 1.06); }
+      else if (ctrl.phi > 0.12) ctrl.phi -= 0.04; else ctrl.radius = Math.min(700, ctrl.radius * 1.06);
     }
     const [cx, cy, cz] = camAt();
     camera.position.set(cx, cy, cz);
@@ -3960,6 +3977,27 @@ function buildScene(data, exag) {
 
     t.baseInfo = { wallVerts: cols.length / 3 - 6, seaWallVerts: seaWall,
                    landWall: LAND.slice(), seaWall: SEA_TOP.slice() };   // the very arrays spread into cols
+
+    /* the web address on the back, seen when the view is turned over (see backTextLayout) */
+    const BL = backTextLayout(frameVals.modelMM), bu = WORLD / frameVals.modelMM;
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(BL.lenMM * bu, BL.hMM * bu),
+      new THREE.MeshStandardMaterial({ map: backTextTexture(BL), transparent: true, roughness: 1, depthWrite: false,
+                                       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    back.rotation.x = Math.PI / 2;                   // facing down; its top edge toward the south
+    const backY = baseY - 0.01;                      // just under the bottom, so it never fights it
+    back.position.set(0, backY, 0);
+    back.renderOrder = 2;
+    t.group.add(back);
+    t.backText = { lenMM: BL.lenMM, hMM: BL.hMM, emMM: BL.emMM, y: backY, facing: back.rotation.x };
+    // a canvas can't wait for the web font: if it wasn't in yet, redraw the sheet once it is
+    if (document.fonts && !document.fonts.check(fontCSS("inter", 40))) {
+      document.fonts.load(fontCSS("inter", 40)).then(() => {
+        const L2 = backTextLayout(frameVals.modelMM), old = back.material.map;
+        back.geometry.dispose(); back.geometry = new THREE.PlaneGeometry(L2.lenMM * bu, L2.hMM * bu);
+        back.material.map = backTextTexture(L2); back.material.needsUpdate = true; old.dispose();
+        Object.assign(t.backText, { lenMM: L2.lenMM, hMM: L2.hMM, emMM: L2.emMM });
+      }).catch(() => {});
+    }
   }
 
   /* --- contour lines drawn on the surface --- */
@@ -5357,8 +5395,13 @@ function syncViewerOffset() {
   const host = $("viewer"); if (!host) return;
   const W = host.clientWidth, H = host.clientHeight;
   if (!W || !H) return;
-  const pop = openSideWindow();
-  const taken = (pop && pop.offsetParent) ? pop.offsetWidth + 28 : 0;   // the window and its margins
+  /* The right-hand column holds Location Adjust and, under it, any open settings window; both
+     take the same width. Either one open moves the model over. Folded, Location Adjust is only a
+     title bar and the model returns to the middle. */
+  const pop = openSideWindow(), ins = $("inset");
+  const insOpen = ins && !ins.hidden && !ins.classList.contains("folded") && ins.offsetParent;
+  const colW = Math.max((pop && pop.offsetParent) ? pop.offsetWidth : 0, insOpen ? ins.offsetWidth : 0);
+  const taken = colW ? colW + 28 : 0;                // the column and its margins
   const dx = Math.round(Math.min(taken, W * 0.5) / 2);
   if (dx > 0) t.camera.setViewOffset(W, H, dx, 0, W, H);
   else if (t.camera.clearViewOffset) t.camera.clearViewOffset();
@@ -5892,6 +5935,7 @@ $("foldInset").onclick = () => {
   el.classList.toggle("folded");
   $("foldInset").textContent = el.classList.contains("folded") ? "+" : "–";
   placeTextPopup();                                  // the text window sits under this box
+  syncViewerOffset();                                // open, the model makes room; folded, it centres
   if (!el.classList.contains("folded")) setTimeout(() => { map.invalidateSize(); drawSelection(); }, 30);
 };
 
@@ -6773,10 +6817,14 @@ function applyTheme(light, remember) {
   }
 }
 $("themeBtn").addEventListener("click", () => applyTheme(!document.body.classList.contains("light")));
+/* The switch is hidden for now, so everyone gets the light look, even someone who chose dark
+   before it was hidden. Set this back to true to bring the switch and the remembered choice back. */
+const THEME_SWITCH_ON = false;
 (() => {
   let saved = null;
   try { saved = localStorage.getItem("relief-theme"); } catch (e) { /* then it opens light */ }
-  applyTheme(saved !== "dark", false);               // light is the default look
+  applyTheme(THEME_SWITCH_ON ? saved !== "dark" : true, false);   // light is the default look
+  $("themeBtn").hidden = !THEME_SWITCH_ON;
 })();
 
 /* One small question, in the middle, over everything. No stays; Yes does the one thing named. */
@@ -7745,13 +7793,60 @@ function stlTerrain(data, W, z0, baseMM, mmPerM, liftMM = 0) {
   for (let r = n - 2; r >= 0; r--) per.push([r, n - 1]);
   for (let c = n - 2; c >= 0; c--) per.push([0, c]);
   for (let r = 1; r <= n - 2; r++) per.push([r, 0]);
-  const C = [W / 2, W / 2, z0];
   per.forEach((a, i) => {
     const b = per[(i + 1) % per.length];
     triPush(tris, top(...a), bot(...a), bot(...b)); triPush(tris, top(...a), bot(...b), top(...b));
-    triPush(tris, C, bot(...b), bot(...a));
   });
+  stlBackFace(per.map((a) => bot(...a)), W, z0, tris);
   return tris;
+}
+
+/* The flat bottom with the web address cut into it. The lettering's patch is a fine grid lifted
+   into the base by the letters' mask; its edge is held flat, and the rest of the bottom is laid
+   between the outline and that edge using the very same points, so the solid stays closed. */
+function stlBackFace(ring, Wmm, z0, tris) {
+  const L = backTextLayout(Wmm);
+  const mask = textMask(BACK_TEXT, L.lenMM, L.hMM, L.emMM, "inter", "center", 0);
+  const step = clamp(L.emMM / 60, 0.08, 0.25);                   // about 60 points up each letter
+  const gx = Math.ceil(L.lenMM / step), gy = Math.ceil(L.hMM / step);
+  const P = (i, j) => {
+    const u = i / gx, v = j / gy, [x, y] = backTextPlan(L, Wmm, u, v);
+    const edge = i === 0 || j === 0 || i === gx || j === gy;
+    return [x, y, z0 + (edge || !mask ? 0 : BACK_DEPTH_MM * clamp(mask(u, v), 0, 1))];
+  };
+  const G = [];
+  for (let j = 0; j <= gy; j++) for (let i = 0; i <= gx; i++) G.push(P(i, j));
+  const at = (i, j) => G[j * (gx + 1) + i];
+  const signed = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+  const down = (a, b, c) => (signed(a, b, c) > 0 ? triPush(tris, a, c, b) : triPush(tris, a, b, c));   // faces down
+  /* The flat part is the square outline less the patch: four four-sided pieces, one per side,
+     each between a run of the outline and the matching run of the patch's edge. Each piece is
+     convex, so stitching the two runs together in step fills it exactly. */
+  const corner = (p, x, y) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9;
+  const k0 = ring.findIndex((p) => corner(p, 0, 0));
+  const R = ring.slice(k0).concat(ring.slice(0, k0 + 1));       // anticlockwise from the south-west corner, closed
+  const cut = [0, R.findIndex((p) => corner(p, Wmm, 0)), R.findIndex((p) => corner(p, Wmm, Wmm)),
+               R.findIndex((p) => corner(p, 0, Wmm)), R.length - 1];
+  const runI = (i0, i1, j) => { const o = []; for (let i = i0; i0 <= i1 ? i <= i1 : i >= i1; i += i0 <= i1 ? 1 : -1) o.push(at(i, j)); return o; };
+  const runJ = (j0, j1, i) => { const o = []; for (let j = j0; j0 <= j1 ? j <= j1 : j >= j1; j += j0 <= j1 ? 1 : -1) o.push(at(i, j)); return o; };
+  const inner = [runI(0, gx, gy), runJ(gy, 0, gx), runI(gx, 0, 0), runJ(0, gy, 0)];   // south, east, north, west
+  const along = (run, axis) => { const a0 = run[0][axis], a1 = run[run.length - 1][axis];
+    return run.map((p) => (p[axis] - a0) / (a1 - a0)); };
+  for (let side = 0; side < 4; side++) {
+    const A = R.slice(cut[side], cut[side + 1] + 1), B = inner[side], axis = side % 2 === 0 ? 0 : 1;
+    const ta = along(A, axis), tb = along(B, axis);
+    let i = 0, j = 0;
+    while (i < A.length - 1 || j < B.length - 1) {
+      if (j === B.length - 1 || (i < A.length - 1 && ta[i + 1] <= tb[j + 1])) { down(A[i], A[i + 1], B[j]); i++; }
+      else { down(A[i], B[j + 1], B[j]); j++; }
+    }
+  }
+  const flip = signed(at(0, 0), at(1, 0), at(1, 1)) > 0;
+  for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) {
+    const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+    if (flip) { triPush(tris, a, c, b); triPush(tris, a, d, c); }
+    else { triPush(tris, a, b, c); triPush(tris, a, c, d); }
+  }
 }
 
 /* One frame side: outer face is a fine grid so text can be engraved into it.
@@ -7829,6 +7924,39 @@ function textMask(text, lenMM, hMM, fontMM, fontKey, align, inset) {
     const at = (xx, yy) => d[(yy * W + xx) * 4] / 255;
     return at(x0, y0) * (1 - fx) * (1 - fy) + at(x1, y0) * fx * (1 - fy) + at(x0, y1) * (1 - fx) * fy + at(x1, y1) * fx * fy;
   };
+}
+
+/* ---------- the web address cut into the back ----------
+   Every model carries www.misogimodel.com on its underside, cut 2 mm into the base (which is
+   always at least a centimetre thick), so it survives into every print. It is centred, about 70%
+   of the model's width, in the wordmark's typeface, with lettering between 5 and 16 mm. It reads
+   the right way round when the model is turned over front-to-back: the line runs west to east and
+   the tops of the letters point south, which is the far edge once it is flipped. */
+const BACK_TEXT = "www.misogimodel.com", BACK_DEPTH_MM = 2;
+function backTextLayout(Wmm) {
+  ensureFont("inter");
+  const g = document.createElement("canvas").getContext("2d");
+  g.font = fontCSS("inter", 100);
+  const perEm = g.measureText(BACK_TEXT).width / 100;            // the line's width, in ems
+  const emMM = clamp(Wmm * 0.7 / perEm, 5, 16);
+  const margin = Math.max(1, emMM * 0.25);
+  return { emMM, margin, textMM: perEm * emMM, lenMM: perEm * emMM + 2 * margin, hMM: emMM * 1.3 + 2 * margin };
+}
+/* Where a point of the lettering's own square (u along the line, v up the letters, both 0..1)
+   lands on the model's plan, in millimetres with x east and y north from the south-west corner. */
+const backTextPlan = (L, Wmm, u, v) => [Wmm / 2 + (u - 0.5) * L.lenMM, Wmm / 2 - (v - 0.5) * L.hMM];
+/* The screen's copy: the letters as shadowed hollows on a see-through sheet laid against the
+   base's underside. The printed file has the real 2 mm cut. */
+function backTextTexture(L) {
+  const W = 2048, H = Math.round(W * L.hMM / L.lenMM), c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d"), px = W / L.lenMM;
+  g.font = fontCSS("inter", L.emMM * px); g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "rgba(255,255,255,0.22)"; g.fillText(BACK_TEXT, W / 2, H / 2 + Math.max(1, 0.12 * px));   // the lit lip
+  g.fillStyle = "rgba(0,0,0,0.72)"; g.fillText(BACK_TEXT, W / 2, H / 2);                                  // the hollow
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+  return tex;
 }
 
 /* Every piece of text on a side, turned into a mask and a depth. The depth is added to the top of
