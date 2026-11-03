@@ -827,7 +827,15 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
   #cornerStack{right:10px; bottom:auto; top:10px; width:170px}
   #inset{width:min(210px,50vw); right:10px; top:56px}
 }
+#scrollRail{position:fixed; right:12px; top:50%; transform:translateY(-50%); height:33.333vh; width:6px;
+  border-radius:3px; background:rgba(11,14,18,.10); z-index:30; cursor:pointer; touch-action:none}
+#scrollRail::before{content:""; position:absolute; inset:0 -8px}   /* an easier target than 6 px */
+#scrollFill{position:absolute; left:0; right:0; top:0; height:0; border-radius:3px; background:var(--accent)}
+body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 @media (min-width:861px){
+  /* On Customise that rail stands in for the browser's own scroll bar. */
+  #panelView{scrollbar-width:none}
+  #panelView::-webkit-scrollbar{display:none}
   /* The panel's first item lines up with the top of the map, 56 px under the banner. */
   #panelMap{padding-top:calc(var(--stage-top) - 18px)}
   #panelView #viewHead{padding-top:var(--stage-top)}            /* Back to the map, level with the top of the model's window */
@@ -847,6 +855,9 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
 </style>
 </head>
 <body class="mode-map light">
+<!-- Customise's own scroll bar: a third of the screen tall, centred down the right-hand side,
+     filling with the accent blue from the top as the sections are scrolled through. -->
+<div id="scrollRail" hidden><div id="scrollFill"></div></div>
 
 <!-- site-banner -->
 <header class="site-banner site-banner--app">
@@ -2300,6 +2311,28 @@ function pick(row) {
   setCollapsed($("findBlock"), false);
 }
 
+/* ---------- Customise's scroll rail ----------
+   Shown on Customise whenever its sections run longer than the panel. It fills from the top as
+   far as the panel has been scrolled; pressing or dragging on it scrolls there. */
+function syncScrollRail() {
+  const pv = $("panelView"), rail = $("scrollRail"); if (!pv || !rail) return;
+  const room = pv.scrollHeight - pv.clientHeight;
+  const show = document.body.classList.contains("mode-view") && room > 4 && matchMedia("(min-width:861px)").matches;
+  rail.hidden = !show;
+  if (show) $("scrollFill").style.height = (clamp(pv.scrollTop / room, 0, 1) * 100).toFixed(2) + "%";
+}
+(() => {
+  const pv = $("panelView"), rail = $("scrollRail");
+  pv.addEventListener("scroll", syncScrollRail, { passive: true });
+  new ResizeObserver(syncScrollRail).observe(pv);
+  new MutationObserver(() => requestAnimationFrame(syncScrollRail)).observe(pv, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
+  new MutationObserver(syncScrollRail).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  const go = (e) => { const r = rail.getBoundingClientRect();
+    pv.scrollTop = clamp((e.clientY - r.top) / r.height, 0, 1) * (pv.scrollHeight - pv.clientHeight); };
+  rail.addEventListener("pointerdown", (e) => { try { rail.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } go(e); });
+  rail.addEventListener("pointermove", (e) => { if (rail.hasPointerCapture && rail.hasPointerCapture(e.pointerId)) go(e); });
+})();
+
 /* ---------- Need some inspiration ----------
    Three places to start from. Each frames its area the way a search does (so frame text seeded
    from the place follows it), then builds the model and opens Customise. The sketches are drawn
@@ -3171,7 +3204,7 @@ const USA48 = [
   [31.80, -106.50], [32.50, -114.80], [32.50, -117.20], [40.00, -124.40], [46.30, -124.10],
   [48.40, -124.70],
 ];
-let lidarWanted = true, lidarLastUrl = "", lidarWhy = "";   // national LIDAR wherever there is some
+let lidarWanted = true, lidarLastUrl = "", lidarWhy = "", lidarSlowNote = "";   // national LIDAR wherever there is some
 /* These requests used to fall back to public relay services when one was refused. Every one of
    those relays has since closed or started asking for a key, so they were only ever adding ten
    silent seconds to a failure. A request that comes back empty-handed is retried instead, which
@@ -3496,10 +3529,24 @@ function healGrid(grid, n, min) {
   for (let i = 0; i < grid.length; i++) if (!isFinite(grid[i])) grid[i] = min;
 }
 
+/* The national surveys can be slow: the USGS service in particular takes anything from two seconds
+   to twenty, and with three tries of 25 s each a slow day kept the build at "Preparing…" for over a
+   minute before the worldwide data stepped in. The survey now has 15 seconds in all. While it
+   works, the progress line says what it is waiting for and counts the seconds; if the time runs
+   out, the worldwide data is used and a note says so, since the person has just watched it wait.
+   (A survey that simply fails, quickly, still hands over without a word.) */
+const NATIONAL_BUDGET_MS = 15000;
 async function sampleElevation(b, n) {
   if (lidarWanted && lidarSourceFor(b)) {
+    const who = (lidarSourcesFor(b)[0] || {}).name || "the national survey", t0 = performance.now();
+    progress(true, "Fetching " + who + "…", 10);
+    const tick = setInterval(() => {
+      const sec = Math.round((performance.now() - t0) / 1000);
+      if (sec >= 2) progress(true, "Waiting for " + who + "… " + sec + " s", 10 + Math.min(40, sec * 2.6));
+    }, 1000);
     try {
-      const out = await sampleLidar(b, n);
+      const out = await Promise.race([sampleLidar(b, n), new Promise((_, no) =>
+        setTimeout(() => no(Object.assign(new Error("no answer within " + NATIONAL_BUDGET_MS / 1000 + " seconds"), { slow: true })), NATIONAL_BUDGET_MS))]);
       out.grid = easeToSource(out.grid, n, out.res, b.size);
       out.grid = easeSurface(out.grid, n);           // take the facets off the samples themselves
       let lo = Infinity, hi = -Infinity;             // the easing moves them a little, so measure again
@@ -3508,10 +3555,14 @@ async function sampleElevation(b, n) {
       lidarWhy = "";
       return out;
     } catch (e) {
-      console.warn("lidar failed", e);                 // the person is not told: the worldwide
-      console.info("LIDAR request was:", lidarLastUrl); // data simply steps in underneath
+      console.warn("lidar failed", e);                 // a quick failure is not announced: the
+      console.info("LIDAR request was:", lidarLastUrl); // worldwide data simply steps in underneath
       lidarWhy = e.message;
-    }
+      if (e.slow) {
+        lidarSlowNote = who + " was slow to answer, so this model uses the worldwide elevation data. Build again to try the survey.";
+        progress(true, "Using the worldwide elevation data instead…", 55);
+      }
+    } finally { clearInterval(tick); }
   }
   let out = null;
   try { out = await sampleMapbox(b, n); }
@@ -5160,7 +5211,9 @@ $("build").onclick = async () => {
     $("build").disabled = true;
     progress(true, "Preparing…", 6);
     const n = +$("res").value;
+    lidarSlowNote = "";
     current = await sampleElevation(bounds(), n);
+    if (lidarSlowNote) toast(lidarSlowNote);
     current.name = sel.name;
     if (!isFinite(current.min) || current.max - current.min < 0.01) {
       toast("This area looks completely flat. Check the square is over land.", true);
@@ -8663,5 +8716,6 @@ openFromHash();
 (() => { const want = +new URLSearchParams(location.search).get("size");
   if (document.querySelector('#sizeSeg button[data-mm="' + want + '"]')) setModelSize(want); })();
 </script>
+<script src="/banner-contours.js" defer></script>
 </body>
 </html>

@@ -14,7 +14,9 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   --sb-shadow:0 1px 0 rgba(11,14,18,.05),0 8px 24px rgba(11,14,18,.08);
   background:var(--sb-bg);box-shadow:var(--sb-shadow);
   -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
-.site-banner__inner{max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
+/* The hidden contours (banner-contours.js) lie under everything on the bar and never take a click. */
+.site-banner__contours{position:absolute;inset:0;pointer-events:none;z-index:0}
+.site-banner__inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
   display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
 .site-banner__brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--sb-ink)}
 .site-banner__brand:hover{color:var(--sb-ink)}
