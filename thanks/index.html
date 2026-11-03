@@ -131,7 +131,30 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
       const x = q.left - box.left, y = q.top - box.top + q.height / 2;
       c.fillText(el.textContent.trim(), x, y); c.strokeText(el.textContent.trim(), x, y);
     }
-    for (const b of bar.querySelectorAll(".cta, button, .site-banner__cart")) {   // the buttons and the cart, round ends and all
+    // The cart: the lines come right up to the bag itself (and its number badge), 2 px clear,
+    // rather than keeping off a circle round it.
+    for (const cart of bar.querySelectorAll(".site-banner__cart")) {
+      if (!cart.offsetParent) continue;
+      const icon = cart.querySelector("svg");
+      if (icon) {
+        const q = icon.getBoundingClientRect(), vb = icon.viewBox.baseVal, k = q.width / (vb && vb.width || 24);
+        c.save(); c.translate(q.left - box.left, q.top - box.top); c.scale(k, k);
+        c.lineJoin = c.lineCap = "round";
+        for (const el of icon.querySelectorAll("path")) {
+          const shape = new Path2D(el.getAttribute("d")), sw = parseFloat(el.getAttribute("stroke-width")) || 0;
+          c.lineWidth = sw + GAP * 2 / k;
+          if (/Z\s*$/i.test(el.getAttribute("d"))) c.fill(shape);                     // the bag's body, whole
+          c.stroke(shape);                                                             // every line, grown by 2 px
+        }
+        c.restore();
+      }
+      const badge = cart.querySelector(".site-banner__count");
+      if (badge && !badge.hidden && badge.offsetParent) {
+        const q = badge.getBoundingClientRect();
+        c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, q.height / 2 + GAP); c.fill();
+      }
+    }
+    for (const b of bar.querySelectorAll(".cta, button")) {      // the buttons, round ends and all
       if (!b.offsetParent) continue;
       const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
       c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
@@ -210,6 +233,7 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
   bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
   let rt = 0;
   new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
+  window.addEventListener("misogimodel:banner-changed", () => { if (W) { drawKnockout(); paint(); } });   // e.g. the cart's number appearing
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
   window.__bannerContours = { get state() { return { W, H, origin, speed, fade, startR: START_R, radius: origin ? START_R + speed * (performance.now() - t0) : 0, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
 })();
@@ -229,6 +253,7 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
       a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
     }
+    window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }
   show();
   window.addEventListener("misogimodel:cart", show);

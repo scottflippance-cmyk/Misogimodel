@@ -467,6 +467,7 @@ select option{font-size:13px}
 .block.collapsed > h2{margin-bottom:0}
 .block.locked{opacity:.4}
 .block.locked .sec-toggle{cursor:not-allowed}
+.sec-toggle.sec-title{cursor:auto; -webkit-user-select:text; user-select:text}   /* section titles: plain words, select them like any text */
 .block.current{box-shadow:inset 3px 0 0 var(--accent); background:rgba(224,163,60,.045)}
 
 .sec-nav{display:none}                              /* each section is simply there; nothing to step through */
@@ -4299,6 +4300,10 @@ function buildSummit(data) {
 
 /* ---------- 3D buildings, trees and shrubs ---------- */
 const TREE_BASE = 1.35;    // bigger than life, so a wood reads as a canopy; the sliders scale from here
+/* Trees are a set size on the print, whatever the area: the smallest is TREE_MIN_MM across, so a
+   bigger print shows more, smaller-looking trees over the same ground and a smaller one fewer,
+   chunkier ones, each still big enough to print. */
+const TREE_MIN_MM = 1;
 const treeBaseMul = 1;     // Tree scale, fixed
 const treePackMul = 0.3;   // Amount of trees, fixed
 const treeScale = 1;  // tree height, fixed
@@ -4538,12 +4543,26 @@ function plantTrees(pts, s, styleKey, data, vS) {
     new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true, vertexColors: pt.role === "leaf" }), pts.length));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0), leaf = new THREE.Color();
+  // how far this style's canopy actually reaches from the trunk, in its unit box (a broadleaf's
+  // lobes fall a little short of 1), so its printed width is the width asked for
+  let reach = 0;
+  for (const pt of parts) {
+    if (pt.role !== "leaf") continue;
+    const pos = pt.geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) reach = Math.max(reach, Math.hypot(pos.getX(i), pos.getZ(i)));
+  }
+  reach = reach || 1;
   pts.forEach(([x, z, rnd], i) => {
     const base = TREE_BASE * treeBaseMul;
     // Sizes vary from 0.78 to 1.48 of the norm: enough of a mix to break up any pattern, while the
     // smallest tree is still wide enough to cover its own patch of ground.
-    const k = 0.78 + 0.7 * rnd, r0 = s * 0.55 * k * base, h0 = Math.max(15 * vS, r0 * M.hr) * k * base;
-    const h = h0 * treeScale, r = r0 * Math.sqrt(treeScale);   // taller trees get a little wider, in proportion
+    const k = 0.78 + 0.7 * rnd, r0 = s * 0.55 * k * base, h0 = r0 * M.hr * k * base;   // height in proportion to its width
+    const h = h0 * treeScale, r = r0 * Math.sqrt(treeScale) / reach;   // taller trees get a little wider, in proportion
+    if (three.featureStats) {                         // its printed width, for the readout and the checks
+      const w = 2 * r * reach * frameVals.modelMM / WORLD, st = three.featureStats;
+      st.treeMM = st.treeMM || { min: Infinity, max: 0, sum: 0, n: 0 };
+      st.treeMM.min = Math.min(st.treeMM.min, w); st.treeMM.max = Math.max(st.treeMM.max, w); st.treeMM.sum += w; st.treeMM.n++;
+    }
     p.set(x, three.geom.groundY(x, z) - 0.03, z);
     q.setFromAxisAngle(up, rnd * 6.283);
     sc.set(r, h, r);
@@ -4599,7 +4618,8 @@ async function buildFeatures3D(data) {
     // then remove a random share. Density changes how many trees there are, never how big.
     /* Size comes from a fixed reference spacing, so trees stay the size the slider says. They are
        scattered closer than that — about one canopy apart — so at full density they touch. */
-    const sizeS = 10 / mPerUnit;
+    // the reference size, in model units, that makes the smallest tree (0.78 of it) TREE_MIN_MM across
+    const sizeS = (TREE_MIN_MM * WORLD / frameVals.modelMM) / (2 * 0.55 * 0.78 * TREE_BASE * treeBaseMul);
     // 1.1 would have canopies just touching; 0.78 overlaps them, so dense woods read as a canopy
     // 0.55 rather than 0.78: twice as many trees for the same slider reading, heavily overlapped
     // 0.38 of the reference: closer than a canopy is wide, so even the corners of the scatter overlap
@@ -5820,10 +5840,7 @@ function updateTreeCountNote() {
   if (!el) return;
   const st = three && three.featureStats;
   if (!st || !st.trees) { el.textContent = ""; return; }
-  const r = st.treeRadius * TREE_BASE * treeBaseMul * Math.sqrt(treeScale);
-  const mPerUnit = sel.size / WORLD;
-  el.textContent = st.trees.toLocaleString() + " trees, each about "
-    + (r * 2 * mPerUnit).toFixed(0) + " m across"
+  el.textContent = st.trees.toLocaleString() + " trees, each at least " + TREE_MIN_MM + " mm across on the print"
     + (treesCapped ? " — as many as this area can carry" : "");
 }
 
@@ -5886,7 +5903,7 @@ $("routeProfile").addEventListener("change", (e) => { routeStyle.profile = e.tar
    buttons can read its name, but it no longer folds anything away. */
 function setCollapsed(block) {
   block.classList.remove("collapsed");
-  const b = block.querySelector(".sec-toggle"); if (b) b.setAttribute("aria-expanded", "true");
+  const b = block.querySelector(".sec-toggle"); if (b && b.tagName === "BUTTON") b.setAttribute("aria-expanded", "true");
   syncSecNav(block);
 }
 /* The sections of this panel, in order, ignoring any that are hidden. */
@@ -5953,8 +5970,10 @@ function makeCollapsible(block) {
   const body = document.createElement("div"); body.className = "sec-body";
   while (h2.nextSibling) body.appendChild(h2.nextSibling);
   block.appendChild(body);
-  const btn = document.createElement("button");
-  btn.type = "button"; btn.className = "sec-toggle"; btn.setAttribute("aria-expanded", "true");
+  // The title is plain text: the sections no longer fold, so it is not a button (a disabled one
+  // showed a no-entry cursor and its words couldn't be selected).
+  const btn = document.createElement("span");
+  btn.className = "sec-toggle sec-title";
   const aside = h2.querySelector("[data-aside]");    // a reading that travels with the title
   if (aside) aside.remove();                         // lifted out so it is not read as part of the name
   const keep = h2.querySelector("[data-keep]");      // a button that lives in the title, not its name
@@ -5975,8 +5994,6 @@ function makeCollapsible(block) {
   prev.addEventListener("click", () => stepSection(block, -1));
   next.addEventListener("click", () => stepSection(block, 1));
   nav.append(prev, next); body.append(nav);
-  btn.disabled = true;                               // the sections do not fold any more
-  btn.tabIndex = -1;
 }
 document.querySelectorAll("aside .block").forEach(makeCollapsible);
 /* Each option introduces itself the way a product page does: its name, then one grey sentence. */
@@ -6409,6 +6426,36 @@ function seaDistance(data) {
   }
   return (data._seaDist = dist);
 }
+/* The slope snow lies on, from the real ground (not the eased copy the shading uses, which rounds
+   cliffs off into slopes snow would happily sit on), in true degrees. Each point takes the steepest
+   of itself and its neighbours, so a cliff's top edge and foot count as cliff too: the surface is
+   painted on from above, and snow on the lip of a face would otherwise run down it. */
+function snowSlopes(data) {
+  if (data._snowSlope) return data._snowSlope;
+  const n = data.n, g = data.grid, cellM = sel.size / (n - 1);
+  const raw = new Float32Array(n * n), out = new Float32Array(n * n);
+  for (let r = 0; r < n; r++) {
+    const r0 = Math.max(0, r - 1), r1 = Math.min(n - 1, r + 1);
+    for (let c = 0; c < n; c++) {
+      const c0 = Math.max(0, c - 1), c1 = Math.min(n - 1, c + 1);
+      const dx = (g[r * n + c1] - g[r * n + c0]) / ((c1 - c0) * cellM), dy = (g[r1 * n + c] - g[r0 * n + c]) / ((r1 - r0) * cellM);
+      raw[r * n + c] = Math.atan(Math.hypot(dx, dy));
+    }
+  }
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    let m = 0;
+    for (let rr = Math.max(0, r - 1); rr <= Math.min(n - 1, r + 1); rr++)
+      for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) m = Math.max(m, raw[rr * n + cc]);
+    out[r * n + c] = m;
+  }
+  return (data._snowSlope = out);
+}
+/* Snow, by a few plain rules of how it behaves:
+     - it lies above the snow line (set by Cover), lower on shaded slopes, which the sun reaches less;
+     - it slides off steep ground: it starts to thin past 35°, is mostly gone by 50°, and nothing
+       holds on 60° or steeper, so cliff faces, their top edges and their feet are bare rock;
+     - flat ground holds it best: plateaus, ledges and benches keep their snow a little below the line;
+     - it doesn't settle on water, nor right at the water's edge. */
 function snowAt(data, u, v, h, slope, light) {
   if (!snow.on || snow.cover <= 0) return 0;
   if (seaAt(data, u, v) > 0.5) return 0;              // snow doesn't settle on the sea
@@ -6416,14 +6463,16 @@ function snowAt(data, u, v, h, slope, light) {
   // a detailed snow line: broad lobes plus fine fingers running up and down the gullies
   let edge = line + (valueNoise(u, v) * 1.4 + vnoise(u * 70, v * 70, 21) * 0.6) * band;
   if (light != null) edge -= (0.55 - light) * band * 2.2;   // shaded (north-facing) slopes hold snow lower
+  if (slope == null) slope = gridAt(snowSlopes(data), data.n, u, v);
+  edge -= band * 0.8 * (1 - smoothstep(4 * DEG, 15 * DEG, slope));   // flat ground: holds snow a little lower
   let a = smoothstep(edge - band * 0.6, edge + band * 0.6, h);
-  // Bare cliffs: judged on how steep the face looks once exaggeration is applied, since that is
-  // what stretches the texture. ~50° as drawn starts to strip, ~62° is bare rock.
-  if (slope != null) {
-    a *= 1 - 0.75 * smoothstep(1.0, 1.3, slope);      // true cliffs (steeper than ~57°) go mostly bare
-    const drawn = Math.atan(Math.tan(Math.min(slope, 1.5)) * (typeof exagValue === "number" ? exagValue : 1));
-    a *= 1 - smoothstep(1.25, 1.45, drawn);           // and anything near-vertical as drawn (~72°+) goes fully bare
-  }
+  // Steep ground sheds it: thinning from 35°, mostly gone at 50°, bare rock from 60°.
+  a *= 1 - 0.8 * smoothstep(35 * DEG, 50 * DEG, slope);
+  a *= 1 - smoothstep(50 * DEG, 60 * DEG, slope);
+  // and on the model, anything that looks near-vertical once the relief is exaggerated goes bare too,
+  // since that is what stretches the painted surface down the face
+  const drawn = Math.atan(Math.tan(Math.min(slope, 1.5)) * (typeof exagValue === "number" ? exagValue : 1));
+  a *= 1 - smoothstep(62 * DEG, 72 * DEG, drawn);
   if (data.grid.sea) {                                // hold snow back from the water's edge
     a *= smoothstep(1, 3, gridAt(seaDistance(data), data.n, u, v));
     a *= smoothstep(8, 45, h - data.min);             // …and off the first few metres above it
@@ -6441,9 +6490,9 @@ const SNOW_STYLE = {
 const snowStyleKey = () => ($("useHeightColour").checked ? "height" : "plain");
 function snowCanvas(data, px) {
   const style = snowStyleKey(), [LIT, SHD] = SNOW_STYLE[style];
-  const key = snow.cover + "/" + px + "/" + style;
+  const key = snow.cover + "/" + px + "/" + style + "/" + (typeof exagValue === "number" ? exagValue : 1);
   if (data._snow && data._snow.key === key) return data._snow.canvas;
-  const light = lightGrid(data), slopes = data._slope, n = data.n;
+  const light = lightGrid(data), slopes = snowSlopes(data), n = data.n;
   const cv = document.createElement("canvas"); cv.width = cv.height = px;
   const ctx = cv.getContext("2d"), img = ctx.createImageData(px, px), d = img.data;
   for (let y = 0; y < px; y++) {
@@ -9013,7 +9062,30 @@ openFromHash();
       const x = q.left - box.left, y = q.top - box.top + q.height / 2;
       c.fillText(el.textContent.trim(), x, y); c.strokeText(el.textContent.trim(), x, y);
     }
-    for (const b of bar.querySelectorAll(".cta, button, .site-banner__cart")) {   // the buttons and the cart, round ends and all
+    // The cart: the lines come right up to the bag itself (and its number badge), 2 px clear,
+    // rather than keeping off a circle round it.
+    for (const cart of bar.querySelectorAll(".site-banner__cart")) {
+      if (!cart.offsetParent) continue;
+      const icon = cart.querySelector("svg");
+      if (icon) {
+        const q = icon.getBoundingClientRect(), vb = icon.viewBox.baseVal, k = q.width / (vb && vb.width || 24);
+        c.save(); c.translate(q.left - box.left, q.top - box.top); c.scale(k, k);
+        c.lineJoin = c.lineCap = "round";
+        for (const el of icon.querySelectorAll("path")) {
+          const shape = new Path2D(el.getAttribute("d")), sw = parseFloat(el.getAttribute("stroke-width")) || 0;
+          c.lineWidth = sw + GAP * 2 / k;
+          if (/Z\s*$/i.test(el.getAttribute("d"))) c.fill(shape);                     // the bag's body, whole
+          c.stroke(shape);                                                             // every line, grown by 2 px
+        }
+        c.restore();
+      }
+      const badge = cart.querySelector(".site-banner__count");
+      if (badge && !badge.hidden && badge.offsetParent) {
+        const q = badge.getBoundingClientRect();
+        c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, q.height / 2 + GAP); c.fill();
+      }
+    }
+    for (const b of bar.querySelectorAll(".cta, button")) {      // the buttons, round ends and all
       if (!b.offsetParent) continue;
       const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
       c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
@@ -9092,6 +9164,7 @@ openFromHash();
   bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
   let rt = 0;
   new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
+  window.addEventListener("misogimodel:banner-changed", () => { if (W) { drawKnockout(); paint(); } });   // e.g. the cart's number appearing
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
   window.__bannerContours = { get state() { return { W, H, origin, speed, fade, startR: START_R, radius: origin ? START_R + speed * (performance.now() - t0) : 0, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
 })();
@@ -9111,6 +9184,7 @@ openFromHash();
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
       a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
     }
+    window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }
   show();
   window.addEventListener("misogimodel:cart", show);
