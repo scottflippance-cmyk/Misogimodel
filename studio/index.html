@@ -246,6 +246,28 @@ body.light .block > h2, body.light .block > h2 .sec-toggle{color:#0B0E12}
 #terrainCard .sec-toggle{text-transform:none; letter-spacing:0}
 .sec-toggle small{text-transform:none; letter-spacing:0; font-weight:400}   /* names and summaries read as written */
 .block p.hint{margin:8px 0 0; font-size:12.5px; color:var(--muted)}
+/* Find a place sits closer to its button: the gap between the search box and Build 3D preview is
+   half what it was (68 px to 34 px). */
+body:not(.none) #panelMap #findBlock{padding-bottom:8px}
+body:not(.none) #panelMap #buildBlock{padding-top:8px}
+/* Need some inspiration: three places stacked, each a row with its contour sketch, name, where it
+   is and one line about it. The whole row is the button. */
+#inspoBlock .inspo-lead{margin:-4px 0 14px; font-size:14px; color:var(--muted)}
+.inspo-list{display:flex; flex-direction:column; gap:10px}
+#inspoBlock .inspo{display:flex; gap:14px; align-items:center; width:100%; padding:10px; text-align:left;
+  border-radius:16px; border:2px solid transparent; background:var(--panel-2); color:var(--text); cursor:pointer;
+  font:inherit; transition:background .15s ease, border-color .15s ease}
+#inspoBlock .inspo:hover:not(:disabled){background:var(--btn-hover); border-color:transparent}
+#inspoBlock .inspo:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+#inspoBlock .inspo .pv{flex:0 0 104px; height:78px; border-radius:11px; overflow:hidden; background:var(--panel)}
+#inspoBlock .inspo .pv svg{display:block; width:100%; height:100%}
+#inspoBlock .inspo .pv .ln{fill:none; stroke:var(--muted); stroke-width:1.3; stroke-linejoin:round}
+#inspoBlock .inspo .pv .hi{fill:none; stroke:var(--accent); stroke-width:1.7}
+#inspoBlock .inspo .tx{min-width:0}
+#inspoBlock .inspo b{display:block; font-size:15.5px; font-weight:600; color:var(--heading)}
+#inspoBlock .inspo small{display:block; font-size:12px; color:var(--muted); margin:1px 0 4px}
+#inspoBlock .inspo .say{display:block; font-size:13px; line-height:1.4; color:var(--text)}
+#inspoBlock .inspo .go{margin-left:auto; padding-right:4px; font-size:18px; color:var(--muted)}
 /* a reminder, not a control: centred, boxed, quiet */
 #iconDragHint{margin:10px 0 0; padding:8px 10px; text-align:center; font-size:12.5px;
   color:var(--muted); background:var(--panel-2); border:1px dashed var(--line); border-radius:8px}
@@ -883,6 +905,12 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
 
     <div class="block" id="buildBlock">
       <button class="primary wide" id="build">Build 3D preview</button>
+    </div>
+    <!-- Three famous places to start from: a click frames that place, builds it and opens Customise. -->
+    <div class="block" id="inspoBlock">
+      <h2>Need some inspiration?</h2>
+      <p class="inspo-lead">Start from one of these and make it yours.</p>
+      <div class="inspo-list" id="inspoList"></div>
     </div>
   </aside>
 
@@ -2271,6 +2299,55 @@ function pick(row) {
   });
   setCollapsed($("findBlock"), false);
 }
+
+/* ---------- Need some inspiration ----------
+   Three places to start from. Each frames its area the way a search does (so frame text seeded
+   from the place follows it), then builds the model and opens Customise. The sketches are drawn
+   from simple contours, like the homepage's: a lone cone with its crater, a cluster of sharp
+   peaks, a river cutting through bands of rock. */
+const INSPIRATION = [
+  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania · 5,895 m", lat: -3.0674, lng: 37.3556, sizeM: 14000,
+    say: "Africa's highest peak: a lone volcano rising out of the plains." },
+  { key: "everest", name: "Everest", where: "Nepal & China · 8,849 m", lat: 27.9881, lng: 86.9250, sizeM: 10000,
+    say: "The roof of the world, with the Khumbu Icefall below." },
+  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA · 1.8 km deep", lat: 36.0919, lng: -112.1035, sizeM: 16000,
+    say: "Carved by the Colorado River through two billion years of rock." }
+];
+function inspoSketch(key) {
+  if (key === "kilimanjaro")
+    return [52, 42, 32, 23, 15].map((r) => `<ellipse class="ln" cx="80" cy="64" rx="${r * 1.25}" ry="${r}"/>`).join("")
+      + `<ellipse class="hi" cx="80" cy="64" rx="7" ry="5.5"/>`;
+  if (key === "everest")
+    return [0, 1, 2, 3, 4, 5].map((i) => { const s = 1 - i * 0.15;
+      return `<path class="ln" d="M${80 - 60 * s} ${62 + 30 * s} L${80 - 30 * s} ${62 - 10 * s} L${80 - 12 * s} ${62 + 4 * s} L80 ${62 - 34 * s} L${80 + 16 * s} ${62 + 2 * s} L${80 + 34 * s} ${62 - 14 * s} L${80 + 62 * s} ${62 + 30 * s}"/>`; }).join("")
+      + `<circle cx="80" cy="30" r="2.6" fill="var(--accent)"/>`;
+  return [0, 1, 2, 3, 4].map((i) =>
+    `<path class="ln" d="M0 ${18 + i * 9} C40 ${14 + i * 9} 50 ${34 + i * 11} 80 ${30 + i * 11} S130 ${12 + i * 10} 160 ${20 + i * 9}"/>`
+    + `<path class="ln" d="M0 ${104 - i * 9} C40 ${108 - i * 9} 50 ${88 - i * 11} 80 ${92 - i * 11} S130 ${110 - i * 10} 160 ${102 - i * 9}"/>`).join("")
+    + `<path class="hi" d="M0 61 C40 58 50 66 80 63 S130 57 160 61"/>`;
+}
+function renderInspiration() {
+  const list = $("inspoList"); if (!list) return;
+  list.innerHTML = "";
+  for (const p of INSPIRATION) {
+    const b = document.createElement("button");
+    b.className = "inspo"; b.dataset.inspo = p.key;
+    b.setAttribute("aria-label", p.name + ", " + p.where + ". Build it and customise.");
+    b.innerHTML = `<span class="pv"><svg viewBox="0 0 160 120" aria-hidden="true">${inspoSketch(p.key)}</svg></span>`
+      + `<span class="tx"><b>${p.name}</b><small>${p.where}</small><span class="say">${p.say}</span></span>`
+      + `<span class="go" aria-hidden="true">›</span>`;
+    b.addEventListener("click", () => startFromInspiration(p.key));
+    list.append(b);
+  }
+}
+function startFromInspiration(key) {
+  const p = INSPIRATION.find((x) => x.key === key); if (!p) return;
+  sel.rot = 0;
+  sel.size = clamp(p.sizeM, MIN_SIZE, MAX_SIZE);
+  pick({ lat: p.lat, lon: p.lng, display_name: p.name });
+  $("build").click();                                // builds, then the panel opens on Customise
+}
+renderInspiration();
 
 /* Point the map at the area it is holding, which is how a route or a reopened design arrives. */
 function fitToSelection() {
