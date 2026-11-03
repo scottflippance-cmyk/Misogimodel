@@ -17,6 +17,7 @@
 <style>
 :root{
   --stage-gap:18px;                                 /* the breathing room around the map and the model — the same in both themes */
+  --stage-top:56px;                                 /* the homepage's gap between the banner and the first thing under it */
   --bg:#0E1A1F;
   --panel:#15252B;
   --panel-2:#1B313A;
@@ -212,7 +213,9 @@ aside::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px; border
    Written against the id, not the class: the three step buttons are also called "stage". */
 /* The window hangs from its original top-left corner; only the right and bottom edges came in,
    so the panel and the header keep their alignment with it. */
-#stage{order:1; margin:var(--stage-gap) calc(var(--stage-gap) + 4.5% - 24px) calc(var(--stage-gap) + 4.5%) var(--stage-gap);
+/* Top, bottom and left it keeps the homepage's 56 px gap under the banner; the right edge stays
+   where it was set. */
+#stage{order:1; margin:var(--stage-top) calc(var(--stage-gap) + 4.5% - 24px) var(--stage-top) var(--stage-top);
   border-radius:10px; border:1px solid var(--line)}
 body.focus-3d aside, body.focus-3d #inset, body.focus-3d #cornerStack{display:none}   /* H: just the model */  /* keeps the square's darkening mask off the side panel */
 #mapWrap{position:absolute; inset:0; overflow:hidden; border-radius:9px}
@@ -282,7 +285,8 @@ button:disabled{opacity:.45; cursor:not-allowed}
    whose light runs round it every 2.5 s, a pale tint of the accent rather than pure white (white
    read as a hard line down the straight end of a square-cornered button). In the accent of each
    look: blue in the light, amber in the dark. */
-button.primary{--cta-accent:var(--accent); --cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
+button.primary{border-radius:999px;            /* the same round ends as Start designing */
+  --cta-accent:var(--accent); --cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   color:var(--accent-ink); font-weight:600; border:2px solid transparent;
   background:var(--cta-sheen) border-box; box-shadow:none; transition:box-shadow .25s ease}
 button.primary:hover:not(:disabled){border-color:transparent;
@@ -413,8 +417,6 @@ select option{font-size:13px}
 .block.current{box-shadow:inset 3px 0 0 var(--accent); background:rgba(224,163,60,.045)}
 
 .sec-nav{display:none}                              /* each section is simply there; nothing to step through */
-#back{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600}
-#back:hover{filter:brightness(1.08)}
 #panelView.guiding .sec-nav{display:none}          /* the walk-through has its own Back / Next */
 
 .print-slot{margin-top:12px}
@@ -725,8 +727,8 @@ body.focus-3d #textPop, body.focus-3d #iconWin, body.focus-3d #routeWin{display:
   width:208px; padding:12px; background:rgba(14,26,31,.94); border:1px solid var(--line); border-radius:8px}
 .pick-menu::before{content:""; position:absolute; right:100%; top:0; width:8px; height:100%}
 .pick:hover > .pick-menu, .pick:has(:focus-visible) > .pick-menu{display:flex}
-.pick-check{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--heading); cursor:pointer}
-.pick-label{font-size:12px; color:var(--muted)}
+.pick-check{display:flex; align-items:center; gap:8px; font-size:13.5px; color:#FFFFFF; cursor:pointer}   /* the card is dark in both looks */
+.pick-label{font-size:12px; color:rgba(255,255,255,.72)}
 .pick-menu input[type=range]{width:100%; margin:0}
 .pick-foot{font-size:12px; color:var(--muted)}
 body:not(.mode-view) #snowPick, body:not(.mode-view) #treePick{display:none}
@@ -803,6 +805,16 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
   #cornerStack{right:10px; bottom:auto; top:10px; width:170px}
   #inset{width:min(210px,50vw); right:10px; top:56px}
 }
+@media (min-width:861px){
+  /* The panel's first item lines up with the top of the map, 56 px under the banner. */
+  #panelMap{padding-top:calc(var(--stage-top) - 18px)}
+  #panelView #viewHead{padding-top:var(--stage-top)}            /* Back to the map, level with the top of the model's window */
+  /* The panel scrolls, and a scrolling box clips whatever spills past its edge: a button's glow
+     was sliced off a few pixels left of Build 3D preview. The panel's edge sits 32 px further out
+     into the empty gap beside the map, its contents exactly where they were, so the glow fades out
+     in full. */
+  aside{width:calc(492px + 32px); margin-left:-32px; padding-left:32px}
+}
 @media (max-width:860px){
   main{flex-direction:column-reverse}
   aside{width:auto; border-right:0; border-top:1px solid var(--line); max-height:46vh}
@@ -875,7 +887,7 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
   </aside>
 
   <aside id="panelView" hidden>
-    <div id="viewHead"><button class="wide" id="back">← Back to the map</button></div>
+    <div id="viewHead"><button class="primary wide" id="back">← Back to the map</button></div>
 
     <div class="block" id="sizeBlock">
       <h2>Printed size</h2>
@@ -1092,12 +1104,12 @@ body.base-plain #map, body.base-plain .leaflet-container{background:#F7F7F7}   /
     </button>
     <div id="rulePop" hidden role="dialog" aria-label="Design rules"></div>
 
-    <div id="inset" hidden>
+    <div id="inset" class="folded" hidden>   <!-- starts folded; the – / + button opens it -->
       <div class="inset-head">
         <strong>Location Adjust</strong>
         <span class="spacer"></span>
         <button id="fitInset" title="Zoom the mini-map to the selection">Recentre</button>
-        <button id="foldInset" title="Collapse">–</button>
+        <button id="foldInset" title="Expand">+</button>
       </div>
       <div id="insetMap">
         <svg id="northArrow" viewBox="0 0 40 52" role="button" tabindex="0"
@@ -4539,6 +4551,7 @@ const FINISH = {                                 // [wood, text]
   walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"],
   charcoal: ["#2C3034", "#E8E4DC"], white: ["#ECE8E1", "#3A3A3A"]
 };
+const LEDGE_MM = 4;                                // how far the frame's foot reaches in under the model
 const frameVals = { h: 0, t: 10, d: 2, modelMM: 150, text: 17 * (25.4 / 72), lift: 0 };   // text: 17 pt, held in mm   // 15 cm: the middle size   // lift: model height in the frame, mm
 /* How far (model units) the terrain is raised (+) or lowered (−) inside the frame. The lowest ground may
    not go below the frame's halfway height, and at least 1 mm of solid base always stays underneath. */
@@ -4968,6 +4981,30 @@ function buildFrame() {
     topPlate(1, L, [[-hL, half], [hL, half], [hL, half + th], [-hL, half + th]], [0, 0, 1], th);
     topPlate(2, W2, [[half, -hw], [half + th, -hw], [half + th, hw], [half, hw]], [1, 0, 0], 0);
     topPlate(3, W2, [[-half - th, -hw], [-half, -hw], [-half, hw], [-half - th, hw]], [-1, 0, 0], 0);
+  }
+  /* The ledge: the frame's foot reaches 4 mm in under the model on every side, filling the frame's
+     2 mm below the base, so the model rests on it rather than relying on a tight fit to stay in.
+     Its outer edge is the model's outline; its inner edge the same shape drawn 4 mm in. */
+  t.frameLedge = null;
+  if (t.geom.baseY - botY > 1e-6) {
+    const ring = outlineRing(), s = LEDGE_MM * u;
+    const ap = modelOutline === "hex" ? HEX_R * Math.cos(Math.PI / 6) : HEX_R;   // centre to the middle of a side
+    const k = (ap - s) / ap, inner = ring.map(([x, z]) => [x * k, z * k]);
+    const yT = t.geom.baseY, yB = botY, pos = [];
+    const P = (p, y) => [p[0], y, p[1]];
+    const quad = (p1, p2, p3, p4) => { for (const q of [p1, p2, p3, p1, p3, p4]) pos.push(q[0], q[1], q[2]); };
+    for (let i = 0; i < ring.length; i++) {
+      const j = (i + 1) % ring.length, a = ring[i], b = ring[j], c = inner[j], d = inner[i];
+      quad(P(a, yT), P(b, yT), P(c, yT), P(d, yT));       // the shelf the model sits on
+      quad(P(a, yB), P(d, yB), P(c, yB), P(b, yB));       // its underside
+      quad(P(d, yT), P(c, yT), P(c, yB), P(d, yB));       // its inner edge
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    lg.computeVertexNormals();
+    t.frameGroup.add(new THREE.Mesh(lg, new THREE.MeshStandardMaterial({ color: srgb(wood), roughness: 0.8, side: THREE.DoubleSide })));
+    t.frameLedge = { mm: LEDGE_MM, thickMM: (yT - yB) / u, pieces: ring.length,
+                     inner: inner.map(([x, z]) => [+(x / u).toFixed(3), +(z / u).toFixed(3)]) };
   }
   t._tooLong = tooLong;
   $("ftSizeNote").textContent = tooLong.length === 1
@@ -5934,6 +5971,7 @@ $("foldInset").onclick = () => {
   const el = $("inset");
   el.classList.toggle("folded");
   $("foldInset").textContent = el.classList.contains("folded") ? "+" : "–";
+  $("foldInset").title = el.classList.contains("folded") ? "Expand" : "Collapse";
   placeTextPopup();                                  // the text window sits under this box
   syncViewerOffset();                                // open, the model makes room; folded, it centres
   if (!el.classList.contains("folded")) setTimeout(() => { map.invalidateSize(); drawSelection(); }, 30);
@@ -7978,9 +8016,30 @@ function stlTextPieces(sideIndex, lenMM, inset) {
   }
   return out;
 }
+/* The ledge in the print file: four closed pieces, one along each side, from the bed up to the
+   underside of the model, reaching LEDGE_MM in. Their corners are mitred so no two overlap; each
+   meets the inside of its frame side, and the model rests on their tops. */
+function stlLedges(W) {
+  const d = frameVals.d, s = LEDGE_MM, out = [];
+  if (d <= 0) return out;
+  const ring = [[0, 0], [W, 0], [W, W], [0, W]], inner = [[s, s], [W - s, s], [W - s, W - s], [s, W - s]];
+  const names = ["frame ledge south", "frame ledge east", "frame ledge north", "frame ledge west"];
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4, poly = [ring[i], ring[j], inner[j], inner[i]], tris = [];   // anticlockwise from above
+    const B = (p) => [p[0], p[1], 0], T = (p) => [p[0], p[1], d];
+    triPush(tris, T(poly[0]), T(poly[1]), T(poly[2])); triPush(tris, T(poly[0]), T(poly[2]), T(poly[3]));   // top, up
+    triPush(tris, B(poly[0]), B(poly[2]), B(poly[1])); triPush(tris, B(poly[0]), B(poly[3]), B(poly[2]));   // bottom, down
+    for (let e = 0; e < 4; e++) {
+      const p = poly[e], q = poly[(e + 1) % 4];
+      triPush(tris, B(p), B(q), T(q)); triPush(tris, B(p), T(q), T(p));                                   // walls, out
+    }
+    out.push({ name: names[i], tris });
+  }
+  return out;
+}
 function stlFrameSides(W, baseMM) {
   const t = frameVals.t, Ht = frameVals.d + baseMM + frameVals.h, L = W + 2 * t;
-  return [
+  return [...stlLedges(W),
     // as on screen: front and back are inset by the frame's thickness, left and right not at all
     { name: "frame south", tris: stlSide([-t, -t], [1, 0], [0, 1], L, t, Ht, stlTextPieces(0, L, t)) },         // front
     { name: "frame north", tris: stlSide([W + t, W + t], [-1, 0], [0, -1], L, t, Ht, stlTextPieces(1, L, t)) }, // reverse
