@@ -1,0 +1,49 @@
+/* misogimodel site chrome: the banner and the call-to-action buttons.
+   Generated from the landing-page design by build_landing.py; edit the design, not this. */
+:root{--accent:#2F5BD8}
+html{scroll-padding-top:96px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+/* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
+.site-banner{position:sticky;top:0;z-index:1000;display:block;margin:0;padding:0;border:0;
+  --sb-bg:rgba(255,255,255,.72);--sb-ink:#0B0E12;--sb-link:#3A424C;
+  --sb-shadow:0 1px 0 rgba(11,14,18,.05),0 8px 24px rgba(11,14,18,.08);
+  background:var(--sb-bg);box-shadow:var(--sb-shadow);
+  -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
+.site-banner__inner{max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.site-banner__brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--sb-ink)}
+.site-banner__brand:hover{color:var(--sb-ink)}
+.site-banner__brand span{font-size:20px;font-weight:700;letter-spacing:-0.02em}
+.site-banner__nav{display:flex;flex-wrap:wrap;align-items:center;gap:28px;font-size:15px}
+.site-banner__link{color:var(--sb-link);text-decoration:none}
+.site-banner__link:hover{color:var(--sb-ink)}
+.cta--sm{padding:9px 18px;font-size:15px}
+/* On a phone the banner stays one slim row: the section links step out (they are in the page
+   anyway) and the mark, wordmark and button tighten to fit. */
+@media (max-width:640px){
+  .site-banner__link{display:none}
+  .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px}
+  .site-banner__brand svg{width:34px;height:34px}
+  .site-banner__brand span{font-size:18px}
+  .cta--sm{padding:7px 14px;font-size:14px}}
+/* The call-to-action buttons: pressed into the page at rest; on hover a glow, and a border
+   whose light runs round it once every 2.5 seconds. */
+@property --cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+.cta{--cta-accent:var(--accent,#2F5BD8);display:inline-block;color:#FFFFFF;text-decoration:none;
+  font-weight:600;border-radius:999px;border:2px solid transparent;
+  background:linear-gradient(var(--cta-accent),var(--cta-accent)) padding-box,
+             linear-gradient(var(--cta-accent),var(--cta-accent)) border-box;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.32),inset 0 -1px 0 rgba(255,255,255,.22);
+  transition:box-shadow .25s ease}
+.cta:hover{color:#FFFFFF;
+  background:linear-gradient(var(--cta-accent),var(--cta-accent)) padding-box,
+             conic-gradient(from var(--cta-angle),var(--cta-accent),#8FB0FF,#FFFFFF,#8FB0FF,var(--cta-accent)) border-box;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.32),inset 0 -1px 0 rgba(255,255,255,.22),
+             0 0 24px color-mix(in srgb,var(--cta-accent) 55%,transparent);
+  animation:cta-spin 2.5s linear infinite}
+@keyframes cta-spin{to{--cta-angle:360deg}}
+@media (prefers-reduced-motion:reduce){.cta:hover{animation:none}}
+/* The size cards: one look for all four; under a pointer, the card grows by a quarter. */
+.size-card{position:relative;transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
+@media (hover:hover) and (min-width:900px){
+  .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
