@@ -5998,9 +5998,9 @@ function makeCollapsible(block) {
 document.querySelectorAll("aside .block").forEach(makeCollapsible);
 /* Each option introduces itself the way a product page does: its name, then one grey sentence. */
 const SECTION_SUBS = {
-  sizeBlock: "How big it prints.", routeBlock: "Add a walk or ride.",
-  iconsBlock: "Mark what matters.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
-  frameBlock: "Set it off.", printColBlock: "Pick your favourite.", printBlock: "Take it home.",
+  sizeBlock: "The size of your design once printed.", routeBlock: "Add a GPX route.",
+  iconsBlock: "Highlight the details that matter.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
+  frameBlock: "Add custom text.", printColBlock: "Pick your favourite.", printBlock: ,
 };
 for (const [secId, sub] of Object.entries(SECTION_SUBS)) {
   const sp = $(secId) && $(secId).querySelector(".sec-toggle span");
