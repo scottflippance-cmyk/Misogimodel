@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Cinzel:wght@600&family=Playfair+Display:wght@600&family=Montserrat:wght@500;600&family=Oswald:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cinzel:wght@600&family=Playfair+Display:wght@600&family=Montserrat:wght@500;600&family=Oswald:wght@500&display=swap" rel="stylesheet">
 
 <style>
 :root{
@@ -56,6 +56,33 @@ body{
 #confirmDlg{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
   background:rgba(8,18,22,.55)}
 #confirmDlg[hidden]{display:none}
+#orderDlg{position:fixed; inset:0; z-index:70; display:flex; align-items:center; justify-content:center; padding:24px;
+  background:rgba(8,18,22,.55)}
+#orderDlg[hidden]{display:none}
+#orderDlg .box{position:relative; background:var(--panel); color:var(--text); border-radius:20px; padding:26px 28px 22px;
+  width:min(720px, 100%); max-height:calc(100vh - 48px); overflow:auto; box-shadow:0 24px 60px rgba(0,0,0,.35)}
+#orderDlg h2{margin:0 0 16px; font-size:22px; letter-spacing:-0.01em; color:var(--heading)}
+#orderDlg h3{margin:20px 0 8px; font-size:15px; color:var(--heading)}
+#orderDlg .od-close{position:absolute; top:14px; right:14px; width:34px; height:34px; padding:0; border-radius:999px; font-size:20px; line-height:1}
+.od-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:18px; align-items:start}
+.od-pic{border-radius:14px; overflow:hidden; background:var(--panel-2); aspect-ratio:4/3}
+.od-pic img{display:block; width:100%; height:100%; object-fit:cover}
+.od-place{margin:0 0 8px; font-size:17px; font-weight:600; color:var(--heading)}
+.od-what{margin:0; padding:0 0 0 18px; font-size:13.5px; line-height:1.6}
+.od-lines{width:100%; border-collapse:collapse; font-size:14px}
+.od-lines td{padding:5px 0}
+.od-lines td:last-child{text-align:right; white-space:nowrap}
+.od-ship{display:flex; flex-direction:column; gap:8px}
+.od-ship label{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:var(--panel-2); cursor:pointer; font-size:14px}
+.od-ship label:has(input:checked){outline:2px solid var(--accent)}
+.od-ship small{color:var(--muted); margin-left:4px}
+.od-ship .p{margin-left:auto}
+.od-total{display:flex; justify-content:space-between; align-items:baseline; margin:18px 0 6px; font-size:17px; color:var(--heading)}
+.od-note{margin:0 0 6px; font-size:12.5px; color:#B26B00}
+.od-msg{min-height:20px; margin:4px 0 10px; font-size:13.5px; color:var(--muted)}
+.od-msg.bad{color:#C2412D}
+.od-small{margin:8px 0 0; font-size:12px; color:var(--muted); text-align:center}
+@media (max-width:640px){ .od-grid{grid-template-columns:1fr} #orderDlg .box{padding:20px 18px} }
 #confirmDlg .box{background:var(--panel); border:1px solid var(--line); border-radius:12px;
   padding:18px 18px 14px; width:min(330px, calc(100vw - 48px)); box-shadow:0 18px 50px rgba(0,0,0,.45)}
 #confirmDlg p{margin:0 0 14px; font-size:13.5px; line-height:1.45}
@@ -254,20 +281,22 @@ body:not(.none) #panelMap #buildBlock{padding-top:8px}
    is and one line about it. The whole row is the button. */
 #inspoBlock .inspo-lead{margin:-4px 0 14px; font-size:14px; color:var(--muted)}
 .inspo-list{display:flex; flex-direction:column; gap:10px}
-#inspoBlock .inspo{display:flex; gap:14px; align-items:center; width:100%; padding:10px; text-align:left;
-  border-radius:16px; border:2px solid transparent; background:var(--panel-2); color:var(--text); cursor:pointer;
+#inspoBlock .inspo{display:flex; gap:14px; align-items:center; width:100%; min-height:128px;   /* a fifth taller than the 107 px they were */
+  padding:0; overflow:hidden; text-align:left;
+  border-radius:16px; border:0; background:var(--panel-2); color:var(--text); cursor:pointer;
   font:inherit; transition:background .15s ease, border-color .15s ease}
-#inspoBlock .inspo:hover:not(:disabled){background:var(--btn-hover); border-color:transparent}
+#inspoBlock .inspo:hover:not(:disabled){background:var(--btn-hover)}
 #inspoBlock .inspo:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-#inspoBlock .inspo .pv{flex:0 0 104px; height:78px; border-radius:11px; overflow:hidden; background:var(--panel)}
+/* the sketch runs to the row's top, bottom and left edges, cut only by the row's own rounded corners */
+#inspoBlock .inspo .pv{flex:0 0 128px; align-self:stretch; min-height:128px; border-radius:0; background:transparent}   /* on the tile's own ground */
 #inspoBlock .inspo .pv svg{display:block; width:100%; height:100%}
 #inspoBlock .inspo .pv .ln{fill:none; stroke:var(--muted); stroke-width:1.3; stroke-linejoin:round}
 #inspoBlock .inspo .pv .hi{fill:none; stroke:var(--accent); stroke-width:1.7}
-#inspoBlock .inspo .tx{min-width:0}
+#inspoBlock .inspo .tx{min-width:0; padding:12px 0}
 #inspoBlock .inspo b{display:block; font-size:15.5px; font-weight:600; color:var(--heading)}
 #inspoBlock .inspo small{display:block; font-size:12px; color:var(--muted); margin:1px 0 4px}
 #inspoBlock .inspo .say{display:block; font-size:13px; line-height:1.4; color:var(--text)}
-#inspoBlock .inspo .go{margin-left:auto; padding-right:4px; font-size:18px; color:var(--muted)}
+#inspoBlock .inspo .go{margin-left:auto; padding-right:14px; font-size:18px; color:var(--muted)}
 /* a reminder, not a control: centred, boxed, quiet */
 #iconDragHint{margin:10px 0 0; padding:8px 10px; text-align:center; font-size:12.5px;
   color:var(--muted); background:var(--panel-2); border:1px dashed var(--line); border-radius:8px}
@@ -1074,14 +1103,14 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     </div>
 
     <div class="block" id="printBlock">
-      <h2>3D print (STL)</h2>
+      <h2>Order<span class="sec-sub">. Printed and posted to you.</span></h2>
       <p class="hint" id="printWidth">The model prints at the width set under Printed size.</p>
-      <label class="check" style="margin-top:10px"><input type="checkbox" id="stlFrame" checked> Frame, with the text engraved</label>
-      <label class="check"><input type="checkbox" id="stlRoute" checked disabled> Route as a raised line</label>
-      <label class="check"><input type="checkbox" id="stlIcons" checked> Raised icons</label>
-      <div class="readout" style="margin-top:8px"><span id="stlSize">—</span><span id="stlInfo"></span></div>
-      <button class="primary wide" id="expStl" style="margin-top:8px">Download STL</button>
-      <p class="hint">Millimetres, Z up, every part a closed solid. Trees are left out: at print scale they're a fraction of a millimetre. Colours, imagery and snow aren't part of an STL file.</p>
+      <!-- What goes into the print file: everything on the model. Kept as settings, out of sight. -->
+      <div hidden>
+        <input type="checkbox" id="stlFrame" checked><input type="checkbox" id="stlRoute" checked disabled><input type="checkbox" id="stlIcons" checked>
+        <span id="stlSize">—</span><span id="stlInfo"></span>
+      </div>
+      <button class="primary wide" id="buyBtn" style="margin-top:12px">Purchase</button>
     </div>
 
   </aside>
@@ -1317,6 +1346,30 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
   </div>
 </main>
 
+<!-- The order: a picture of the model, what's included, the cost, and the delivery. Payment and the
+     address are taken on Stripe's own page. -->
+<div id="orderDlg" hidden role="dialog" aria-modal="true" aria-labelledby="odTitle">
+  <div class="box">
+    <button class="od-close" id="odClose" aria-label="Close">×</button>
+    <h2 id="odTitle">Your model</h2>
+    <div class="od-grid">
+      <div class="od-pic"><img id="odImg" alt="Your model, as it will be printed"></div>
+      <div class="od-side">
+        <p class="od-place" id="odPlace"></p>
+        <ul class="od-what" id="odWhat"></ul>
+      </div>
+    </div>
+    <h3>Cost</h3>
+    <table class="od-lines" id="odLines"></table>
+    <h3>Delivery</h3>
+    <div class="od-ship" id="odShip" role="radiogroup" aria-label="Delivery"></div>
+    <div class="od-total"><span>Total</span><b id="odTotal"></b></div>
+    <p class="od-note" id="odNote" hidden>Example prices: these aren't final yet.</p>
+    <p class="od-msg" id="odMsg" role="status"></p>
+    <button class="primary wide" id="odPay">Continue to payment</button>
+    <p class="od-small">You'll enter your address and pay on Stripe's secure page.</p>
+  </div>
+</div>
 <div id="confirmDlg" hidden role="alertdialog" aria-modal="true" aria-labelledby="cfText">
   <div class="box">
     <p id="cfText"></p>
@@ -1366,6 +1419,16 @@ function toast(msg, bad, action) {
   t.classList.add("on");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("on"), action ? 9000 : 4200);
+}
+/* What the progress line says while the ground loads: a few light-hearted lines, taken in turn,
+   never a word about where the data comes from. */
+const LOAD_LINES = ["Plotting the hills…", "Filling in the water…", "Raising the peaks…", "Carving out the valleys…",
+                    "Smoothing the ridgelines…", "Counting the contours…", "Laying down the lakes…", "Polishing the summits…"];
+function cheerfulProgress(startPct) {
+  let k = Math.floor(Math.random() * LOAD_LINES.length);
+  progress(true, LOAD_LINES[k], startPct);
+  const id = setInterval(() => { k = (k + 1) % LOAD_LINES.length; progress(true, LOAD_LINES[k]); }, 1400);
+  return () => clearInterval(id);
 }
 function progress(on, text, pct) {
   $("progress").classList.toggle("on", !!on);
@@ -2366,7 +2429,7 @@ function renderInspiration() {
     const b = document.createElement("button");
     b.className = "inspo"; b.dataset.inspo = p.key;
     b.setAttribute("aria-label", p.name + ", " + p.where + ". Build it and customise.");
-    b.innerHTML = `<span class="pv"><svg viewBox="0 0 160 120" aria-hidden="true">${inspoSketch(p.key)}</svg></span>`
+    b.innerHTML = `<span class="pv"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inspoSketch(p.key)}</svg></span>`
       + `<span class="tx"><b>${p.name}</b><small>${p.where}</small><span class="say">${p.say}</span></span>`
       + `<span class="go" aria-hidden="true">›</span>`;
     b.addEventListener("click", () => startFromInspiration(p.key));
@@ -2588,7 +2651,7 @@ async function sampleMapbox(b, n) {
   const loaded = await pool(
     coords.map(([tx, ty]) => () => loadTile(z, (tx % 2 ** z + 2 ** z) % 2 ** z, ty)),
     6,
-    (d, t) => progress(true, "Fetching elevation tiles " + d + " / " + t, 10 + (d / t) * 55)
+    (d, t) => progress(true, null, 10 + (d / t) * 55)
   );
   const tiles = new Map();
   coords.forEach(([tx, ty], i) => { if (loaded[i]) tiles.set(tx + "," + ty, loaded[i]); });
@@ -2656,7 +2719,7 @@ async function sampleOpenMeteo(b, n) {
     });
   }
   const chunks = await pool(jobs, 4, (d, t) =>
-    progress(true, "Fetching elevation (fallback) " + d + " / " + t, 10 + (d / t) * 55));
+    progress(true, null, 10 + (d / t) * 55));
   const grid = new Float32Array(n * n);
   let k = 0;
   for (const ch of chunks) for (const v of (ch || [])) grid[k++] = v || 0;
@@ -3204,7 +3267,7 @@ const USA48 = [
   [31.80, -106.50], [32.50, -114.80], [32.50, -117.20], [40.00, -124.40], [46.30, -124.10],
   [48.40, -124.70],
 ];
-let lidarWanted = true, lidarLastUrl = "", lidarWhy = "", lidarSlowNote = "";   // national LIDAR wherever there is some
+let lidarWanted = true, lidarLastUrl = "", lidarWhy = "";   // national LIDAR wherever there is some
 /* These requests used to fall back to public relay services when one was refused. Every one of
    those relays has since closed or started asking for a key, so they were only ever adding ten
    silent seconds to a failure. A request that comes back empty-handed is retried instead, which
@@ -3529,48 +3592,47 @@ function healGrid(grid, n, min) {
   for (let i = 0; i < grid.length; i++) if (!isFinite(grid[i])) grid[i] = min;
 }
 
-/* The national surveys can be slow: the USGS service in particular takes anything from two seconds
-   to twenty, and with three tries of 25 s each a slow day kept the build at "Preparing…" for over a
-   minute before the worldwide data stepped in. The survey now has 15 seconds in all. While it
-   works, the progress line says what it is waiting for and counts the seconds; if the time runs
-   out, the worldwide data is used and a note says so, since the person has just watched it wait.
-   (A survey that simply fails, quickly, still hands over without a word.) */
-const NATIONAL_BUDGET_MS = 15000;
+/* Where a national survey covers the area it is asked first, and the worldwide data is fetched
+   alongside it from the start. The survey gets 3 seconds: if it has answered by then, its finer
+   ground is used. If not, the model is built on the worldwide ground straight away, and the survey
+   carries on in the background for up to 90 seconds; should it arrive, the model is quietly
+   rebuilt on it (see the Build button). A survey that fails outright is simply never heard of. */
+const SURVEY_WAIT_MS = 3000, SURVEY_LATE_MS = 90000;
+async function sampleSurvey(b, n) {
+  const out = await sampleLidar(b, n);
+  out.grid = easeToSource(out.grid, n, out.res, b.size);
+  out.grid = easeSurface(out.grid, n);               // take the facets off the samples themselves
+  let lo = Infinity, hi = -Infinity;                 // the easing moves them a little, so measure again
+  for (const v of out.grid) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  out.min = lo; out.max = hi;
+  lidarWhy = "";
+  return out;
+}
 async function sampleElevation(b, n) {
-  if (lidarWanted && lidarSourceFor(b)) {
-    const who = (lidarSourcesFor(b)[0] || {}).name || "the national survey", t0 = performance.now();
-    progress(true, "Fetching " + who + "…", 10);
-    const tick = setInterval(() => {
-      const sec = Math.round((performance.now() - t0) / 1000);
-      if (sec >= 2) progress(true, "Waiting for " + who + "… " + sec + " s", 10 + Math.min(40, sec * 2.6));
-    }, 1000);
-    try {
-      const out = await Promise.race([sampleLidar(b, n), new Promise((_, no) =>
-        setTimeout(() => no(Object.assign(new Error("no answer within " + NATIONAL_BUDGET_MS / 1000 + " seconds"), { slow: true })), NATIONAL_BUDGET_MS))]);
-      out.grid = easeToSource(out.grid, n, out.res, b.size);
-      out.grid = easeSurface(out.grid, n);           // take the facets off the samples themselves
-      let lo = Infinity, hi = -Infinity;             // the easing moves them a little, so measure again
-      for (const v of out.grid) { if (v < lo) lo = v; if (v > hi) hi = v; }
-      out.min = lo; out.max = hi;
-      lidarWhy = "";
-      return out;
-    } catch (e) {
-      console.warn("lidar failed", e);                 // a quick failure is not announced: the
-      console.info("LIDAR request was:", lidarLastUrl); // worldwide data simply steps in underneath
-      lidarWhy = e.message;
-      if (e.slow) {
-        lidarSlowNote = who + " was slow to answer, so this model uses the worldwide elevation data. Build again to try the survey.";
-        progress(true, "Using the worldwide elevation data instead…", 55);
-      }
-    } finally { clearInterval(tick); }
+  if (!(lidarWanted && lidarSourceFor(b))) return sampleWorld(b, n);
+  const survey = sampleSurvey(b, n).catch((e) => {
+    console.warn("survey failed", e); console.info("survey request was:", lidarLastUrl);
+    lidarWhy = e.message; return null;
+  });
+  const world = sampleWorld(b, n).catch((e) => e);   // fetched alongside, from the start
+  const quick = await Promise.race([survey, new Promise((ok) => setTimeout(() => ok(undefined), SURVEY_WAIT_MS))]);
+  if (quick) return quick;                           // the survey answered in time
+  const w = await world;
+  if (w instanceof Error) {                          // no worldwide ground either: the survey is all there is
+    const late = quick === undefined ? await survey : null;
+    if (late) return late;
+    throw w;
   }
+  if (quick === undefined) {                         // still on its way: it may yet arrive
+    w.later = Promise.race([survey, new Promise((ok) => setTimeout(() => ok(null), SURVEY_LATE_MS))]);
+  }
+  return w;
+}
+async function sampleWorld(b, n) {
   let out = null;
   try { out = await sampleMapbox(b, n); }
   catch (e) { console.warn("mapbox failed", e); }
-  if (!out) {
-    toast("Terrain tiles unavailable, falling back to the Open-Meteo elevation API.");
-    out = await sampleOpenMeteo(b, n);
-  }
+  if (!out) out = await sampleOpenMeteo(b, n);       // a second way to the same ground, without a word
   out.res = 30;                                      // the worldwide model is about 30 m between measurements
   out.grid = easeToSource(out.grid, n, out.res, b.size);
   out.grid = easeSurface(out.grid, n);               // and the same for the worldwide ground
@@ -5209,16 +5271,15 @@ function setMode(mode) {
 $("build").onclick = async () => {
   try {
     $("build").disabled = true;
-    progress(true, "Preparing…", 6);
-    const n = +$("res").value;
-    lidarSlowNote = "";
-    current = await sampleElevation(bounds(), n);
-    if (lidarSlowNote) toast(lidarSlowNote);
+    const stopLines = cheerfulProgress(6);
+    const n = +$("res").value, seq = ++buildSeq;
+    try { current = await sampleElevation(bounds(), n); } finally { stopLines(); }
     current.name = sel.name;
+    swapInLater(current, seq);
     if (!isFinite(current.min) || current.max - current.min < 0.01) {
       toast("This area looks completely flat. Check the square is over land.", true);
     }
-    progress(true, "Building mesh…", 80);
+    progress(true, "Shaping the model…", 80);
     setMode("view");
     await new Promise((r) => setTimeout(r, 30));          // let the canvas size itself
     buildScene(current, exagValue);
@@ -5227,15 +5288,34 @@ $("build").onclick = async () => {
     }
     appliedSig = selSig();
     checkDirty();
-    progress(true, "Done", 100);
+    progress(true, "Ready!", 100);
   } catch (err) {
     console.error(err);
-    toast("Could not load elevation data: " + err.message, true);
+    toast("We couldn't fetch the ground for this area just now. Please try again.", true);
   } finally {
     $("build").disabled = false;
     setTimeout(() => progress(false), 300);
   }
 };
+
+/* The finer ground arriving after the model was built on the worldwide one. It replaces the model's
+   ground only if nothing has been built or re-sampled since and the area is where it was; the
+   camera, icons, route, frame and text all stay as they are. */
+let buildSeq = 0;
+function swapInLater(data, seq) {
+  const later = data.later; delete data.later;
+  if (!later) return;
+  const sig = selSig();
+  later.then((fine) => {
+    if (!fine || seq !== buildSeq || selSig() !== sig || current !== data) return;
+    fine.name = data.name;
+    current = fine;
+    buildScene(current, exagValue);
+    if (exagValue > heightCapX() + 1e-9) { setExag(exagValue); buildScene(current, exagValue); }
+    appliedSig = selSig(); checkDirty();
+    toast("Sharper detail just arrived, so your model's been touched up.");
+  });
+}
 
 $("back").onclick = () => {
   const go = () => setMode("map");
@@ -6113,9 +6193,12 @@ async function resample() {
   if (resampling) return;
   resampling = true;
   try {
-    progress(true, "Re-sampling…", 6);
+    const stopLines = cheerfulProgress(6), seq = ++buildSeq;
     const want = +$("res2").value;                  // never re-sample into nothing if the list is out of step
-    current = await sampleElevation(bounds(), want > 1 ? want : (current && current.n > 1 ? current.n : 192));
+    try { current = await sampleElevation(bounds(), want > 1 ? want : (current && current.n > 1 ? current.n : 192)); }
+    finally { stopLines(); }
+    current.name = sel.name;
+    swapInLater(current, seq);
     buildScene(current, exagValue);
     if (exagValue > heightCapX() + 1e-9) {               // fresh ground, fresh range: re-check the 25 cm cap
       setExag(exagValue); buildScene(current, exagValue);
@@ -6124,7 +6207,7 @@ async function resample() {
     checkDirty();
   } catch (err) {
     console.error(err);
-    toast("Could not re-sample: " + err.message, true);
+    toast("We couldn't fetch the ground for this area just now. Please try again.", true);
   } finally {
     progress(false);
     resampling = false;
@@ -8284,11 +8367,11 @@ function writeSTL(bodies, title) {
 const CRC_TAB = (() => { const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_TAB[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-async function zipFile(entries) {                    // entries: [{ name, text }]
+async function zipFile(entries) {                    // entries: [{ name, text }] or [{ name, data: Uint8Array }]
   const enc = new TextEncoder(), parts = [], central = [];
   let offset = 0;
   for (const e of entries) {
-    const raw = enc.encode(e.text), crc = crc32(raw);
+    const raw = e.data || enc.encode(e.text), crc = crc32(raw);
     let data = raw, method = 0;
     if (window.CompressionStream) {
       data = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
@@ -8346,11 +8429,13 @@ function modelXML(bodies) {
 }
 
 let lastStl = null;
-async function exportSTL(opts) {
+/* The print file. Customers don't download it: it is built when they order, and goes to the
+   workshop with the order (see the order section below). */
+async function buildPrintFile(opts) {
   const as3mf = opts && opts.format === "3mf";
-  if (!current || !three || !three.geom) return;
+  if (!current || !three || !three.geom) return null;
   try {
-    progress(true, as3mf ? "Building printable geometry (in colour)…" : "Building printable geometry…", 15);
+    progress(true, "Getting your model ready…", 15);
     await new Promise((r) => setTimeout(r, 30));
     const data = current, G = three.geom, W = frameVals.modelMM, k = W / WORLD;   // k = mm per model unit
     const withFrame = $("stlFrame").checked;
@@ -8379,7 +8464,7 @@ async function exportSTL(opts) {
       }
     }
     if ($("stlIcons").checked) bodies.push(...stlIcons(G, toSTL));
-    progress(true, "Writing the file…", 85);
+    progress(true, "Wrapping it up…", 85);
     let vol = 0;
     for (const b of bodies) vol += orientOutward(b.tris);
     let mx = [Infinity, Infinity, Infinity], Mx = [-Infinity, -Infinity, -Infinity];
@@ -8396,16 +8481,141 @@ async function exportSTL(opts) {
     lastStl = { bodies, size: Mx.map((v, a) => v - mx[a]), triangles: tri, volumeMM3: vol, bytes: blob.size };
     $("stlSize").textContent = lastStl.size.map((v) => v.toFixed(0)).join(" × ") + " mm";
     $("stlInfo").textContent = (blob.size / 1048576).toFixed(1) + " MB";
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = slug() + (as3mf ? ".3mf" : ".stl"); a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 6000);
-    toast((as3mf ? "3MF" : "STL") + " ready: " + lastStl.size.map((v) => v.toFixed(0)).join(" × ") + " mm, " + tri.toLocaleString() +
-      " triangles, " + bodies.length + " parts" + (as3mf ? ", in colour." : "."));
+    return { blob, name: slug() + (as3mf ? ".3mf" : ".stl") };
   } catch (err) {
-    console.error(err); toast("Couldn't build the file: " + err.message, true);
+    console.error(err); throw err;
   } finally { progress(false); }
 }
-$("expStl").addEventListener("click", exportSTL);
+
+/* ============================================================
+   ORDERING — the Purchase button. A summary (picture, what's
+   included, the cost, the delivery), then Stripe's own page for
+   the address and payment. The server works the price out again
+   from the same price list (/order-pricing.js) and, once paid,
+   emails the order and its print file to the workshop.
+   ============================================================ */
+let orderShip = null, orderPricing = null;
+/* The site's own address. Opened as a file (as the tests do) there is none, so orders go to the live one. */
+const siteOrigin = () => (location.protocol === "file:" ? "https://misogimodel.com" : location.origin);
+async function pricingModule() { return orderPricing || (orderPricing = await import(location.protocol === "file:" ? "/order-pricing.js" : siteOrigin() + "/order-pricing.js")); }
+/* links: JSON → deflate → base64url, the form openFromHash reads back */
+async function encodeDesign(st) {
+  const bytes = new Uint8Array(await new Response(new Blob([JSON.stringify(st)]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return "1." + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function snapshotModel() {                           // the model as it stands in the viewer, as a JPEG
+  const t = three; if (!t || !t.renderer || !t.scene || !t.camera) return "";
+  try {
+    if (t.camera.clearViewOffset) { t.camera.clearViewOffset(); t.camera.updateProjectionMatrix(); }
+    t.renderer.render(t.scene, t.camera);
+    const url = t.renderer.domElement.toDataURL("image/jpeg", 0.9);
+    return typeof url === "string" && url.startsWith("data:image/") ? url : "";
+  } catch (e) { return ""; }
+  finally { syncViewerOffset(); }
+}
+function orderFacts(st) {
+  const f = st.frame || {}, texts = (f.texts || []).map((x) => x.text).filter(Boolean);
+  const sc = st.print && st.print.scheme && schemeBy(st.print.scheme);
+  const out = [(f.outline === "hex" ? "Hexagon" : "Square") + ", " + ((st.sel.size || 0) / 1000).toFixed(1) + " km of ground across",
+               "Colours: " + (sc ? sc.label : "Plain")];
+  if (f.show) out.push("Frame" + (texts.length ? ", engraved: " + texts.join(" · ") : ""));
+  if (st.route) out.push("Route: " + (st.route.name || "your route"));
+  if ((st.icons || []).length) out.push(st.icons.length + (st.icons.length === 1 ? " icon" : " icons"));
+  out.push("Your web address on the back: www.misogimodel.com");
+  return out;
+}
+async function renderOrder() {
+  const { PRICING, orderFromDesign, priceOrder, money } = await pricingModule();
+  const st = collectState();
+  if (!orderShip || !PRICING.shipping.some((x) => x.id === orderShip)) orderShip = PRICING.shipping[0].id;
+  const bill = priceOrder(orderFromDesign(st, orderShip), PRICING);
+  $("odPlace").textContent = (st.sel.name || "Your place");
+  $("odWhat").innerHTML = "";
+  for (const line of orderFacts(st)) { const li = document.createElement("li"); li.textContent = line; $("odWhat").append(li); }
+  $("odLines").innerHTML = "";
+  for (const l of bill.lines) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td></td><td>${l.key === "size" ? money(l.amount, bill.currency) : "+ " + money(l.amount, bill.currency)}</td>`;
+    tr.firstChild.textContent = l.qty > 1 ? l.qty + " × " + l.label : l.label;
+    tr.dataset.key = l.key; $("odLines").append(tr);
+  }
+  const tr = document.createElement("tr"); tr.dataset.key = "shipping";
+  tr.innerHTML = `<td></td><td>+ ${money(bill.shipping.price, bill.currency)}</td>`; tr.firstChild.textContent = bill.shipping.label + " delivery";
+  $("odLines").append(tr);
+  $("odShip").innerHTML = "";
+  for (const opt of PRICING.shipping) {
+    const lab = document.createElement("label");
+    lab.innerHTML = `<input type="radio" name="odShip" value="${opt.id}"${opt.id === orderShip ? " checked" : ""}><span></span><small></small><span class="p">${money(opt.price, PRICING.currency)}</span>`;
+    lab.children[1].textContent = opt.label; lab.children[2].textContent = opt.note;
+    lab.firstChild.addEventListener("change", () => { orderShip = opt.id; renderOrder(); });
+    $("odShip").append(lab);
+  }
+  $("odTotal").textContent = money(bill.total, bill.currency);
+  $("odNote").hidden = !PRICING.placeholder;
+  return bill;
+}
+async function openOrder() {
+  if (!current || !three) { toast("Build the model first, then you can order it."); return; }
+  $("odMsg").textContent = ""; $("odMsg").classList.remove("bad"); $("odPay").disabled = false;
+  const pic = snapshotModel();
+  $("odImg").src = pic || ""; $("odImg").hidden = !pic;
+  try { await renderOrder(); }
+  catch (err) { console.error(err); toast("The order form couldn't open just now. Please try again.", true); return; }
+  $("orderDlg").hidden = false; $("odPay").focus();
+}
+function closeOrder() { $("orderDlg").hidden = true; }
+async function sendJSON(url, opts) {
+  const r = await fetch(url, opts);
+  let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
+  if (!r.ok) throw new Error((data && data.error) || "the server said no (" + r.status + ")");
+  return data;
+}
+async function placeOrder() {
+  const say = (t, bad) => { $("odMsg").textContent = t; $("odMsg").classList.toggle("bad", !!bad); };
+  $("odPay").disabled = true;
+  try {
+    say("Packing up your mountain…");
+    const st = collectState();
+    const file = await buildPrintFile();
+    if (!file) throw new Error("there's no model to print yet");
+    const zip = await zipFile([{ name: file.name, data: new Uint8Array(await file.blob.arrayBuffer()) }]);
+    const pic = $("odImg").src && $("odImg").src.startsWith("data:") ? await (await fetch($("odImg").src)).blob() : null;
+    let link = "";
+    try { link = siteOrigin() + "/studio/#design=" + await encodeDesign(st); } catch (e) { /* the order still goes */ }
+    say("Saving your order…");
+    const made = await sendJSON(siteOrigin() + "/api/orders", { method: "POST", headers: { "content-type": "application/json" },
+                                                 body: JSON.stringify({ design: st, shipping: orderShip, link }) });
+    const q = "?token=" + encodeURIComponent(made.token), base = siteOrigin() + "/api/orders/" + made.id;
+    say("Sending the model to the workshop…");
+    await sendJSON(base + "/model" + q, { method: "PUT", headers: { "content-type": "application/zip" }, body: zip });
+    if (pic) await sendJSON(base + "/preview" + q, { method: "PUT", headers: { "content-type": "image/jpeg" }, body: pic });
+    say("Off to the payment page…");
+    const pay = await sendJSON(base + "/checkout" + q, { method: "POST" });
+    try { sessionStorage.setItem("misogimodel.pendingDesign", JSON.stringify(st)); } catch (e) { /* fine */ }
+    window.__orderGoingTo = pay.url;
+    location.assign(pay.url);
+  } catch (err) {
+    console.error(err);
+    say("Sorry, that didn't go through: " + err.message + ". Please try again.", true);
+    $("odPay").disabled = false;
+  }
+}
+$("buyBtn").addEventListener("click", openOrder);
+$("odClose").addEventListener("click", closeOrder);
+$("odPay").addEventListener("click", placeOrder);
+$("orderDlg").addEventListener("click", (e) => { if (e.target === $("orderDlg")) closeOrder(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("orderDlg").hidden) closeOrder(); });
+/* Back from Stripe without paying: the design is put back just as it was. */
+(async () => {
+  if (new URLSearchParams(location.search).get("order") !== "cancelled") return;
+  try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) { /* a file has no history to tidy */ }
+  let st = null; try { st = JSON.parse(sessionStorage.getItem("misogimodel.pendingDesign") || "null"); } catch (e) { /* none */ }
+  if (!st) return;
+  await new Promise((r) => setTimeout(r, 0));
+  try { await applyState(st, "saved"); toast("No payment taken. Your design is just as you left it."); }
+  catch (e) { console.error(e); }
+})();
 
 
 /* ============================================================
@@ -8716,6 +8926,148 @@ openFromHash();
 (() => { const want = +new URLSearchParams(location.search).get("size");
   if (document.querySelector('#sizeSeg button[data-mm="' + want + '"]')) setModelSize(want); })();
 </script>
-<script src="/banner-contours.js" defer></script>
+<!-- banner-contours -->
+<script>
+/* Hidden contours under the site banner.
+   A faint contour map lies under the banner, unseen. When the pointer comes over the banner the
+   lines show within about 3 cm of where it came in, then the lit patch grows outwards at a steady
+   speed until the whole bar is showing 2.5 seconds later. The lines sit under the logo, links and
+   button and stop 2 px short of their edges (and clear of the logo's whole square), so everything on
+   the bar stays as readable as before.
+   Leaving the bar fades them away again; coming back starts over from the new spot. With reduced
+   motion asked for, the whole map simply fades in. */
+(() => {
+  const bar = document.querySelector("header.site-banner");
+  if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
+  const REVEAL_MS = 2500, START_R = 113, FEATHER = 48;   // 113 px ≈ 3 cm on a desktop screen
+  const INK = "46, 90, 76", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const cv = document.createElement("canvas");
+  cv.className = "site-banner__contours"; cv.setAttribute("aria-hidden", "true");
+  bar.prepend(cv);
+  const g = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1, lines = null, knock = null, anim = null;
+
+  /* ---- a contour map of made-up ground: smooth noise, traced at even heights ---- */
+  function noise(seed) {
+    const rnd = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453; return s - Math.floor(s); };
+    const sm = (t) => t * t * (3 - 2 * t);
+    return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi);
+      const a = rnd(xi, yi), b = rnd(xi + 1, yi), c = rnd(xi, yi + 1), d = rnd(xi + 1, yi + 1);
+      return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf; };
+  }
+  const n1 = noise(1), n2 = noise(2), n3 = noise(3), w1 = noise(4), w2 = noise(5);
+  // hills and valleys of a few sizes, the ground pushed sideways by more noise so the lines wander
+  // and bunch the way they do on a real map, rather than running in parallel stripes
+  const height = (x, y) => {
+    const wx = x + 70 * (w1(x / 180, y / 180) - 0.5), wy = y + 70 * (w2(x / 180 + 9, y / 180 + 4) - 0.5);
+    return 0.6 * n1(wx / 230, wy / 230) + 0.3 * n2(wx / 95, wy / 95) + 0.1 * n3(wx / 40, wy / 40);
+  };
+  function drawLines() {
+    lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
+    const c = lines.getContext("2d"); c.scale(dpr, dpr); c.lineCap = "round";
+    const step = 3, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, f = new Float32Array(cols * rows);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step);
+    const LEVEL = 0.016;
+    let lo = Infinity, hi = -Infinity; for (const v of f) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    for (let k = Math.ceil(lo / LEVEL); k * LEVEL <= hi; k++) {
+      const L = k * LEVEL, index = k % 5 === 0;           // every fifth line a little stronger, as on a map
+      c.strokeStyle = `rgba(${INK}, ${index ? INDEX_A : LINE_A})`; c.lineWidth = index ? 1.1 : 0.8;
+      c.beginPath();
+      for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
+        const a = f[j * cols + i], b = f[j * cols + i + 1], d = f[(j + 1) * cols + i], e = f[(j + 1) * cols + i + 1];
+        const pts = [], x = i * step, y = j * step, cut = (p, q) => (L - p) / (q - p);
+        if ((a < L) !== (b < L)) pts.push([x + cut(a, b) * step, y]);
+        if ((b < L) !== (e < L)) pts.push([x + step, y + cut(b, e) * step]);
+        if ((d < L) !== (e < L)) pts.push([x + cut(d, e) * step, y + step]);
+        if ((a < L) !== (d < L)) pts.push([x, y + cut(a, d) * step]);
+        for (let p = 0; p + 1 < pts.length; p += 2) { c.moveTo(pts[p][0], pts[p][1]); c.lineTo(pts[p + 1][0], pts[p + 1][1]); }
+      }
+      c.stroke();
+    }
+  }
+  /* ---- where the lines must not go: everything on the bar, grown by 2 px all round ---- */
+  function drawKnockout() {
+    knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+    const c = knock.getContext("2d"); c.scale(dpr, dpr);
+    const box = bar.getBoundingClientRect();
+    c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
+    const texts = bar.querySelectorAll(".site-banner__brand span, .site-banner__link");
+    for (const el of texts) {
+      if (!el.offsetParent) continue;
+      const cs = getComputedStyle(el), r = document.createRange(); r.selectNodeContents(el);
+      const q = r.getBoundingClientRect();
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      if ("letterSpacing" in c) c.letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+      c.textBaseline = "middle"; c.textAlign = "left"; c.lineWidth = GAP * 2;
+      const x = q.left - box.left, y = q.top - box.top + q.height / 2;
+      c.fillText(el.textContent.trim(), x, y); c.strokeText(el.textContent.trim(), x, y);
+    }
+    for (const b of bar.querySelectorAll(".cta, button")) {      // the button, and its round ends
+      if (!b.offsetParent) continue;
+      const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
+      c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
+    }
+    // The logo is line art, so lines kept 2 px off its strokes would still run through the open
+    // spaces inside the figure. They keep clear of its whole square instead, 2 px out all round.
+    const mark = bar.querySelector(".site-banner__brand svg");
+    if (mark && mark.getBoundingClientRect().width) {
+      const q = mark.getBoundingClientRect();
+      c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, GAP); c.fill();
+    }
+  }
+  function layout() {
+    const r = bar.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.ceil(r.width); H = Math.ceil(r.height);
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    drawLines(); drawKnockout(); paint();
+  }
+  /* ---- the reveal: a soft-edged circle from where the pointer came in, growing steadily ---- */
+  let origin = null, t0 = 0, speed = 0, fade = 1, leaving = 0;
+  function paint() {
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    if (!origin || !lines) return;
+    const now = performance.now(), el = now - t0;
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!still) {
+      const r = START_R + speed * el;
+      if (r < Math.hypot(W, H) + FEATHER) {
+        const grad = g.createRadialGradient(origin.x, origin.y, Math.max(0, r - FEATHER), origin.x, origin.y, r);
+        grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
+        g.globalCompositeOperation = "destination-in"; g.fillStyle = grad; g.fillRect(0, 0, W, H);
+      }
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
+    g.globalCompositeOperation = "source-over";
+  }
+  function loop() {
+    if (leaving) {
+      fade = Math.max(0, 1 - (performance.now() - leaving) / 450);
+      if (fade === 0) { origin = null; leaving = 0; paint(); anim = null; return; }
+    } else if (still) fade = Math.min(1, (performance.now() - t0) / 400);
+    paint(); anim = requestAnimationFrame(loop);
+  }
+  bar.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch") return;
+    const r = bar.getBoundingClientRect();
+    if (!origin || leaving) {
+      origin = { x: e.clientX - r.left, y: e.clientY - r.top }; t0 = performance.now(); leaving = 0; fade = still ? 0 : 1;
+      // a fixed speed for this reveal, set so the farthest corner is reached 2.5 seconds in
+      const far = Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => Math.hypot(x - origin.x, y - origin.y)));
+      speed = Math.max(0, far + FEATHER - START_R) / REVEAL_MS;
+    }
+    if (!anim) anim = requestAnimationFrame(loop);
+  });
+  bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
+  let rt = 0;
+  new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+  window.__bannerContours = { get state() { return { W, H, origin, speed, fade, startR: START_R, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
+})();
+</script>
+<!-- /banner-contours -->
 </body>
 </html>

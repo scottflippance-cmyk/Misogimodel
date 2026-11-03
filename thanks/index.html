@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thank you: misogimodel</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/site.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF;color:#0B0E12;font-family:Inter,system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:14vh 24px 64px;text-align:center}
+h1{margin:0;font-size:clamp(34px,5vw,52px);letter-spacing:-0.03em;line-height:1.05}
+p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
+.row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:36px}
+.quiet{text-decoration:none;font-weight:600;font-size:16px;padding:15px 26px;border-radius:999px;background:#F5F5F7;color:#0B0E12}
+.quiet:hover{background:#E9EDF3}
+</style>
+</head>
+<body>
+<!-- site-banner -->
+<header class="site-banner">
+<div class="site-banner__inner">
+<a class="site-banner__brand" href="/">
+<svg width="42" height="42" aria-hidden="true" viewBox="0 0 120 120"><g fill="none" stroke="#0B0E12" stroke-width="6.0" stroke-linecap="round" stroke-linejoin="round"><path d="M6 106 L114 74" stroke-width="5.0"></path><circle cx="51" cy="46" r="18"></circle><path d="M39.5 50 C39 44 42.5 39.5 48 38.5 C53 37.5 58.5 39 60.5 43 C62 46.5 60 49.5 56.5 50.5 C54 51.2 53 53.6 49.5 55 C44.5 56.8 40 55 39.5 50 Z" stroke-width="2.82"></path><path d="M48.5 45.8 C48.2 43.2 50.5 41.6 53 41.8 C55.4 42 56.8 43.6 56 45.4 C55.4 46.7 53.8 46.9 52.4 47.6 C50.9 48.4 48.8 47.9 48.5 45.8 Z" stroke-width="2.82"></path><circle cx="84" cy="49" r="5.5"></circle><path d="M58 70 L76 50"></path><path d="M58 70 L68 76 L74 85.5"></path><path d="M58 70 L44 95"></path><path d="M76 50 L74 36 L63 32"></path></g></svg>
+<span>misogimodel</span>
+</a>
+<nav class="site-banner__nav" aria-label="Main">
+<a class="site-banner__link" href="/#how">How it works</a>
+<a class="site-banner__link" href="/#sizes">Sizes</a>
+<a class="site-banner__link" href="/#faq">FAQ</a>
+<a class="site-banner__link" href="/contact">Contact</a>
+<a class="cta cta--sm" href="/studio/">Start designing</a>
+</nav>
+</div>
+</header>
+<!-- /site-banner -->
+<main>
+<h1>Your mountain's on its way.</h1>
+<p>Thank you: your order is in and your payment has gone through. Stripe will email you a receipt, and we'll be in touch when your model has been printed and posted.</p>
+<div class="row"><a class="quiet" href="/">Back to the homepage</a><a class="cta" href="/studio/" style="font-size:16px;padding:13px 24px">Design another</a></div>
+</main>
+<!-- banner-contours -->
+<script>
+/* Hidden contours under the site banner.
+   A faint contour map lies under the banner, unseen. When the pointer comes over the banner the
+   lines show within about 3 cm of where it came in, then the lit patch grows outwards at a steady
+   speed until the whole bar is showing 2.5 seconds later. The lines sit under the logo, links and
+   button and stop 2 px short of their edges (and clear of the logo's whole square), so everything on
+   the bar stays as readable as before.
+   Leaving the bar fades them away again; coming back starts over from the new spot. With reduced
+   motion asked for, the whole map simply fades in. */
+(() => {
+  const bar = document.querySelector("header.site-banner");
+  if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
+  const REVEAL_MS = 2500, START_R = 113, FEATHER = 48;   // 113 px ≈ 3 cm on a desktop screen
+  const INK = "46, 90, 76", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const cv = document.createElement("canvas");
+  cv.className = "site-banner__contours"; cv.setAttribute("aria-hidden", "true");
+  bar.prepend(cv);
+  const g = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1, lines = null, knock = null, anim = null;
+
+  /* ---- a contour map of made-up ground: smooth noise, traced at even heights ---- */
+  function noise(seed) {
+    const rnd = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453; return s - Math.floor(s); };
+    const sm = (t) => t * t * (3 - 2 * t);
+    return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi);
+      const a = rnd(xi, yi), b = rnd(xi + 1, yi), c = rnd(xi, yi + 1), d = rnd(xi + 1, yi + 1);
+      return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf; };
+  }
+  const n1 = noise(1), n2 = noise(2), n3 = noise(3), w1 = noise(4), w2 = noise(5);
+  // hills and valleys of a few sizes, the ground pushed sideways by more noise so the lines wander
+  // and bunch the way they do on a real map, rather than running in parallel stripes
+  const height = (x, y) => {
+    const wx = x + 70 * (w1(x / 180, y / 180) - 0.5), wy = y + 70 * (w2(x / 180 + 9, y / 180 + 4) - 0.5);
+    return 0.6 * n1(wx / 230, wy / 230) + 0.3 * n2(wx / 95, wy / 95) + 0.1 * n3(wx / 40, wy / 40);
+  };
+  function drawLines() {
+    lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
+    const c = lines.getContext("2d"); c.scale(dpr, dpr); c.lineCap = "round";
+    const step = 3, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, f = new Float32Array(cols * rows);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step);
+    const LEVEL = 0.016;
+    let lo = Infinity, hi = -Infinity; for (const v of f) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    for (let k = Math.ceil(lo / LEVEL); k * LEVEL <= hi; k++) {
+      const L = k * LEVEL, index = k % 5 === 0;           // every fifth line a little stronger, as on a map
+      c.strokeStyle = `rgba(${INK}, ${index ? INDEX_A : LINE_A})`; c.lineWidth = index ? 1.1 : 0.8;
+      c.beginPath();
+      for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
+        const a = f[j * cols + i], b = f[j * cols + i + 1], d = f[(j + 1) * cols + i], e = f[(j + 1) * cols + i + 1];
+        const pts = [], x = i * step, y = j * step, cut = (p, q) => (L - p) / (q - p);
+        if ((a < L) !== (b < L)) pts.push([x + cut(a, b) * step, y]);
+        if ((b < L) !== (e < L)) pts.push([x + step, y + cut(b, e) * step]);
+        if ((d < L) !== (e < L)) pts.push([x + cut(d, e) * step, y + step]);
+        if ((a < L) !== (d < L)) pts.push([x, y + cut(a, d) * step]);
+        for (let p = 0; p + 1 < pts.length; p += 2) { c.moveTo(pts[p][0], pts[p][1]); c.lineTo(pts[p + 1][0], pts[p + 1][1]); }
+      }
+      c.stroke();
+    }
+  }
+  /* ---- where the lines must not go: everything on the bar, grown by 2 px all round ---- */
+  function drawKnockout() {
+    knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+    const c = knock.getContext("2d"); c.scale(dpr, dpr);
+    const box = bar.getBoundingClientRect();
+    c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
+    const texts = bar.querySelectorAll(".site-banner__brand span, .site-banner__link");
+    for (const el of texts) {
+      if (!el.offsetParent) continue;
+      const cs = getComputedStyle(el), r = document.createRange(); r.selectNodeContents(el);
+      const q = r.getBoundingClientRect();
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      if ("letterSpacing" in c) c.letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+      c.textBaseline = "middle"; c.textAlign = "left"; c.lineWidth = GAP * 2;
+      const x = q.left - box.left, y = q.top - box.top + q.height / 2;
+      c.fillText(el.textContent.trim(), x, y); c.strokeText(el.textContent.trim(), x, y);
+    }
+    for (const b of bar.querySelectorAll(".cta, button")) {      // the button, and its round ends
+      if (!b.offsetParent) continue;
+      const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
+      c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
+    }
+    // The logo is line art, so lines kept 2 px off its strokes would still run through the open
+    // spaces inside the figure. They keep clear of its whole square instead, 2 px out all round.
+    const mark = bar.querySelector(".site-banner__brand svg");
+    if (mark && mark.getBoundingClientRect().width) {
+      const q = mark.getBoundingClientRect();
+      c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, GAP); c.fill();
+    }
+  }
+  function layout() {
+    const r = bar.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.ceil(r.width); H = Math.ceil(r.height);
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    drawLines(); drawKnockout(); paint();
+  }
+  /* ---- the reveal: a soft-edged circle from where the pointer came in, growing steadily ---- */
+  let origin = null, t0 = 0, speed = 0, fade = 1, leaving = 0;
+  function paint() {
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    if (!origin || !lines) return;
+    const now = performance.now(), el = now - t0;
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!still) {
+      const r = START_R + speed * el;
+      if (r < Math.hypot(W, H) + FEATHER) {
+        const grad = g.createRadialGradient(origin.x, origin.y, Math.max(0, r - FEATHER), origin.x, origin.y, r);
+        grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
+        g.globalCompositeOperation = "destination-in"; g.fillStyle = grad; g.fillRect(0, 0, W, H);
+      }
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
+    g.globalCompositeOperation = "source-over";
+  }
+  function loop() {
+    if (leaving) {
+      fade = Math.max(0, 1 - (performance.now() - leaving) / 450);
+      if (fade === 0) { origin = null; leaving = 0; paint(); anim = null; return; }
+    } else if (still) fade = Math.min(1, (performance.now() - t0) / 400);
+    paint(); anim = requestAnimationFrame(loop);
+  }
+  bar.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch") return;
+    const r = bar.getBoundingClientRect();
+    if (!origin || leaving) {
+      origin = { x: e.clientX - r.left, y: e.clientY - r.top }; t0 = performance.now(); leaving = 0; fade = still ? 0 : 1;
+      // a fixed speed for this reveal, set so the farthest corner is reached 2.5 seconds in
+      const far = Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => Math.hypot(x - origin.x, y - origin.y)));
+      speed = Math.max(0, far + FEATHER - START_R) / REVEAL_MS;
+    }
+    if (!anim) anim = requestAnimationFrame(loop);
+  });
+  bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
+  let rt = 0;
+  new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+  window.__bannerContours = { get state() { return { W, H, origin, speed, fade, startR: START_R, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
+})();
+</script>
+<!-- /banner-contours -->
+</body>
+</html>
