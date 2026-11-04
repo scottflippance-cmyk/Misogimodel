@@ -10,6 +10,8 @@
        POST /api/checkout                  { items: [{ id, token }], shipping }. Every item is checked and
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
+     Newsletter:
+       POST /api/newsletter                { email }. Adds the address to Resend's contacts, nothing else.
      Paid:
        POST /api/stripe-webhook            Stripe saying the payment went through. One email goes to
                                            you listing every model, each with its print file attached.
@@ -25,7 +27,9 @@
      RESEND_API_KEY         re_… from Resend
      ORDER_SECRET           any long random string; signs the upload and download links
      ORDER_EMAIL_TO         where orders are sent (you)
-     ORDER_EMAIL_FROM       optional; defaults to misogimodel orders <orders@send.misogimodel.com> */
+     ORDER_EMAIL_FROM       optional; defaults to misogimodel orders <orders@send.misogimodel.com>
+     RESEND_CONTACTS_KEY    a full-access Resend key, used only to add newsletter sign-ups
+     NEWSLETTER_SEGMENT_ID  optional; a Resend segment to put sign-ups in (they are kept as contacts either way) */
 import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
@@ -34,6 +38,30 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 const fail = (status, message) => json({ error: message }, status);
 const ID = /^[0-9a-f-]{36}$/;
+
+/* Newsletter sign-up. Needs only RESEND_CONTACTS_KEY, so it works before ordering is switched on.
+   It is a key of its own: adding contacts needs a full-access Resend key, and the order emails
+   keep their sending-only one.
+   A hidden "website" box catches bots: a person never sees it, a bot fills every box it finds. */
+const EMAIL = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,24}$/i;
+async function newsletter(request, env) {
+  if (!env.RESEND_CONTACTS_KEY) return fail(503, "Newsletter sign-up isn't switched on just yet");
+  let body;
+  try { body = await request.json(); } catch (e) { return fail(400, "That didn't come through properly."); }
+  if (body && body.website) return json({ ok: true });  // a bot: thank it, keep nothing
+  const email = String((body && body.email) || "").trim().toLowerCase();
+  if (email.length > 254 || !EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
+  const contact = { email, unsubscribed: false };
+  if (env.NEWSLETTER_SEGMENT_ID) contact.segments = [{ id: env.NEWSLETTER_SEGMENT_ID }];
+  const r = await fetch("https://api.resend.com/contacts", {
+    method: "POST", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" },
+    body: JSON.stringify(contact) });
+  if (r.ok) return json({ ok: true });
+  const said = await r.text().catch(() => "");
+  if (r.status === 409 || /already exists/i.test(said)) return json({ ok: true });   // signed up before: still fine
+  console.log("newsletter: Resend said " + r.status + " " + said.slice(0, 200));
+  return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
+}
 
 async function hmac(secret, text) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -264,6 +292,10 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url), m = request.method;
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
+    if (m !== "POST") return fail(405, "Not allowed.");
+    try { return await newsletter(request, env); } catch (err) { return fail(502, "We couldn't sign you up just now. Please try again in a little while."); }
+  }
   // Not set up yet (no storage bound, or no secrets): say so plainly rather than failing half way.
   const missing = ["ORDERS", "ORDER_SECRET"].concat(parts[0] === "checkout" ? ["STRIPE_SECRET_KEY"] : [])
     .concat(parts[0] === "stripe-webhook" ? ["STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "ORDER_EMAIL_TO"] : [])

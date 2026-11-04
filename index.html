@@ -25,35 +25,65 @@ summary{cursor:pointer}
    The mountain logo stands on the footer's bottom edge and rises up from the bottom of the screen as
    the page is scrolled to its end (home-extras.js); MISOGI over MODEL sits beside it. */
 .site-footer{background:#0B0E12;color:#C3C9D1;position:relative;overflow:hidden}
-.site-footer__inner{max-width:1200px;margin:0 auto;padding:0 24px;min-height:380px;box-sizing:border-box;
-  display:flex;flex-wrap:wrap;align-items:stretch;justify-content:space-between;gap:24px 40px}
-.site-footer__brand{display:flex;align-items:center;gap:36px;text-decoration:none;color:#FFFFFF;align-self:flex-end;height:156px}
-.site-footer__mountain{display:block;flex:none;height:156px;aspect-ratio:442/156;align-self:flex-end;background:#FFFFFF;
+/* One left edge for everything: the links, then the mountain logo and name below them, 50% larger. */
+.site-footer__inner{max-width:1200px;margin:0 auto;padding:0 24px;box-sizing:border-box;display:flex;flex-direction:column}
+.site-footer__top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:40px 56px;padding:64px 0 56px}
+.site-footer__brand{display:flex;align-items:center;gap:36px;text-decoration:none;color:#FFFFFF;align-self:flex-start;height:234px}
+.site-footer__mountain{display:block;flex:none;height:234px;aspect-ratio:442/156;align-self:flex-end;background:#FFFFFF;
   -webkit-mask:url(/brand/mountain-logo.png) center/100% 100% no-repeat;mask:url(/brand/mountain-logo.png) center/100% 100% no-repeat;
   transform:translateY(var(--rise, 0%));will-change:transform}
 .site-footer__word{display:flex;flex-direction:column;align-items:flex-start;font-size:72px;line-height:.9;
   text-transform:uppercase;letter-spacing:0;white-space:nowrap;transform:translateY(.03em)}
 .site-footer__word > span:first-child{font-weight:800}
 .site-footer__word > span:last-child{font-weight:400;letter-spacing:.036em;margin-right:-.036em}
-.site-footer__side{align-self:center;display:flex;flex-direction:column;align-items:flex-end;gap:18px;padding:40px 0}
+.site-footer__side{display:flex;flex-direction:column;align-items:flex-start;gap:18px}
 .site-footer__side nav{display:flex;flex-wrap:wrap;gap:24px;font-size:15px}
 .site-footer__side nav a{color:#C3C9D1;text-decoration:none}
 .site-footer__side nav a:hover{color:#FFFFFF}
 .site-footer__side p{margin:0;font-size:14px}
+/* The newsletter: a heading, a line, one box and a button. */
+.site-footer__news{flex:0 1 440px;min-width:0}
+.site-footer__news h2{margin:0;font-size:24px;letter-spacing:-.02em;font-weight:700;color:#FFFFFF}
+.site-footer__news > p{margin:8px 0 18px;font-size:15px;line-height:1.5}
+.news-form{display:flex;gap:10px}
+.news-form__label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.news-form__trap{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.news-form__email{flex:1 1 auto;min-width:0;font:inherit;font-size:15px;color:#FFFFFF;background:#1A1F26;border:1px solid #2C333C;
+  border-radius:999px;padding:12px 18px}
+.news-form__email::placeholder{color:#8A93A1}
+.news-form__email:focus{outline:2px solid #FFFFFF;outline-offset:1px}
+.news-form__go{flex:none;font:inherit;font-size:15px;font-weight:600;color:#0B0E12;background:#FFFFFF;border:0;border-radius:999px;
+  padding:12px 22px;cursor:pointer}
+.news-form__go:hover{background:#E6E9EE}
+.news-form__go[disabled]{opacity:.6;cursor:default}
+.news-form__msg{margin:10px 0 0;min-height:1.4em;font-size:14px;color:#C3C9D1}
+.news-form__msg[data-ok="true"]{color:#FFFFFF}
 @media (max-width:820px){
-  .site-footer__inner{min-height:0;flex-direction:column-reverse;align-items:flex-start;padding-top:8px}
-  .site-footer__side{align-self:flex-start;align-items:flex-start;padding:32px 0 0}
-  .site-footer__brand{align-self:flex-start;height:96px;gap:20px}
-  .site-footer__mountain{height:96px}
+  .site-footer__top{padding:40px 0 32px}
+  .site-footer__brand{height:144px;gap:20px}
+  .site-footer__mountain{height:144px}
   .site-footer__word{font-size:40px}}
 @media (max-width:480px){
-  .site-footer__brand{height:72px;gap:14px}
-  .site-footer__mountain{height:72px}
-  .site-footer__word{font-size:30px}}
+  .site-footer__brand{height:min(108px,20vw);gap:14px}
+  .site-footer__mountain{height:min(108px,20vw)}
+  .site-footer__word{font-size:30px}
+  .news-form{flex-direction:column}}
 @media (max-width:389px){
-  .site-footer__brand{height:58px;gap:12px}
-  .site-footer__mountain{height:58px}
+  .site-footer__brand{height:min(87px,18vw);gap:12px}
+  .site-footer__mountain{height:min(87px,18vw)}
   .site-footer__word{font-size:25px}}
+/* The announcement bar above the banner: one line pointing to the newsletter sign-up at the foot. */
+.announce{display:block;background:#0B0E12;color:#FFFFFF;text-align:center;text-decoration:none;font-size:13px;font-weight:500;
+  letter-spacing:.01em;line-height:1.3;padding:10px 16px}
+.announce span{text-decoration:underline;text-underline-offset:3px;font-weight:700}
+.announce:hover{color:#FFFFFF;background:#1A1F26}
+/* The opening screen: one model filling the screen, the headline above it and a single button. */
+.hero{min-height:calc(100svh - 108px);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:clamp(20px,4vh,48px) 24px clamp(28px,5vh,56px)}
+.hero__kicker{margin:0 0 12px;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5B6470}
+.hero__title{margin:0;font-size:clamp(40px,5.6vw,76px);line-height:1.02;letter-spacing:-.035em;font-weight:700}
+.hero__model{display:block;width:min(100%,980px,calc((100svh - 360px) * 1.34));height:auto;margin:clamp(8px,2vh,24px) auto clamp(16px,3vh,32px)}
+.cta.hero__cta{font-size:17px;padding:15px 30px}
 </style>
 <style id="site-chrome">
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
@@ -84,7 +114,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .site-banner__brand:hover{color:var(--sb-ink)}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */
-.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
+.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:20px;line-height:.9;
   text-transform:uppercase;letter-spacing:0;white-space:nowrap;
   transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
 .site-banner__word > span:first-child{font-weight:800}
@@ -108,7 +138,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px;min-height:0}
   .site-banner__nav{gap:16px;flex-wrap:nowrap}
   .site-banner__brand{margin:-10px 0;gap:6px}
-  .site-banner__word{font-size:19px}
+  .site-banner__word{font-size:15px}
   .cta--sm{padding:7px 12px;font-size:13.5px}}
 /* On phones the drawing stands for the name on its own, so the cart and the button fit beside it
    without anything overlapping. */
@@ -175,6 +205,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 <body>
 <div style="--accent: #2F5BD8; font-family: Inter, system-ui, sans-serif; color: #0B0E12; background: #FFFFFF; min-height: 100vh">
 
+<a class="announce" href="#newsletter">Be first to see new places and sizes. <span>Join the newsletter</span></a>
+
 <header class="site-banner">
 <div class="site-banner__inner">
 <a class="site-banner__brand" href="#top">
@@ -192,22 +224,11 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </div>
 </header>
 
-<section id="top" style="max-width: 1200px; margin: 0 auto; padding: 56px 24px 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
-<div style="flex: 1 1 440px; min-width: 0">
-<p style="margin: 0 0 18px; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5B6470">3D-printed terrain models</p>
-<h1 style="margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.02; letter-spacing: -0.035em; font-weight: 700">Your hardest day, in your hands.</h1>
-<p style="margin: 24px 0 0; font-size: 19px; line-height: 1.55; color: #3A424C; max-width: 34rem">Pick any place on Earth and we print its real ground: the ridge you walked, the summit you reached, your route traced across it and your words engraved in the frame.</p>
-<div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 36px">
-<a class="cta" href="/studio/" style="font-size: 16px; padding: 13px 24px">Start designing</a>
-<a href="#sizes" style="background: #F5F5F7; color: #0B0E12; text-decoration: none; font-weight: 600; font-size: 16px; padding: 15px 26px; border-radius: 999px">See the sizes</a>
-</div>
-</div>
-<div style="flex: 1 1 440px; min-width: 0">
-<div role="img" aria-label="Placeholder for a photograph of a finished print" style="aspect-ratio: 1 / 1; border-radius: 24px; background: #F5F5F7; position: relative; overflow: hidden; display: flex; align-items: flex-end; justify-content: center">
-<svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%"><g fill="none" stroke="#D5DAE0" stroke-width="1.4"><path d="M60 300 C90 180 170 120 230 140 C300 160 350 240 340 320"></path><path d="M95 300 C115 205 175 160 228 172 C285 186 318 245 310 310"></path><path d="M130 298 C142 228 185 196 226 204 C268 213 290 256 284 300"></path><path d="M165 296 C172 252 198 232 224 236 C250 240 262 268 258 294"></path><path d="M198 292 C202 272 214 264 224 266 C236 268 240 280 238 290"></path><path d="M20 360 C120 330 260 330 380 360"></path><path d="M10 385 C130 360 270 360 395 385"></path></g></svg>
-<p style="position: relative; margin: 0 0 22px; font-size: 13px; color: #5B6470; background: #FFFFFF; padding: 8px 14px; border-radius: 999px">[PHOTO: a finished print, side-lit, on a desk]</p>
-</div>
-</div>
+<section id="top" class="hero">
+<p class="hero__kicker">3D-printed terrain models</p>
+<h1 class="hero__title">Your hardest day, in your hands.</h1>
+<img class="hero__model" src="/brand/hero-kilimanjaro.webp" width="602" height="450" alt="A 3D-printed terrain model of Kilimanjaro, its crater at the top of the cone">
+<a class="cta hero__cta" href="/studio/">Start designing</a>
 </section>
 
 <section aria-label="What makes it different" style="background: #F5F5F7">
@@ -325,10 +346,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 
 <footer class="site-footer">
 <div class="site-footer__inner">
-<a class="site-footer__brand" href="#top" aria-label="misogimodel: back to the top">
-<span class="site-footer__mountain" aria-hidden="true"></span>
-<span class="site-footer__word" aria-hidden="true"><span>misogi</span><span>model</span></span>
-</a>
+<div class="site-footer__top">
 <div class="site-footer__side">
 <nav aria-label="Footer">
 <a href="/contact">Contact</a>
@@ -338,6 +356,22 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </nav>
 <p>© 2026 misogimodel</p>
 </div>
+<section class="site-footer__news" id="newsletter" aria-labelledby="news-h">
+<h2 id="news-h">Keep in the loop.</h2>
+<p>New places, new sizes and first looks, now and then. Never spam.</p>
+<form class="news-form" action="/api/newsletter" method="post" novalidate>
+<label class="news-form__label" for="news-email">Email address</label>
+<input class="news-form__email" id="news-email" type="email" name="email" placeholder="Your email address" autocomplete="email" required>
+<input class="news-form__trap" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button class="news-form__go" type="submit">Sign up</button>
+</form>
+<p class="news-form__msg" role="status" aria-live="polite"></p>
+</section>
+</div>
+<a class="site-footer__brand" href="#top" aria-label="misogimodel: back to the top">
+<span class="site-footer__mountain" aria-hidden="true"></span>
+<span class="site-footer__word" aria-hidden="true"><span>misogi</span><span>model</span></span>
+</a>
 </div>
 </footer>
 
@@ -557,6 +591,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
    1. The footer's mountain logo rises from the bottom of the screen as the page is scrolled to its
       end: its foot held at the screen's bottom edge, it comes up as the footer scrolls in, and stands
       on the footer's own bottom edge once the whole footer is on screen. For anyone who has asked for less motion it simply stands there.
+   3. The newsletter box at the foot sends the address to /api/newsletter and says how it went.
    2. The questions come from /faq.txt, a plain text file you can edit on GitHub: each question starts
       "Q:", its answer "A:". If the file can't be read, the questions written into the page stay. */
 (() => {
@@ -579,6 +614,26 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
     const soon = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
     addEventListener("scroll", soon, { passive: true }); addEventListener("resize", soon); place();
     window.__footerRise = { place };
+  }
+
+  const form = document.querySelector(".news-form");
+  if (form) {
+    const msg = document.querySelector(".news-form__msg"), btn = form.querySelector("button"), box = form.querySelector("input[type=email]");
+    const say = (text, good) => { msg.textContent = text; msg.dataset.ok = String(!!good); };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = box.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { say("Please enter your email address."); box.focus(); return; }
+      btn.disabled = true; say("Signing you up…");
+      try {
+        const r = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, website: form.elements.website.value }) });
+        const b = await r.json().catch(() => ({}));
+        if (r.ok) { say("Thanks, you're on the list.", true); form.reset(); }
+        else say(b.error || "We couldn't sign you up just now. Please try again in a little while.");
+      } catch (err) { say("We couldn't sign you up just now. Please try again in a little while."); }
+      btn.disabled = false;
+    });
   }
 
   const faq = document.getElementById("faq");

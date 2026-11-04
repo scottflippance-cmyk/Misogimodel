@@ -538,9 +538,21 @@ select option{font-size:13px}
   border:1px solid rgba(0,0,0,.28); box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
 }
 .scheme .nm{flex:0 0 96px; font-size:12.5px; color:var(--muted)}
-.relief-lock{margin:0;font-size:13px;color:var(--muted)}
+.relief-cap{margin:6px 0 0;font-size:12px;color:var(--muted)}
 .scheme[aria-pressed="true"]{border-color:var(--text); background:var(--panel-2)}
 .scheme[aria-pressed="true"] .nm{color:var(--text); font-weight:500}
+/* Colours as cards: each scheme its own bordered card, a deep swatch on the left, the name beside it
+   and the price in a pill at the right, on the same line. */
+body:not(.none) .scheme-grid{gap:8px}
+body:not(.none) .scheme{gap:14px; padding:8px; border:1px solid var(--line); border-radius:12px; background:var(--panel)}
+body:not(.none) .scheme:hover:not([aria-pressed="true"]){border-color:var(--line); background:var(--panel-2)}
+body:not(.none) .scheme[aria-pressed="true"]{border:1.5px solid var(--accent); padding:7.5px; background:var(--panel-2)}
+body:not(.none) .scheme .bar{flex:0 0 168px; height:52px; border-radius:9px}
+body:not(.none) .scheme .nm{flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font-size:13.5px; font-weight:500; color:var(--text)}
+body:not(.none) .scheme .nm .pr{display:inline-block; margin:0; flex:none; padding:4px 10px; border-radius:999px;
+  background:var(--panel-2); font-size:12px; font-weight:700; color:var(--heading)}
+body:not(.none) .scheme[aria-pressed="true"] .nm .pr{background:var(--panel)}
 
 /* set-up choice + guided walk-through */
 #startBlock h2{font-size:14px}
@@ -1044,11 +1056,11 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 
     <div class="block" id="shapeBlock">
       <h2>Relief<span id="sizeOut" data-aside>—</span></h2>
-      <p class="relief-lock" id="reliefLock">Heights are raised 3× so the shape reads clearly.</p>
-      <div class="slider-row" hidden>
+      <div class="slider-row">
         <input type="range" id="exag" min="0.1" max="5" step="0.1" value="3" aria-label="Vertical exaggeration (slider)">
         <span class="numbox"><input type="number" id="exagNum" min="0.1" max="5" step="0.1" value="3" inputmode="decimal"><span>×</span></span>
       </div>
+      <p class="relief-cap" id="reliefCap" hidden aria-live="polite"></p>
 
       <div hidden>
         <input type="checkbox" id="useHeightColour">
@@ -1499,8 +1511,8 @@ function progress(on, text, pct) {
 const sel = { lat: 54.4542, lng: -3.2116, size: 7500, rot: 0, name: "Scafell Pike" };   // rot: degrees clockwise
 let current = null;   // sampled elevation data, set by Build / Update terrain
 let three = null;     // the Three.js scene, created on first build
-const RELIEF_X = 3;   // heights are always raised 3×, unless that would break the height limits below
-let exagValue = RELIEF_X;
+const RELIEF_X = 3;   // heights start raised 3×, as far as the height limits below allow
+let exagValue = RELIEF_X, exagWanted = RELIEF_X;   // what is shown, and what the person asked for
 /* Chosen on the first screen: how large an area this session allows. */
 /* One kind of model: a landscape. A route brings its own lower limit, because a two-mile walk
    should not be forced into a four-kilometre square. */
@@ -5368,7 +5380,7 @@ $("build").onclick = async () => {
     await new Promise((r) => setTimeout(r, 30));          // let the canvas size itself
     buildScene(current, exagValue);
     if (exagOff()) {               // only now is the ground's range known
-      setExag(exagValue); buildScene(current, exagValue);
+      setExag(exagWanted); buildScene(current, exagValue);
     }
     appliedSig = selSig();
     checkDirty();
@@ -5395,7 +5407,7 @@ function swapInLater(data, seq) {
     fine.name = data.name;
     current = fine;
     buildScene(current, exagValue);
-    if (exagOff()) { setExag(exagValue); buildScene(current, exagValue); }
+    if (exagOff()) { setExag(exagWanted); buildScene(current, exagValue); }
     appliedSig = selSig(); checkDirty();
     toast("Sharper detail just arrived, so your model's been touched up.");
   });
@@ -5420,32 +5432,39 @@ function heightCapX() {
   const tallest = Math.min(MAX_TALL_MM, wide);
   const room = tallest - 10 - (($("showFrame") && $("showFrame").checked && frameVals.d) || 0);
   const x = Math.max(0.1, Math.min(5, Math.floor((room / perX) * 100) / 100));
-  if (x < RELIEF_X) heightCapBy = wide < MAX_TALL_MM ? "width" : "tall";
+  heightCapBy = wide < MAX_TALL_MM ? "width" : "tall";
   return x;
 }
-/* The relief is locked: always 3×, brought down only as far as the height limits need.
-   Whatever value is passed (an old saved design, say) the result is the same. */
-const reliefTarget = () => Math.min(RELIEF_X, heightCapX());
+/* The relief can never go past the height limits. The person's own choice is remembered, so a
+   size that brings it down hands it back when a roomier one is picked. Only when the person
+   pushes past the limit themselves does a small note say why it stops, and it clears itself. */
+const reliefTarget = () => Math.min(exagWanted, heightCapX());
 const exagOff = () => Math.abs(exagValue - reliefTarget()) > 1e-9;
-function setExag(v) {
-  const vv = reliefTarget();
+let capNoteTimer = null;
+function setExag(v, byPerson) {
+  const want = Math.round(clamp(+v || RELIEF_X, 0.1, 5) * 100) / 100, lim = heightCapX();
+  exagWanted = Math.min(want, byPerson ? lim : want);
+  const vv = Math.min(exagWanted, lim);
   exagValue = vv;
-  const note = $("reliefLock");
-  if (note) note.textContent = vv >= RELIEF_X ? "Heights are raised 3× so the shape reads clearly."
-    : "Heights are raised " + vv + "× here, so the model stays " +
+  const note = $("reliefCap");
+  if (note && byPerson && want > lim + 1e-9) {
+    note.textContent = "Stops at " + lim + "× so the model stays " +
       (heightCapBy === "width" ? "no taller than it is wide." : "under 20 cm tall.");
+    note.hidden = false;
+    clearTimeout(capNoteTimer); capNoteTimer = setTimeout(() => { note.hidden = true; }, 3500);
+  }
   $("exag").value = exagValue;
   $("exagNum").value = String(exagValue);
   updateRelief();                                    // the printed depth follows the exaggeration
 }
 $("ruleFlag").addEventListener("click", () => { $("rulePop").hidden = !$("rulePop").hidden; });
-$("exag").addEventListener("input", (e) => setExag(+e.target.value));   // box follows the slider live
+$("exag").addEventListener("input", (e) => setExag(+e.target.value, true));   // box follows the slider live
 $("exag").addEventListener("change", rebuild);
 function applyExagFromBox() {
   const v = parseFloat($("exagNum").value);
   if (!isFinite(v)) { $("exagNum").value = String(exagValue); return; }
-  if (v < 0.1 || v > 10) toast("Exaggeration must be between 0.1 and 10.");
-  setExag(v);
+  if (v < 0.1) toast("Exaggeration can't go below 0.1.");
+  setExag(v, true);
   rebuild();
 }
 $("exagNum").addEventListener("change", applyExagFromBox);
@@ -5525,7 +5544,7 @@ function syncFrameBtn() {
   if (!on) closeTextPopup();
 }
 $("showFrame").addEventListener("change", () => { syncGates(); syncFrameBtn(); queueFrame(); renderPrintSlots();
-  if (exagOff()) { setExag(exagValue); rebuild(); } });   // the frame's depth counts toward the height limit
+  if (exagOff()) { setExag(exagWanted); rebuild(); } });   // the frame's depth counts toward the height limit
 $("frameBtn").addEventListener("click", () => {
   const box = $("showFrame");
   box.checked = !box.checked;
@@ -5877,7 +5896,7 @@ $("frameColour").addEventListener("change", queueFrame);
    its text, the raised roads — keeps its real size, so a bigger model wears a slimmer frame. */
 function setModelSize(mm) {
   frameVals.modelMM = mm;
-  if (exagOff()) setExag(exagValue);   // a new print size moves the height limits
+  if (exagOff()) setExag(exagWanted);   // a new print size moves the height limits
   setTimeout(updateRelief, 0);
   setTimeout(syncRoadSize, 0);                       // raised roads come and go with the printed size
 
@@ -6141,7 +6160,7 @@ document.querySelectorAll("[data-outline]").forEach((b) => b.addEventListener("c
   syncTextControls();                   // the sides on offer changed: reseat or drop the texts
   renderTextList();                     // and the Add button follows the sides now free or full
   drawSelection();
-  if (current && exagOff()) setExag(exagValue);   // a hexagon is narrower, so it may stand less tall
+  if (current && exagOff()) setExag(exagWanted);   // a hexagon is narrower, so it may stand less tall
   if (current) rebuild();
 }));
 /* The shape lives on the map now, so the button shows which one is on. */
@@ -6300,7 +6319,7 @@ async function resample() {
     swapInLater(current, seq);
     buildScene(current, exagValue);
     if (exagOff()) {               // fresh ground, fresh range: re-check the height limits
-      setExag(exagValue); buildScene(current, exagValue);
+      setExag(exagWanted); buildScene(current, exagValue);
     }
     appliedSig = selSig();
     checkDirty();
@@ -7506,15 +7525,15 @@ function updateSizeOut() {
    what trips it, the warning shown, and what clears it. The flag re-checks after every
    relevant change, so a rule clears itself the moment the person takes the fixing action.
    1. low-relief — the printed height (10 mm base plus the relief) comes to less than a
-      tenth of the printed width; cleared by a smaller area, or any change that deepens the
-      ground (the relief itself is locked at 3×).
+      tenth of the printed width; cleared by more relief under Relief, a smaller area,
+      or any change that deepens the ground.
    (More rules land here as they are written; some may later hold the Print step until
    they are remedied — this first one only warns.) */
 const RULES = [
   {
     id: "low-relief",
     breached: () => !!current && (10 + reliefMM()) < frameVals.modelMM * 0.1,
-    message: "The relief on this model is low. Choosing a smaller area would give it more shape.",
+    message: "The relief on this model is low, consider increasing the relief for a better outcome.",
   },
 ];
 function checkRules() {
@@ -7534,7 +7553,7 @@ function updateRelief() {
   const mm = reliefMM();
   $("reliefOut").textContent = mm ? mm.toFixed(1) + " mm" : "—";
   $("reliefNote").textContent = !mm ? ""
-    : mm < 3 ? "Very flat at this size. A smaller area would help."
+    : mm < 3 ? "Very flat at this size. A smaller area, more exaggeration under Relief, or a larger print would all help."
     : mm < 8 ? "Shallow. It will print, but the hills will read as gentle bumps."
     : mm < 30 ? "A good depth: the ground will read clearly as landscape."
     : "Very deep. Fine to print, though tall cliffs may need care with overhangs.";

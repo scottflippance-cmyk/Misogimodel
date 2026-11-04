@@ -29,7 +29,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .site-banner__brand:hover{color:var(--sb-ink)}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */
-.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
+.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:20px;line-height:.9;
   text-transform:uppercase;letter-spacing:0;white-space:nowrap;
   transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
 .site-banner__word > span:first-child{font-weight:800}
@@ -53,7 +53,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px;min-height:0}
   .site-banner__nav{gap:16px;flex-wrap:nowrap}
   .site-banner__brand{margin:-10px 0;gap:6px}
-  .site-banner__word{font-size:19px}
+  .site-banner__word{font-size:15px}
   .cta--sm{padding:7px 12px;font-size:13.5px}}
 /* On phones the drawing stands for the name on its own, so the cart and the button fit beside it
    without anything overlapping. */
