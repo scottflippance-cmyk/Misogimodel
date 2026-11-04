@@ -61,3 +61,10 @@ Setup, once:
 4. Stripe → Developers → Webhooks → add endpoint `https://misogimodel.com/api/stripe-webhook`,
    events `checkout.session.completed` and `checkout.session.async_payment_succeeded`;
    copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+## The questions (FAQ)
+
+The homepage's questions live in `faq.txt`. To change them, open `faq.txt` on GitHub, click the
+pencil, edit, and commit. Each question starts with `Q:` and its answer with `A:`; a blank line
+inside an answer starts a new paragraph; web and email addresses become links. The homepage reads
+the file every time it loads, so nothing else needs uploading.

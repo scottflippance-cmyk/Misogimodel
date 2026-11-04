@@ -221,6 +221,10 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg button{font-size:12px; line-height:1.25; padding:7px 3px; white-space:nowrap}
 #sizeSeg button small{display:block; font-size:11px; color:var(--muted)}
 #sizeSeg button[aria-pressed="true"] small{color:inherit}
+/* Each size carries its price in a strip of its own at the tile's foot, from the shared price list. */
+#sizeSeg button .price{display:block; margin:8px -2px 0; padding-top:7px; border-top:1px solid var(--line);
+  font-size:13.5px; font-weight:700; color:var(--heading)}
+#sizeSeg button[aria-pressed="true"] .price{border-top-color:color-mix(in srgb, var(--accent) 45%, transparent)}
 
 /* ---------- layout ---------- */
 main{flex:1 1 auto; display:flex; min-height:0; background:var(--panel)}   /* the band around the
@@ -252,9 +256,9 @@ body:not(.none) #panelView #printBlock{position:sticky; bottom:0; z-index:15; ba
 /* an invisible box of the panel's own colour behind it, the panel's full width (the card itself
    stops short of the right edge), with a soft fade above, so nothing shows beside or just above it */
 body:not(.none) #panelView #printBlock::before{content:""; position:absolute; z-index:-1; pointer-events:none;
-  top:0; bottom:0; left:-1px; right:calc(-4.5vw + 6px - 9px); background:var(--panel);
+  top:-20px; bottom:0; left:-1px; right:calc(-4.5vw + 6px - 9px); background:var(--panel);   /* reaching 20 px above the section */
   box-shadow:0 -24px 20px -4px var(--panel)}
-#panelView{scroll-padding-bottom:160px}
+#panelView{scroll-padding-bottom:180px}
 #viewHead{position:sticky; top:0; z-index:20; background:var(--panel); padding:14px 16px 4px;
   border-bottom:1px solid var(--line)}
 .stage{flex:1 1 auto; position:relative; min-width:0; background:var(--stage-bg); overflow:hidden}
@@ -4760,7 +4764,7 @@ function pickScheme(key) {
 function schemeFill(cols) {
   if (cols.length < 2) return cols[0];
   const w = 100 / cols.length;
-  return "linear-gradient(90deg," +
+  return "linear-gradient(125deg," +                 // the colours meet on a 125° diagonal, not a straight line
     cols.map((c, i) => c + " " + (i * w).toFixed(4) + "% " + ((i + 1) * w).toFixed(4) + "%").join(",") + ")";
 }
 let printColUiReady = false;
@@ -8318,16 +8322,20 @@ function drawBackArt(g, L, px, colour, dy = 0) {
     q.globalCompositeOperation = "source-in"; q.fillStyle = colour; q.fillRect(0, 0, t.width, t.height);
     g.drawImage(t, x0, top);
   }
-  // MISOGI over MODEL, MODEL spread to MISOGI's width, the pair centred on the mark's height
-  const F = L.wordMM * px, wx = x0 + (L.markMM + L.gapMM) * px, lineH = F * 0.9, wy = top + h / 2 - lineH;
-  g.fillStyle = colour; g.textAlign = "left"; g.textBaseline = "middle";
+  // MISOGI over MODEL, MODEL spread to MISOGI's width. The capitals themselves (not their line boxes,
+  // which leave room below for descenders capitals don't have) are centred on the mark's height, so
+  // the space above the name matches the space below it.
+  const F = L.wordMM * px, wx = x0 + (L.markMM + L.gapMM) * px, lineH = F * 0.9;
+  g.fillStyle = colour; g.textAlign = "left"; g.textBaseline = "alphabetic";
   g.font = backFont(800, F); if ("letterSpacing" in g) g.letterSpacing = "0px";
+  const capH = g.measureText("H").actualBoundingBoxAscent || F * 0.727;   // the capitals' height
+  const base1 = top + h / 2 - (capH + lineH) / 2 + capH, base2 = base1 + lineH;
   const topW = g.measureText(BACK_WORD_TOP).width;
-  g.fillText(BACK_WORD_TOP, wx, wy + lineH / 2);
+  g.fillText(BACK_WORD_TOP, wx, base1);
   g.font = backFont(400, F);
   const natural = g.measureText(BACK_WORD_BOT).width, spread = (topW - natural) / (BACK_WORD_BOT.length - 1);
-  if ("letterSpacing" in g) { g.letterSpacing = spread + "px"; g.fillText(BACK_WORD_BOT, wx, wy + lineH * 1.5); g.letterSpacing = "0px"; }
-  else { let x = wx; for (const ch of BACK_WORD_BOT) { g.fillText(ch, x, wy + lineH * 1.5); x += g.measureText(ch).width + spread; } }
+  if ("letterSpacing" in g) { g.letterSpacing = spread + "px"; g.fillText(BACK_WORD_BOT, wx, base2); g.letterSpacing = "0px"; }
+  else { let x = wx; for (const ch of BACK_WORD_BOT) { g.fillText(ch, x, base2); x += g.measureText(ch).width + spread; } }
   // the address, centred below, the logo's width
   g.font = fontCSS("inter", L.emMM * px); g.textAlign = "center";
   g.fillText(BACK_TEXT, x0 + L.artMM * px / 2, top + h + L.between * px + L.emMM * px * 0.62);
@@ -9081,6 +9089,15 @@ openFromHash();
 /* Arriving from a size card on the homepage (/studio/?size=250): that size starts chosen. */
 (() => { const want = +new URLSearchParams(location.search).get("size");
   if (document.querySelector('#sizeSeg button[data-mm="' + want + '"]')) setModelSize(want); })();
+/* Each printed size shows what it costs, read from the same price list the cart and checkout use. */
+pricingModule().then(({ PRICING, money }) => {
+  document.querySelectorAll("#sizeSeg button").forEach((b) => {
+    const sz = PRICING.sizes[+b.dataset.mm]; if (!sz) return;
+    let p = b.querySelector(".price");
+    if (!p) { p = document.createElement("span"); p.className = "price"; b.append(p); }
+    p.textContent = money(sz.price, PRICING.currency);
+  });
+}).catch((e) => console.error(e));
 /* Arriving from a suggestion in the empty cart (/studio/?inspire=scafell-pike): that place is framed and
    built straight away, as if picked from Need some inspiration. */
 (() => { const key = new URLSearchParams(location.search).get("inspire");

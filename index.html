@@ -19,6 +19,41 @@
 body{margin:0;background:#FFFFFF}
 a{color:#2F5BD8}a:hover{color:#1F45B0}
 summary{cursor:pointer}
+/* The questions span the page's full 1200 px, like every other section. */
+#faq details p{font-size:15px !important}
+/* The footer: the header's logo at three times the size, in white, on a footer three times as tall.
+   The mountain logo stands on the footer's bottom edge and rises up from the bottom of the screen as
+   the page is scrolled to its end (home-extras.js); MISOGI over MODEL sits beside it. */
+.site-footer{background:#0B0E12;color:#C3C9D1;position:relative;overflow:hidden}
+.site-footer__inner{max-width:1200px;margin:0 auto;padding:0 24px;min-height:380px;box-sizing:border-box;
+  display:flex;flex-wrap:wrap;align-items:stretch;justify-content:space-between;gap:24px 40px}
+.site-footer__brand{display:flex;align-items:center;gap:36px;text-decoration:none;color:#FFFFFF;align-self:flex-end;height:156px}
+.site-footer__mountain{display:block;flex:none;height:156px;aspect-ratio:442/156;align-self:flex-end;background:#FFFFFF;
+  -webkit-mask:url(/brand/mountain-logo.png) center/100% 100% no-repeat;mask:url(/brand/mountain-logo.png) center/100% 100% no-repeat;
+  transform:translateY(var(--rise, 0%));will-change:transform}
+.site-footer__word{display:flex;flex-direction:column;align-items:flex-start;font-size:72px;line-height:.9;
+  text-transform:uppercase;letter-spacing:0;white-space:nowrap;transform:translateY(.03em)}
+.site-footer__word > span:first-child{font-weight:800}
+.site-footer__word > span:last-child{font-weight:400;letter-spacing:.036em;margin-right:-.036em}
+.site-footer__side{align-self:center;display:flex;flex-direction:column;align-items:flex-end;gap:18px;padding:40px 0}
+.site-footer__side nav{display:flex;flex-wrap:wrap;gap:24px;font-size:15px}
+.site-footer__side nav a{color:#C3C9D1;text-decoration:none}
+.site-footer__side nav a:hover{color:#FFFFFF}
+.site-footer__side p{margin:0;font-size:14px}
+@media (max-width:820px){
+  .site-footer__inner{min-height:0;flex-direction:column-reverse;align-items:flex-start;padding-top:8px}
+  .site-footer__side{align-self:flex-start;align-items:flex-start;padding:32px 0 0}
+  .site-footer__brand{align-self:flex-start;height:96px;gap:20px}
+  .site-footer__mountain{height:96px}
+  .site-footer__word{font-size:40px}}
+@media (max-width:480px){
+  .site-footer__brand{height:72px;gap:14px}
+  .site-footer__mountain{height:72px}
+  .site-footer__word{font-size:30px}}
+@media (max-width:389px){
+  .site-footer__brand{height:58px;gap:12px}
+  .site-footer__mountain{height:58px}
+  .site-footer__word{font-size:25px}}
 </style>
 <style id="site-chrome">
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
@@ -50,7 +85,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */
 .site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
-  text-transform:uppercase;letter-spacing:0;white-space:nowrap}
+  text-transform:uppercase;letter-spacing:0;white-space:nowrap;
+  transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
 .site-banner__word > span:first-child{font-weight:800}
 .site-banner__word > span:last-child{font-weight:400;letter-spacing:.036em;margin-right:-.036em}
 .site-banner__nav{display:flex;flex-wrap:wrap;align-items:center;gap:28px;font-size:15px}
@@ -267,7 +303,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </div>
 </section>
 
-<section id="faq" style="max-width: 820px; margin: 0 auto; padding: 104px 24px 96px">
+<section id="faq" style="max-width: 1200px; margin: 0 auto; padding: 104px 24px 96px">
 <h2 style="margin: 0 0 28px; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Questions.</h2>
 <details style="border-top: 1px solid #E5E8EE; padding: 22px 0">
 <summary style="font-size: 18px; font-weight: 600">Where does the terrain come from?</summary>
@@ -287,16 +323,21 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </details>
 </section>
 
-<footer style="background: #0B0E12; color: #C3C9D1">
-<div style="max-width: 1200px; margin: 0 auto; padding: 48px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px">
-<p style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.02em"><svg width="24" height="24" aria-hidden="true" viewBox="29 24 44 44"><g fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="51" cy="46" r="18"></circle><path d="M39.5 50 C39 44 42.5 39.5 48 38.5 C53 37.5 58.5 39 60.5 43 C62 46.5 60 49.5 56.5 50.5 C54 51.2 53 53.6 49.5 55 C44.5 56.8 40 55 39.5 50 Z" stroke-width="3.4"></path><path d="M48.5 45.8 C48.2 43.2 50.5 41.6 53 41.8 C55.4 42 56.8 43.6 56 45.4 C55.4 46.7 53.8 46.9 52.4 47.6 C50.9 48.4 48.8 47.9 48.5 45.8 Z" stroke-width="3.4"></path></g></svg>misogimodel</p>
-<nav aria-label="Footer" style="display: flex; flex-wrap: wrap; gap: 24px; font-size: 15px">
-<a href="/contact" style="color: #C3C9D1; text-decoration: none">Contact</a>
-<a href="/delivery-returns" style="color: #C3C9D1; text-decoration: none">Delivery &amp; returns</a>
-<a href="/privacy" style="color: #C3C9D1; text-decoration: none">Privacy</a>
-<a href="/terms" style="color: #C3C9D1; text-decoration: none">Terms</a>
+<footer class="site-footer">
+<div class="site-footer__inner">
+<a class="site-footer__brand" href="#top" aria-label="misogimodel: back to the top">
+<span class="site-footer__mountain" aria-hidden="true"></span>
+<span class="site-footer__word" aria-hidden="true"><span>misogi</span><span>model</span></span>
+</a>
+<div class="site-footer__side">
+<nav aria-label="Footer">
+<a href="/contact">Contact</a>
+<a href="/delivery-returns">Delivery &amp; returns</a>
+<a href="/privacy">Privacy</a>
+<a href="/terms">Terms</a>
 </nav>
-<p style="margin: 0; font-size: 14px">© 2026 misogimodel</p>
+<p>© 2026 misogimodel</p>
+</div>
 </div>
 </footer>
 
@@ -511,5 +552,88 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 })();
 </script>
 <!-- /banner-contours -->
+<script>
+/* The homepage's two moving parts.
+   1. The footer's mountain logo rises from the bottom of the screen as the page is scrolled to its
+      end: its foot held at the screen's bottom edge, it comes up as the footer scrolls in, and stands
+      on the footer's own bottom edge once the whole footer is on screen. For anyone who has asked for less motion it simply stands there.
+   2. The questions come from /faq.txt, a plain text file you can edit on GitHub: each question starts
+      "Q:", its answer "A:". If the file can't be read, the questions written into the page stay. */
+(() => {
+  const foot = document.querySelector(".site-footer"), mountain = foot && foot.querySelector(".site-footer__mountain");
+  if (mountain) {
+    const still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let queued = false;
+    // While the footer comes into view the mountain's foot is held at the bottom of the screen, the
+    // mountain itself sunk below it by the share of the footer still to come; it rises as the page
+    // scrolls and lands on the footer's own bottom edge just as the page reaches its end.
+    const place = () => {
+      queued = false;
+      if (still) { mountain.style.setProperty("--rise", "0px"); return; }   // no movement: it stands on the footer's edge
+      const r = foot.getBoundingClientRect(), mh = mountain.offsetHeight, vh = innerHeight;
+      const shown = Math.min(1, Math.max(0, (vh - r.top) / r.height));
+      const footAt = Math.min(r.bottom, vh) + mh * (1 - shown);      // where its foot should be on screen
+      mountain.style.setProperty("--rise", (footAt - r.bottom).toFixed(1) + "px");
+      mountain.dataset.shown = shown.toFixed(3);
+    };
+    const soon = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
+    addEventListener("scroll", soon, { passive: true }); addEventListener("resize", soon); place();
+    window.__footerRise = { place };
+  }
+
+  const faq = document.getElementById("faq");
+  if (!faq) return;
+  // a line of the answer, with any web or email addresses made into links (written as text, never as HTML)
+  const linked = (text) => {
+    const out = document.createDocumentFragment(), re = /(https?:\/\/[^\s]+[^\s.,;:!?)]|[\w.+-]+@[\w-]+\.[\w.-]+\w)/g;
+    let at = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > at) out.append(text.slice(at, m.index));
+      const a = document.createElement("a"); a.textContent = m[0];
+      a.href = m[0].includes("@") && !m[0].startsWith("http") ? "mailto:" + m[0] : m[0];
+      out.append(a); at = m.index + m[0].length;
+    }
+    if (at < text.length) out.append(text.slice(at));
+    return out;
+  };
+  function parse(txt) {
+    const items = []; let cur = null, field = null;
+    for (const raw of txt.replace(/\r/g, "").split("\n")) {
+      const line = raw.trimEnd();
+      if (/^\s*#/.test(line)) continue;                               // a note for whoever edits the file
+      const q = line.match(/^\s*Q:\s*(.*)$/i), a = line.match(/^\s*A:\s*(.*)$/i);
+      if (q) { cur = { q: q[1], a: [] }; items.push(cur); field = "q"; continue; }
+      if (a && cur) { cur.a.push(a[1]); field = "a"; continue; }
+      if (!cur) continue;
+      if (field === "q") { if (line.trim()) cur.q += " " + line.trim(); }
+      else if (!line.trim()) cur.a.push("");                          // a blank line: a new paragraph
+      else cur.a[cur.a.length - 1] = (cur.a[cur.a.length - 1] ? cur.a[cur.a.length - 1] + " " : "") + line.trim();
+    }
+    return items.map((it) => ({ q: it.q.trim(), a: it.a.join("\n").split(/\n+/).map((p) => p.trim()).filter(Boolean) }))
+                .filter((it) => it.q && it.a.length);
+  }
+  function show(items) {
+    const old = [...faq.querySelectorAll("details")];
+    if (!items.length) return;
+    const like = old[0];
+    old.forEach((d) => d.remove());
+    items.forEach((it, i) => {
+      const d = document.createElement("details");
+      d.style.cssText = like ? like.style.cssText : "border-top:1px solid #E5E8EE;padding:22px 0";
+      d.style.borderBottom = i === items.length - 1 ? "1px solid #E5E8EE" : "";
+      const s = document.createElement("summary"); s.style.cssText = "font-size:18px;font-weight:600"; s.textContent = it.q;
+      d.append(s);
+      for (const para of it.a) {
+        const p = document.createElement("p"); p.style.cssText = "margin:14px 0 0;font-size:15px;line-height:1.6;color:#3A424C";
+        p.append(linked(para)); d.append(p);
+      }
+      faq.append(d);
+    });
+    faq.dataset.source = "faq.txt";
+  }
+  window.__faq = { parse };
+  fetch("/faq.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).then((t) => show(parse(t))).catch(() => {});
+})();
+</script>
 </body>
 </html>

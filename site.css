@@ -30,7 +30,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */
 .site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
-  text-transform:uppercase;letter-spacing:0;white-space:nowrap}
+  text-transform:uppercase;letter-spacing:0;white-space:nowrap;
+  transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
 .site-banner__word > span:first-child{font-weight:800}
 .site-banner__word > span:last-child{font-weight:400;letter-spacing:.036em;margin-right:-.036em}
 .site-banner__nav{display:flex;flex-wrap:wrap;align-items:center;gap:28px;font-size:15px}
