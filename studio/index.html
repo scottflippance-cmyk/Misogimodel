@@ -225,6 +225,12 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg button .price{display:block; margin:8px -2px 0; padding-top:7px; border-top:1px solid var(--line);
   font-size:13.5px; font-weight:700; color:var(--heading)}
 #sizeSeg button[aria-pressed="true"] .price{border-top-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+/* What the extras cost, from the same price list: under the GPX box's words, on the frame button, and
+   beside each colour scheme's name. */
+#dropZone .pr{display:block; margin-top:6px; font-size:13px; font-weight:700; color:var(--heading)}
+#dropZone .pr:empty{display:none}
+#frameBtn small.pr{margin-top:4px; font-size:12.5px; font-weight:700; color:var(--heading)}
+.scheme .nm .pr{display:block; margin-top:1px; font-size:11.5px; font-weight:600; color:var(--heading)}
 
 /* ---------- layout ---------- */
 main{flex:1 1 auto; display:flex; min-height:0; background:var(--panel)}   /* the band around the
@@ -253,6 +259,7 @@ body:not(.none) #panelView #printBlock{position:sticky; bottom:0; z-index:15; ba
    own top margin would merge with the title's and hold the gap open, so it has none. */
 #panelView .block:not(#iconsBlock):not(#frameBlock) > h2{margin-bottom:4px}
 #panelView .scheme-grid{margin-top:0}
+body:not(.none) #panelView #printColBlock{padding-bottom:49px}   /* 25 px more blank under the colours: the last is clear of Order's white */
 /* an invisible box of the panel's own colour behind it, the panel's full width (the card itself
    stops short of the right edge), with a soft fade above, so nothing shows beside or just above it */
 body:not(.none) #panelView #printBlock::before{content:""; position:absolute; z-index:-1; pointer-events:none;
@@ -1003,7 +1010,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
       <h2>Route</h2>
       <div id="findGpx">
         <div id="dropZone" tabindex="0" role="button" aria-label="Choose a GPX file">
-          <b>Choose a .gpx file</b><br>or drop one here
+          <b>Choose a .gpx file</b><br>or drop one here<span class="pr" id="routePrice"></span>
         </div>
         <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden>
         <div id="gpxInfo" hidden>
@@ -4785,6 +4792,9 @@ function renderPrintSlots() {
     const nm = document.createElement("span");
     nm.className = "nm";
     nm.textContent = sc.label;
+    if (EXTRA_PRICE && EXTRA_PRICE.schemes[sc.key] != null) {   // what it adds to the model, from the price list
+      const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.schemes[sc.key]; nm.append(pr);
+    }
     b.append(bar, nm);
     b.addEventListener("click", () => pickScheme(sc.key));
     host.append(b);
@@ -5482,6 +5492,7 @@ function syncFrameBtn() {
     const sub = document.createElement("small");
     sub.textContent = on ? "Its engraved text goes with it" : "A border with engraved text";
     b.replaceChildren(on ? "Remove frame" : "Add frame", sub);
+    if (EXTRA_PRICE && EXTRA_PRICE.frame) { const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.frame; b.append(pr); }
     b.classList.toggle("on", on);
   }
   const part = $("frameTextPart");
@@ -9089,8 +9100,15 @@ openFromHash();
 /* Arriving from a size card on the homepage (/studio/?size=250): that size starts chosen. */
 (() => { const want = +new URLSearchParams(location.search).get("size");
   if (document.querySelector('#sizeSeg button[data-mm="' + want + '"]')) setModelSize(want); })();
-/* Each printed size shows what it costs, read from the same price list the cart and checkout use. */
-pricingModule().then(({ PRICING, money }) => {
+/* Each printed size shows what it costs, read from the same price list the cart and checkout use, and so
+   do the extras: a route, a frame, and each colour scheme (one colour is included). */
+var EXTRA_PRICE = null;                              // filled once the price list is in (var: read before then)
+pricingModule().then(({ PRICING, money, schemePrice }) => {
+  const plus = (p) => (p > 0 ? "+ " + money(p, PRICING.currency) : "Included");
+  EXTRA_PRICE = { route: plus(PRICING.extras.route.price), frame: plus(PRICING.extras.frame.price), schemes: {} };
+  for (const sc of COLOUR_SCHEMES) { const p = schemePrice(sc.key, PRICING); if (p != null) EXTRA_PRICE.schemes[sc.key] = plus(p); }
+  $("routePrice").textContent = EXTRA_PRICE.route;
+  syncFrameBtn(); renderPrintSlots();
   document.querySelectorAll("#sizeSeg button").forEach((b) => {
     const sz = PRICING.sizes[+b.dataset.mm]; if (!sz) return;
     let p = b.querySelector(".price");
