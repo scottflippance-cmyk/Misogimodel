@@ -19,6 +19,13 @@ export const PRICING = {
     frame: { label: "Frame with your engraved text", short: "frame", price: 800 },
     icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
   },
+  /* Print colours, by how many filaments the scheme uses: one colour is included, two or four cost more. */
+  colours: {
+    1: { label: "One colour", short: "", price: 0 },
+    2: { label: "Two-colour print", short: "two colours", price: 500 },
+    4: { label: "Four-colour print", short: "four colours", price: 1000 },
+  },
+  schemeColours: { solid: 1, water: 2, green: 2, natural: 4, bold: 4 },  // the studio's schemes, by colours used
   shipping: [
     { id: "uk-standard", label: "UK standard", note: "3–5 working days", price: 395, days: [3, 5] },
     { id: "uk-express",  label: "UK express",  note: "1–2 working days", price: 795, days: [1, 2] },
@@ -35,6 +42,7 @@ export function itemFromDesign(design) {
     route: !!(design && design.route),
     frame: !!frame.show,
     icons: Math.max(0, Math.min(50, ((design && design.icons) || []).length)),
+    scheme: (design && design.print && design.print.on && design.print.scheme) || "solid",
   };
 }
 
@@ -51,10 +59,20 @@ export function priceItem(item, pricing = PRICING) {
   add("route", item.route);
   add("frame", item.frame);
   add("icon", item.icons > 0, item.icons);
+  // the colours: priced by the scheme's own count from this list, never by what the browser says
+  const nCol = pricing.schemeColours[item.scheme || "solid"];
+  if (nCol == null) throw new Error("That colour scheme isn't on the price list.");
+  const col = pricing.colours[nCol];
+  if (col && col.price > 0) lines.push({ key: "colours", label: col.label, unit: col.price, qty: 1, amount: col.price });
   const extras = [item.route && "route", item.frame && "frame",
-                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons"))].filter(Boolean);
+                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons")), col && col.short].filter(Boolean);
   return { size, lines, extras, subtotal: lines.reduce((t, l) => t + l.amount, 0) };
 }
+
+/* What a colour scheme adds to a model (0 for one colour). */
+export const schemePrice = (scheme, pricing = PRICING) => {
+  const n = pricing.schemeColours[scheme]; return n == null ? null : (pricing.colours[n] || { price: 0 }).price;
+};
 
 /* A whole cart: every model, one delivery, the total. */
 export function priceCart(items, shipping, pricing = PRICING) {
