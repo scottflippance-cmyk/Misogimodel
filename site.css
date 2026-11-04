@@ -1,0 +1,117 @@
+/* misogimodel site chrome: the banner and the call-to-action buttons.
+   Generated from the landing-page design by build_landing.py; edit the design, not this. */
+:root{--accent:#2F5BD8}
+/* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
+   same place on the homepage (which scrolls) and in the studio (which doesn't). */
+html{scroll-padding-top:96px;scrollbar-gutter:stable}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+/* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
+/* The banner sets its own type rather than taking the page's, so its lettering sits at the same
+   height whichever page it is on. */
+.site-banner{position:sticky;top:0;z-index:1000;display:block;margin:0;padding:0;border:0;
+  font-family:Inter,system-ui,sans-serif;line-height:normal;
+  --sb-bg:rgba(255,255,255,.72);--sb-ink:#0B0E12;--sb-link:#3A424C;
+  --sb-shadow:0 1px 0 rgba(11,14,18,.05),0 8px 24px rgba(11,14,18,.08);
+  background:var(--sb-bg);box-shadow:var(--sb-shadow);
+  -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
+/* The hidden contours (banner-contours.js) lie under everything on the bar and never take a click. */
+.site-banner__contours{position:absolute;inset:0;pointer-events:none;z-index:0}
+.site-banner__inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
+  min-height:70px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+/* The mark, Puncak Jaya in two tones, cut from a photograph: the banner's ink where the rock is in
+   shadow, and the banner itself where it catches the sun, so it reads in either look. It stands on
+   the banner's bottom edge and rises three quarters of its height: the brand runs the full height
+   of the bar (the margins undo the bar's padding) and the drawing sits at its foot, while the
+   wordmark stays centred. */
+.site-banner__brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--sb-ink);
+  align-self:stretch;margin:-14px 0}
+.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end}
+.site-banner__brand:hover{color:var(--sb-ink)}
+/* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
+   first's width exactly (0.036 em between its letters, the last letter's share given back). */
+.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
+  text-transform:uppercase;letter-spacing:0;white-space:nowrap;
+  transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
+.site-banner__word > span:first-child{font-weight:800}
+.site-banner__word > span:last-child{font-weight:400;letter-spacing:.036em;margin-right:-.036em}
+.site-banner__nav{display:flex;flex-wrap:wrap;align-items:center;gap:28px;font-size:15px}
+.site-banner__link{color:var(--sb-link);text-decoration:none}
+.site-banner__link:hover{color:var(--sb-ink)}
+.cta--sm{padding:9px 18px;font-size:15px}
+/* The cart: a bag, with the number of models in it on a small blue badge once there are any. */
+.site-banner__cart{position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;
+  margin:0 -8px;border-radius:999px;color:var(--sb-ink);text-decoration:none}
+.site-banner__cart:hover{background:rgba(127,127,127,.12)}
+.site-banner__cart svg{display:block;width:24px;height:24px}
+.site-banner__count{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
+  border-radius:999px;background:var(--accent,#2F5BD8);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.site-banner__count[hidden]{display:none}
+/* On a phone the banner stays one slim row: the section links step out (they are in the page
+   anyway) and the mark, wordmark and button tighten to fit. */
+@media (max-width:640px){
+  .site-banner__link{display:none}
+  .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px;min-height:0}
+  .site-banner__nav{gap:16px;flex-wrap:nowrap}
+  .site-banner__brand{margin:-10px 0;gap:6px}
+  .site-banner__word{font-size:19px}
+  .cta--sm{padding:7px 12px;font-size:13.5px}}
+/* On phones the drawing stands for the name on its own, so the cart and the button fit beside it
+   without anything overlapping. */
+@media (max-width:439px){
+  .site-banner__word{display:none}}
+/* The call-to-action buttons: flat, with a light diagonal sheen (lighter top left, deeper bottom
+   right). The sheen is painted under the border too, so no seam of another colour shows at the
+   rounded ends. On hover a soft glow, and a border whose light runs round it every 2.5 seconds:
+   a pale tint of the button's own colour, never pure white, which read as a hard line on a
+   straight edge. */
+@property --cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+.cta{--cta-accent:var(--accent,#2F5BD8);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
+  display:inline-block;color:#FFFFFF;text-decoration:none;font-weight:600;border-radius:999px;
+  border:2px solid transparent;background:var(--cta-sheen) border-box;box-shadow:none;
+  transition:box-shadow .25s ease}
+.cta:hover{color:#FFFFFF;
+  background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),var(--cta-accent)) border-box;
+  box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
+  animation:cta-spin 2.5s linear infinite}
+@keyframes cta-spin{to{--cta-angle:360deg}}
+@media (prefers-reduced-motion:reduce){.cta:hover{animation:none}}
+/* The size cards: one look for all four; under a pointer, the card grows by a quarter. */
+.size-card{position:relative;color:inherit;text-decoration:none;cursor:pointer;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
+.size-card:hover{color:inherit}
+.size-card:focus-visible{outline:3px solid var(--accent,#2F5BD8);outline-offset:4px}
+@media (hover:hover) and (min-width:900px){
+  .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
+/* The colour ways: stacked on the left; the picture beside them shows whichever is under the
+   pointer, else the one chosen (Natural to begin with). Photos dropped in /images/colourways/
+   cover the placeholder automatically. */
+.cw{display:grid;grid-template-columns:minmax(280px,400px) 1fr;gap:40px;margin-top:44px;align-items:stretch}
+.cw__list{display:flex;flex-direction:column;gap:10px}
+.cw__opt{position:relative;display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:16px;
+  background:#F5F5F7;border:2px solid transparent;cursor:pointer;transition:background .2s ease,border-color .2s ease}
+.cw__opt:hover{background:#ECEEF2}
+.cw__opt:has(input:checked){border-color:var(--accent,#2F5BD8);background:#FFFFFF}
+.cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#2F5BD8);outline-offset:2px}
+.cw__opt input{position:absolute;opacity:0;pointer-events:none}
+.cw__bar{flex:0 0 72px;height:40px;border-radius:10px;overflow:hidden;display:flex}
+.cw__bar span{flex:1}
+.cw__text{display:flex;flex-direction:column;gap:2px}
+.cw__name{font-size:16px;font-weight:600}
+.cw__note{font-size:14px;color:#5B6470;line-height:1.4}
+/* beside the list the picture runs exactly from the first colour way's top to the last one's foot */
+.cw__view{position:relative;border-radius:24px;overflow:hidden;background:#F5F5F7}
+.cw__img{position:absolute;inset:0;opacity:0;transition:opacity .3s ease;display:flex;align-items:center;justify-content:center}
+.cw__img > .cw__bar{position:absolute;left:24px;right:24px;bottom:24px;height:14px;border-radius:7px;flex:none}
+.cw__ph{margin:0;font-size:13px;color:#5B6470;background:#FFFFFF;padding:8px 14px;border-radius:999px}
+.cw__photo{position:absolute;inset:0;background-size:cover;background-position:center}
+.cw:not(:has(.cw__opt:hover)):has(input[value=solid]:checked) .cw__img[data-cw=solid],
+.cw:has(.cw__opt[data-cw=solid]:hover) .cw__img[data-cw=solid]{opacity:1}
+.cw:not(:has(.cw__opt:hover)):has(input[value=land-water]:checked) .cw__img[data-cw=land-water],
+.cw:has(.cw__opt[data-cw=land-water]:hover) .cw__img[data-cw=land-water]{opacity:1}
+.cw:not(:has(.cw__opt:hover)):has(input[value=land-green]:checked) .cw__img[data-cw=land-green],
+.cw:has(.cw__opt[data-cw=land-green]:hover) .cw__img[data-cw=land-green]{opacity:1}
+.cw:not(:has(.cw__opt:hover)):has(input[value=natural]:checked) .cw__img[data-cw=natural],
+.cw:has(.cw__opt[data-cw=natural]:hover) .cw__img[data-cw=natural]{opacity:1}
+.cw:not(:has(.cw__opt:hover)):has(input[value=bold]:checked) .cw__img[data-cw=bold],
+.cw:has(.cw__opt[data-cw=bold]:hover) .cw__img[data-cw=bold]{opacity:1}
+@media (max-width:760px){.cw{grid-template-columns:1fr;gap:20px}.cw__view{order:-1;aspect-ratio:4/3}}

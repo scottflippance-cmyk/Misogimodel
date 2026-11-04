@@ -1,0 +1,21 @@
+# The questions on the homepage.
+#
+# To change them, edit this file on GitHub (open it, click the pencil, edit, then "Commit changes").
+# The homepage reads it every time it loads, so there is nothing else to do.
+#
+# Each question starts with "Q:" and its answer with "A:".
+# An answer can run over several lines. Leave a blank line inside an answer to start a new paragraph.
+# Web addresses and email addresses in an answer become links on their own.
+# Lines starting with # (like these) are notes for you and never appear on the site.
+
+Q: Where does the terrain come from?
+A: From national elevation surveys wherever they are published: England, Scotland, the Netherlands, France, Spain, Italy, Switzerland, North Rhine-Westphalia and the USA. Everywhere else uses worldwide data, about 30 m between points.
+
+Q: How long does a print take?
+A: [YOUR TURNAROUND TIME]
+
+Q: Where do you deliver, and what does it cost?
+A: [YOUR DELIVERY AREAS AND COSTS]
+
+Q: Can I cancel or return a custom print?
+A: [YOUR RETURNS POLICY]
