@@ -237,6 +237,17 @@ aside{
 aside::-webkit-scrollbar{width:9px}
 aside::-webkit-scrollbar-track{background:transparent}
 aside::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px; border:2px solid transparent; background-clip:content-box}
+/* The Order section stays in view at the foot of the Customise panel; everything else scrolls up
+   behind it. The band of panel colour round it (and a soft fade above) hides what passes beneath,
+   in the margins too. Sections scrolled to stop clear of it. */
+body:not(.none) #panelView #printBlock{position:sticky; bottom:0; z-index:15; background:var(--panel);
+  padding-top:30px; padding-bottom:28px}
+/* an invisible box of the panel's own colour behind it, the panel's full width (the card itself
+   stops short of the right edge), with a soft fade above, so nothing shows beside or just above it */
+body:not(.none) #panelView #printBlock::before{content:""; position:absolute; z-index:-1; pointer-events:none;
+  top:0; bottom:0; left:-1px; right:calc(-4.5vw + 6px - 9px); background:var(--panel);
+  box-shadow:0 -24px 20px -4px var(--panel)}
+#panelView{scroll-padding-bottom:160px}
 #viewHead{position:sticky; top:0; z-index:20; background:var(--panel); padding:14px 16px 4px;
   border-bottom:1px solid var(--line)}
 .stage{flex:1 1 auto; position:relative; min-width:0; background:var(--stage-bg); overflow:hidden}
@@ -265,6 +276,9 @@ body.mode-view #viewer{display:block}
   font-size:19px; font-weight:700; margin:0 0 10px; letter-spacing:-0.01em; text-transform:none; color:var(--heading);
 }
 .sec-sub{color:var(--muted); font-weight:600}
+.sec-sub .sec-dot{color:#E9EDEB}                      /* the full stop after a section's name is the name's colour */
+body.light .sec-sub .sec-dot{color:#0B0E12}
+.sec-sub .sec-opt{font-size:12px; font-weight:500}    /* "(optional)", small after the sentence */
 /* The section names — Printed size, Route and the rest — stand a shade darker than the other
    headings, in both themes. */
 .block > h2, .block > h2 .sec-toggle{color:#E9EDEB}
@@ -277,13 +291,15 @@ body.light .block > h2, body.light .block > h2 .sec-toggle{color:#0B0E12}
 #terrainCard .sec-toggle{text-transform:none; letter-spacing:0}
 .sec-toggle small{text-transform:none; letter-spacing:0; font-weight:400}   /* names and summaries read as written */
 .block p.hint{margin:8px 0 0; font-size:12.5px; color:var(--muted)}
-/* Find a place sits closer to its button: the gap between the search box and Build 3D preview is
-   half what it was (68 px to 34 px). */
-body:not(.none) #panelMap #findBlock{padding-bottom:8px}
-body:not(.none) #panelMap #buildBlock{padding-top:8px}
+/* Find a place sits close to its button: 18 px from the search box to Build 3D preview (it was 68,
+   then 34). Its title sits 6 px above the search box, the same gap as between Need some
+   inspiration? and the line under it. */
+body:not(.none) #panelMap #findBlock{padding-bottom:0}
+body:not(.none) #panelMap #buildBlock{padding-top:0}
+#findBlock > h2{margin-bottom:4px}
 /* Need some inspiration: three places stacked, each a row with its contour sketch, name, where it
    is and one line about it. The whole row is the button. */
-#inspoBlock .inspo-lead{margin:-4px 0 14px; font-size:14px; color:var(--muted)}
+#inspoBlock .inspo-lead{margin:-8px 0 14px; font-size:14px; color:var(--muted)}
 .inspo-list{display:flex; flex-direction:column; gap:10px}
 #inspoBlock .inspo{display:flex; gap:14px; align-items:center; width:100%; min-height:154px;   /* 107 px, then a fifth taller twice */
   padding:0; overflow:hidden; text-align:left;
@@ -953,17 +969,17 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     <!-- Three famous places to start from: a click frames that place, builds it and opens Customise. -->
     <div class="block" id="inspoBlock">
       <h2>Need some inspiration?</h2>
-      <p class="inspo-lead">Start from one of these and make it yours.</p>
+      <p class="inspo-lead">Start with our most popular models</p>
       <div class="inspo-list" id="inspoList"></div>
     </div>
   </aside>
 
   <aside id="panelView" hidden>
-    <div id="viewHead"><button class="primary wide" id="back">← Back to the map</button></div>
+    <div id="viewHead"><button class="primary wide" id="back">Pick another location</button></div>
 
     <div class="block" id="sizeBlock">
-      <h2>Printed size</h2>
-      <div class="seg" id="sizeSeg" role="group" aria-label="Printed size">
+      <h2>Print Dimensions</h2>
+      <div class="seg" id="sizeSeg" role="group" aria-label="Print Dimensions">
         <button data-mm="100" aria-pressed="false">The Side Quest<small>10 cm × 10 cm</small></button>
         <button data-mm="150" aria-pressed="true">The Adventure<small>15 cm × 15 cm</small></button>
         <button data-mm="250" aria-pressed="false">The Expedition<small>25 cm × 25 cm</small></button>
@@ -1107,8 +1123,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     </div>
 
     <div class="block" id="printBlock">
-      <h2>Order<span class="sec-sub">. Printed and posted to you.</span></h2>
-      <p class="hint" id="printWidth">The model prints at the width set under Printed size.</p>
+      <h2>Order</h2>
       <!-- What goes into the print file: everything on the model. Kept as settings, out of sight. -->
       <div hidden>
         <input type="checkbox" id="stlFrame" checked><input type="checkbox" id="stlRoute" checked disabled><input type="checkbox" id="stlIcons" checked>
@@ -2415,11 +2430,11 @@ function syncScrollRail() {
    from the place follows it), then builds the model and opens Customise. */
 const INSPIRATION = [
   { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania · 5,895 m", lat: -3.0674, lng: 37.3556, sizeM: 14000,
-    say: "Africa's highest peak: a lone volcano rising out of the plains." },
+    say: "Africa's highest peak. A volcano rising out of the plains." },
   { key: "everest", name: "Everest", where: "Nepal & China · 8,849 m", lat: 27.9881, lng: 86.9250, sizeM: 10000,
-    say: "The roof of the world, with the Khumbu Icefall below." },
+    say: "The highest point in the world. The first documented ascent in 1953." },
   { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA · 1.8 km deep", lat: 36.0919, lng: -112.1035, sizeM: 16000,
-    say: "Carved by the Colorado River through two billion years of rock." }
+    say: "Carved by the Colorado River over millions of years." }
 ];
 /* Stills of each place's own model, rendered in the studio from the real ground in one plain
    colour, background cut away so the tile's grey shows through. Written into the page so there
@@ -5810,7 +5825,7 @@ function setModelSize(mm) {
   if (exagValue > heightCapX() + 1e-9) setExag(exagValue);   // a larger print can breach the 25 cm cap
   setTimeout(updateRelief, 0);
   setTimeout(syncRoadSize, 0);                       // raised roads come and go with the printed size
-  $("printWidth").textContent = "The model prints " + mm + " mm wide, the width set under Printed size.";
+
   document.querySelectorAll("#sizeSeg button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.mm === mm)));
   clearTimeout(sizeTimer);                           // one rebuild for the lot, not a frame pass and then the rest
   sizeTimer = setTimeout(resizeRebuild, 60);
@@ -5922,7 +5937,7 @@ function setSectionName(h2, name) {
   if (!span) { h2.textContent = name; return; }       // before the header is made foldable
   if (span.dataset.label === name) return;
   span.dataset.label = name;
-  const extra = span.querySelector("small");          // a summary the section may have added
+  const extra = span.querySelector(":scope > small"); // a summary the section may have added (not the "(optional)")
   const sub = span.querySelector(".sec-sub");         // and the grey sentence after its name
   span.textContent = name;
   if (sub) span.appendChild(sub);
@@ -5997,18 +6012,23 @@ function makeCollapsible(block) {
 }
 document.querySelectorAll("aside .block").forEach(makeCollapsible);
 /* Each option introduces itself the way a product page does: its name, then one grey sentence. */
+/* "(optional)" after a sentence marks the sections a design can do without. */
 const SECTION_SUBS = {
-  sizeBlock: "How big it prints.", routeBlock: "Add a walk or ride.",
-  iconsBlock: "Mark what matters.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
-  frameBlock: "Set it off.", printColBlock: "Pick your favourite.", printBlock: "Take it home.",
+  sizeBlock: "The size of your design once printed.", routeBlock: "Add a GPX file (optional)",
+  iconsBlock: "Add small details. (optional)", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
+  frameBlock: "Add custom text.", printColBlock: "Pick your favourite.", printBlock: "Printed and posted to you.",
 };
 for (const [secId, sub] of Object.entries(SECTION_SUBS)) {
   const sp = $(secId) && $(secId).querySelector(".sec-toggle span");
   if (sp && !sp.querySelector(".sec-sub")) {
     sp.dataset.label = sp.dataset.label || sp.textContent;
+    // the full stop after the name is the name's colour; the sentence after it is grey
     const z = document.createElement("span");
     z.className = "sec-sub";
-    z.textContent = ". " + sub;
+    const dot = document.createElement("span"); dot.className = "sec-dot"; dot.textContent = ".";
+    const m = sub.match(/^(.*?)\s*\(optional\)$/);
+    z.append(dot, " " + (m ? m[1] : sub));
+    if (m) { const o = document.createElement("small"); o.className = "sec-opt"; o.textContent = " (optional)"; z.append(o); }
     sp.append(z);
   }
 }
@@ -8953,7 +8973,7 @@ initIconPopup();
 initTextPopup();
 syncTextControls(); renderTextList();      // the text list starts empty, with the controls in step
 syncFrameBtn();
-$("printWidth").textContent = "The model prints " + frameVals.modelMM + " mm wide, the width set under Printed size.";
+
 
 showPlaceInSearch();
 setPlaceChosen(true);        // open on the default place, ready to build
