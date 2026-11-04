@@ -221,10 +221,18 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg button{font-size:12px; line-height:1.25; padding:7px 3px; white-space:nowrap}
 #sizeSeg button small{display:block; font-size:11px; color:var(--muted)}
 #sizeSeg button[aria-pressed="true"] small{color:inherit}
-/* Each size carries its price in a strip of its own at the tile's foot, from the shared price list. */
-#sizeSeg button .price{display:block; margin:8px -2px 0; padding-top:7px; border-top:1px solid var(--line);
-  font-size:13.5px; font-weight:700; color:var(--heading)}
-#sizeSeg button[aria-pressed="true"] .price{border-top-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+/* Every price sits in the same pill: the size tiles, the GPX box, the frame button and each colour
+   scheme. On a grey box the pill is white; on a chosen (white) one it is grey, so it always shows. */
+#sizeSeg button .price, #dropZone .pr, #frameBtn small.pr{display:table; margin:8px auto 0; padding:4px 10px; border-radius:999px;
+  background:var(--panel); font-size:12px; font-weight:700; line-height:16px; color:var(--heading)}
+#sizeSeg button[aria-pressed="true"] .price, #frameBtn.on small.pr{background:var(--panel-2)}
+#dropZone .pr:empty{display:none}
+/* "(optional)" sits inside the box now, small and grey after its second line, not in the title. */
+#dropZone .opt, .head-btn small .opt{display:inline; margin:0; font-size:11.5px; font-weight:400; color:var(--muted)}
+body:not(.none) #dropZone{padding:10px 12px 10px}
+body:not(.none) #frameBtn{padding:10px 12px 10px}
+body:not(.none) #frameBtn.on{padding:9px 11px 9px}
+.scheme .nm .pr{display:block; margin-top:1px; font-size:11.5px; font-weight:600; color:var(--heading)}
 
 /* ---------- layout ---------- */
 main{flex:1 1 auto; display:flex; min-height:0; background:var(--panel)}   /* the band around the
@@ -253,6 +261,7 @@ body:not(.none) #panelView #printBlock{position:sticky; bottom:0; z-index:15; ba
    own top margin would merge with the title's and hold the gap open, so it has none. */
 #panelView .block:not(#iconsBlock):not(#frameBlock) > h2{margin-bottom:4px}
 #panelView .scheme-grid{margin-top:0}
+body:not(.none) #panelView #printColBlock{padding-bottom:49px}   /* 25 px more blank under the colours: the last is clear of Order's white */
 /* an invisible box of the panel's own colour behind it, the panel's full width (the card itself
    stops short of the right edge), with a soft fade above, so nothing shows beside or just above it */
 body:not(.none) #panelView #printBlock::before{content:""; position:absolute; z-index:-1; pointer-events:none;
@@ -523,8 +532,21 @@ select option{font-size:13px}
   border:1px solid rgba(0,0,0,.28); box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
 }
 .scheme .nm{flex:0 0 96px; font-size:12.5px; color:var(--muted)}
+.relief-cap{margin:6px 0 0;font-size:12px;color:var(--muted)}
 .scheme[aria-pressed="true"]{border-color:var(--text); background:var(--panel-2)}
 .scheme[aria-pressed="true"] .nm{color:var(--text); font-weight:500}
+/* Colours as cards: each scheme its own bordered card, a deep swatch on the left, the name beside it
+   and the price in a pill at the right, on the same line. */
+body:not(.none) .scheme-grid{gap:8px}
+body:not(.none) .scheme{gap:14px; padding:8px; border:1px solid var(--line); border-radius:12px; background:var(--panel)}
+body:not(.none) .scheme:hover:not([aria-pressed="true"]){border-color:var(--line); background:var(--panel-2)}
+body:not(.none) .scheme[aria-pressed="true"]{border:1.5px solid var(--accent); padding:7.5px; background:var(--panel-2)}
+body:not(.none) .scheme .bar{flex:0 0 168px; height:52px; border-radius:9px}
+body:not(.none) .scheme .nm{flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font-size:13.5px; font-weight:500; color:var(--text)}
+body:not(.none) .scheme .nm .pr{display:inline-block; margin:0; flex:none; padding:4px 10px; border-radius:999px;
+  background:var(--panel-2); font-size:12px; font-weight:700; color:var(--heading)}
+body:not(.none) .scheme[aria-pressed="true"] .nm .pr{background:var(--panel)}
 
 /* set-up choice + guided walk-through */
 #startBlock h2{font-size:14px}
@@ -970,7 +992,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     </select>
 
     <div class="block" id="iconsBlock">
-      <h2>Icons<button class="head-btn" data-keep id="addIcon">Add icon<small>A marker you drag into place</small></button></h2>
+      <h2>Icons<button class="head-btn" data-keep id="addIcon">Add icon<small>A marker you drag into place <small class="opt">(optional)</small></small></button></h2>
       <ul class="design-list" id="iconList" aria-live="polite"></ul>
     </div>
 
@@ -1003,7 +1025,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
       <h2>Route</h2>
       <div id="findGpx">
         <div id="dropZone" tabindex="0" role="button" aria-label="Choose a GPX file">
-          <b>Choose a .gpx file</b><br>or drop one here
+          <b>Choose a .gpx file</b><br>or drop one here <small class="opt">(optional)</small><span class="pr" id="routePrice"></span>
         </div>
         <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden>
         <div id="gpxInfo" hidden>
@@ -1029,9 +1051,10 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     <div class="block" id="shapeBlock">
       <h2>Relief<span id="sizeOut" data-aside>—</span></h2>
       <div class="slider-row">
-        <input type="range" id="exag" min="0.1" max="5" step="0.1" value="1" aria-label="Vertical exaggeration (slider)">
-        <span class="numbox"><input type="number" id="exagNum" min="0.1" max="5" step="0.1" value="1" inputmode="decimal"><span>×</span></span>
+        <input type="range" id="exag" min="0.1" max="3" step="0.1" value="1" aria-label="Vertical exaggeration (slider)">
+        <span class="numbox"><input type="number" id="exagNum" min="0.1" max="3" step="0.1" value="1" inputmode="decimal"><span>×</span></span>
       </div>
+      <p class="relief-cap" id="reliefCap" hidden aria-live="polite"></p>
 
       <div hidden>
         <input type="checkbox" id="useHeightColour">
@@ -1088,7 +1111,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     </div>
 
     <div class="block" id="frameBlock">
-      <h2>Frame<button class="head-btn" data-keep id="frameBtn">Add frame<small>A border with engraved text</small></button></h2>
+      <h2>Frame<button class="head-btn" data-keep id="frameBtn">Add frame<small>A border with engraved text <small class="opt">(optional)</small></small></button></h2>
       <!-- The tick box is the one record of whether there is a frame; the button in the title is
            how it is set, and the only thing that touches it. -->
       <input type="checkbox" id="showFrame" data-gate-master="frame" hidden>
@@ -1482,7 +1505,8 @@ function progress(on, text, pct) {
 const sel = { lat: 54.4542, lng: -3.2116, size: 7500, rot: 0, name: "Scafell Pike" };   // rot: degrees clockwise
 let current = null;   // sampled elevation data, set by Build / Update terrain
 let three = null;     // the Three.js scene, created on first build
-let exagValue = 1;    // vertical exaggeration; true scale until the person asks for more
+const RELIEF_X = 1, RELIEF_MAX = 3;   // every model starts at true scale, 1×, whatever its size; the slider goes up to 3×
+let exagValue = RELIEF_X, exagWanted = RELIEF_X;   // what is shown, and what the person asked for
 /* Chosen on the first screen: how large an area this session allows. */
 /* One kind of model: a landscape. A route brings its own lower limit, because a two-mile walk
    should not be forced into a four-kilometre square. */
@@ -4733,7 +4757,7 @@ const colourFor = (key, own) => (printCols.on && !OWN_COLOUR.has(key) ? PC(key) 
 
 /* Five recipes and nothing else: one solid colour, two two-colour splits, two four-colour sets.
    Each fixes both the colours and which part takes which, so a tile can show exactly what will come
-   off the printer. Picking the chosen one again goes back to the map's own colours. */
+   off the printer. Picking the chosen one again goes back to the plain model, shown as Solid. */
 const fil = (name) => (PRINT_PALETTE.find((c) => c.name === name) || PRINT_PALETTE[0]).hex;
 const COLOUR_SCHEMES = [
   { key: "solid", label: "Solid", colours: [PLAIN_GROUND], assign: {} },
@@ -4755,8 +4779,11 @@ function schemeState(key) {
   printCols.colours = sc.colours.slice();
   printCols.assign = Object.assign({}, sc.assign);
 }
+/* Nothing chosen is the model in its one plain colour, which is what Solid prints, so Solid shows as
+   chosen then. Picking Solid, or the chosen colour way again, comes back to that plain model. */
+const shownScheme = () => printCols.scheme || "solid";
 function pickScheme(key) {
-  schemeState(printCols.scheme === key ? null : key);
+  schemeState(key === "solid" || printCols.scheme === key ? null : key);
   renderPrintSlots();
   applyPrintColours();
 }
@@ -4778,13 +4805,16 @@ function renderPrintSlots() {
     b.type = "button";
     b.className = "scheme";
     b.dataset.scheme = sc.key;
-    b.setAttribute("aria-pressed", String(printCols.scheme === sc.key));
+    b.setAttribute("aria-pressed", String(shownScheme() === sc.key));
     const bar = document.createElement("span");
     bar.className = "bar";
     bar.style.background = schemeFill(sc.colours);
     const nm = document.createElement("span");
     nm.className = "nm";
     nm.textContent = sc.label;
+    if (EXTRA_PRICE && EXTRA_PRICE.schemes[sc.key] != null) {   // what it adds to the model, from the price list
+      const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.schemes[sc.key]; nm.append(pr);
+    }
     b.append(bar, nm);
     b.addEventListener("click", () => pickScheme(sc.key));
     host.append(b);
@@ -5343,8 +5373,8 @@ $("build").onclick = async () => {
     setMode("view");
     await new Promise((r) => setTimeout(r, 30));          // let the canvas size itself
     buildScene(current, exagValue);
-    if (exagValue > heightCapX() + 1e-9) {               // only now is the ground's range known
-      setExag(exagValue); buildScene(current, exagValue);
+    if (exagOff()) {               // only now is the ground's range known
+      setExag(exagWanted); buildScene(current, exagValue);
     }
     appliedSig = selSig();
     checkDirty();
@@ -5371,7 +5401,7 @@ function swapInLater(data, seq) {
     fine.name = data.name;
     current = fine;
     buildScene(current, exagValue);
-    if (exagValue > heightCapX() + 1e-9) { setExag(exagValue); buildScene(current, exagValue); }
+    if (exagOff()) { setExag(exagWanted); buildScene(current, exagValue); }
     appliedSig = selSig(); checkDirty();
     toast("Sharper detail just arrived, so your model's been touched up.");
   });
@@ -5383,35 +5413,52 @@ $("back").onclick = () => {
 };
 
 const rebuild = () => { if (current) buildScene(current, exagValue); };
-/* The print may never stand taller than 25 cm. The most exaggeration that stays inside is
-   worked out from the same numbers the size readout uses: base, relief and frame depth. */
-const MAX_TALL_MM = 250;
+/* The print may never stand taller than 20 cm, nor taller than it is wide. The most exaggeration
+   that stays inside both is worked out from the same numbers the size readout uses: base, relief
+   and frame depth. `heightCapBy` says which of the two limits is the one that bites. */
+const MAX_TALL_MM = 200;
+let heightCapBy = null;
 function heightCapX() {
-  if (!current || !sel.size || !(current.max > current.min)) return 5;
+  heightCapBy = null;
+  if (!current || !sel.size || !(current.max > current.min)) return RELIEF_MAX;
   const perX = (current.max - current.min) * frameVals.modelMM / sel.size;  // mm of relief at 1×
-  const room = MAX_TALL_MM - 10 - (($("showFrame") && $("showFrame").checked && frameVals.d) || 0);
-  return Math.max(0.1, Math.min(5, Math.floor((room / perX) * 100) / 100));
+  const wide = modelOutline === "hex" ? frameVals.modelMM * 0.866 : frameVals.modelMM;
+  const tallest = Math.min(MAX_TALL_MM, wide);
+  const room = tallest - 10 - (($("showFrame") && $("showFrame").checked && frameVals.d) || 0);
+  const x = Math.max(0.1, Math.min(RELIEF_MAX, Math.floor((room / perX) * 100) / 100));
+  heightCapBy = wide < MAX_TALL_MM ? "width" : "tall";
+  return x;
 }
-function setExag(v) {
-  const lim = heightCapX();
-  let vv = Math.round(clamp(v, 0.1, 5) * 100) / 100;
-  if (vv > lim) {
-    vv = lim;
-    if (exagValue !== lim) toast("That would print taller than 25 cm. Relief capped at " + lim + "×.");
-  }
+/* The relief can never go past the height limits. The person's own choice is remembered, so a
+   size that brings it down hands it back when a roomier one is picked. Only when the person
+   pushes past the limit themselves does a small note say why it stops, and it clears itself. */
+const reliefTarget = () => Math.min(exagWanted, heightCapX());
+const exagOff = () => Math.abs(exagValue - reliefTarget()) > 1e-9;
+let capNoteTimer = null;
+function setExag(v, byPerson) {
+  const want = Math.round(clamp(+v || RELIEF_X, 0.1, RELIEF_MAX) * 100) / 100, lim = heightCapX();
+  exagWanted = Math.min(want, byPerson ? lim : want);
+  const vv = Math.min(exagWanted, lim);
   exagValue = vv;
+  const note = $("reliefCap");
+  if (note && byPerson && want > lim + 1e-9) {
+    note.textContent = "Stops at " + lim + "× so the model stays " +
+      (heightCapBy === "width" ? "no taller than it is wide." : "under 20 cm tall.");
+    note.hidden = false;
+    clearTimeout(capNoteTimer); capNoteTimer = setTimeout(() => { note.hidden = true; }, 3500);
+  }
   $("exag").value = exagValue;
   $("exagNum").value = String(exagValue);
   updateRelief();                                    // the printed depth follows the exaggeration
 }
 $("ruleFlag").addEventListener("click", () => { $("rulePop").hidden = !$("rulePop").hidden; });
-$("exag").addEventListener("input", (e) => setExag(+e.target.value));   // box follows the slider live
+$("exag").addEventListener("input", (e) => setExag(+e.target.value, true));   // box follows the slider live
 $("exag").addEventListener("change", rebuild);
 function applyExagFromBox() {
   const v = parseFloat($("exagNum").value);
   if (!isFinite(v)) { $("exagNum").value = String(exagValue); return; }
-  if (v < 0.1 || v > 10) toast("Exaggeration must be between 0.1 and 10.");
-  setExag(v);
+  if (v < 0.1) toast("Exaggeration can't go below 0.1.");
+  setExag(v, true);
   rebuild();
 }
 $("exagNum").addEventListener("change", applyExagFromBox);
@@ -5480,8 +5527,10 @@ function syncFrameBtn() {
   const on = $("showFrame").checked, b = $("frameBtn");
   if (b) {                                           // two lines, so the whole button is rebuilt
     const sub = document.createElement("small");
-    sub.textContent = on ? "Its engraved text goes with it" : "A border with engraved text";
+    sub.textContent = (on ? "Its engraved text goes with it" : "A border with engraved text") + " ";
+    const opt = document.createElement("small"); opt.className = "opt"; opt.textContent = "(optional)"; sub.append(opt);
     b.replaceChildren(on ? "Remove frame" : "Add frame", sub);
+    if (EXTRA_PRICE && EXTRA_PRICE.frame) { const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.frame; b.append(pr); }
     b.classList.toggle("on", on);
   }
   const part = $("frameTextPart");
@@ -5489,7 +5538,7 @@ function syncFrameBtn() {
   if (!on) closeTextPopup();
 }
 $("showFrame").addEventListener("change", () => { syncGates(); syncFrameBtn(); queueFrame(); renderPrintSlots();
-  if (exagValue > heightCapX() + 1e-9) { setExag(exagValue); rebuild(); } });   // the frame's depth counts toward 25 cm
+  if (exagOff()) { setExag(exagWanted); rebuild(); } });   // the frame's depth counts toward the height limit
 $("frameBtn").addEventListener("click", () => {
   const box = $("showFrame");
   box.checked = !box.checked;
@@ -5841,7 +5890,7 @@ $("frameColour").addEventListener("change", queueFrame);
    its text, the raised roads — keeps its real size, so a bigger model wears a slimmer frame. */
 function setModelSize(mm) {
   frameVals.modelMM = mm;
-  if (exagValue > heightCapX() + 1e-9) setExag(exagValue);   // a larger print can breach the 25 cm cap
+  if (exagOff()) setExag(exagWanted);   // a new print size moves the height limits
   setTimeout(updateRelief, 0);
   setTimeout(syncRoadSize, 0);                       // raised roads come and go with the printed size
 
@@ -6033,8 +6082,8 @@ document.querySelectorAll("aside .block").forEach(makeCollapsible);
 /* Each option introduces itself the way a product page does: its name, then one grey sentence. */
 /* "(optional)" after a sentence marks the sections a design can do without. */
 const SECTION_SUBS = {
-  sizeBlock: "The size of your design once printed.", routeBlock: "Add a GPX file (optional)",
-  iconsBlock: "Add small details. (optional)", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
+  sizeBlock: "The size of your design once printed.", routeBlock: "Add a GPX file.",
+  iconsBlock: "Add small details.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
   frameBlock: "Add custom text.", printColBlock: "Pick your favourite.", printBlock: "Printed and posted to you.",
 };
 for (const [secId, sub] of Object.entries(SECTION_SUBS)) {
@@ -6105,6 +6154,7 @@ document.querySelectorAll("[data-outline]").forEach((b) => b.addEventListener("c
   syncTextControls();                   // the sides on offer changed: reseat or drop the texts
   renderTextList();                     // and the Add button follows the sides now free or full
   drawSelection();
+  if (current && exagOff()) setExag(exagWanted);   // a hexagon is narrower, so it may stand less tall
   if (current) rebuild();
 }));
 /* The shape lives on the map now, so the button shows which one is on. */
@@ -6262,8 +6312,8 @@ async function resample() {
     current.name = sel.name;
     swapInLater(current, seq);
     buildScene(current, exagValue);
-    if (exagValue > heightCapX() + 1e-9) {               // fresh ground, fresh range: re-check the 25 cm cap
-      setExag(exagValue); buildScene(current, exagValue);
+    if (exagOff()) {               // fresh ground, fresh range: re-check the height limits
+      setExag(exagWanted); buildScene(current, exagValue);
     }
     appliedSig = selSig();
     checkDirty();
@@ -8863,7 +8913,7 @@ async function applyState(st, origin, opts) {
   document.querySelectorAll("input[data-layer]").forEach((i) => {
     const S = st.show || {}; i.checked = i.dataset.layer in S ? !!S[i.dataset.layer] : i.defaultChecked; show[i.dataset.layer] = i.checked; });
   refreshOverlays();
-  setExag(st.exag || 1.8);
+  setExag(st.exag || RELIEF_X);
   $("useHeightColour").checked = !!st.heightColour;
   schemeKey = SCHEMES[st.scheme] ? st.scheme : "hypso"; $("scheme").value = schemeKey; $("scheme").disabled = !st.heightColour;
   Object.assign(treeOpts, { style: T.style || "mixed", foliage: ["summer", "spring", "autumn", "winter"].includes(T.foliage) ? T.foliage : "summer",
@@ -9089,8 +9139,15 @@ openFromHash();
 /* Arriving from a size card on the homepage (/studio/?size=250): that size starts chosen. */
 (() => { const want = +new URLSearchParams(location.search).get("size");
   if (document.querySelector('#sizeSeg button[data-mm="' + want + '"]')) setModelSize(want); })();
-/* Each printed size shows what it costs, read from the same price list the cart and checkout use. */
-pricingModule().then(({ PRICING, money }) => {
+/* Each printed size shows what it costs, read from the same price list the cart and checkout use, and so
+   do the extras: a route, a frame, and each colour scheme (one colour is included). */
+var EXTRA_PRICE = null;                              // filled once the price list is in (var: read before then)
+pricingModule().then(({ PRICING, money, schemePrice }) => {
+  const plus = (p) => (p > 0 ? "+ " + money(p, PRICING.currency) : "Included");
+  EXTRA_PRICE = { route: plus(PRICING.extras.route.price), frame: plus(PRICING.extras.frame.price), schemes: {} };
+  for (const sc of COLOUR_SCHEMES) { const p = schemePrice(sc.key, PRICING); if (p != null) EXTRA_PRICE.schemes[sc.key] = plus(p); }
+  $("routePrice").textContent = EXTRA_PRICE.route;
+  syncFrameBtn(); renderPrintSlots();
   document.querySelectorAll("#sizeSeg button").forEach((b) => {
     const sz = PRICING.sizes[+b.dataset.mm]; if (!sz) return;
     let p = b.querySelector(".price");
