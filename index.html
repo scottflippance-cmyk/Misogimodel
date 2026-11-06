@@ -70,6 +70,28 @@ summary{cursor:pointer}
   .site-footer__brand{height:min(87px,18vw);gap:12px}
   .site-footer__mountain{height:min(87px,18vw)}
   .site-footer__word{font-size:25px}}
+/* The sign-up pop-up the 10% bar opens: navy, like the opening screen, the offer in big capitals,
+   two boxes, an orange Sign up and a quiet No thanks. */
+.news-pop{width:min(440px,calc(100vw - 32px));box-sizing:border-box;margin:auto;padding:44px 32px 26px;border:1px solid rgba(255,255,255,.14);border-radius:20px;
+  background:#0A1220;color:#FFFFFF;box-shadow:0 30px 80px rgba(0,0,0,.45);font-family:Inter,system-ui,sans-serif;text-align:center}
+.news-pop::backdrop{background:rgba(10,18,32,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.news-pop__x{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;border:0;background:#FFFFFF;color:#0A1220;
+  font:400 22px/32px Inter,sans-serif;cursor:pointer;padding:0}
+.news-pop__h{margin:0;font-size:clamp(34px,9vw,46px);line-height:1;letter-spacing:-.02em;font-weight:800;text-transform:uppercase}
+.news-pop__lede{margin:14px 0 22px;font-size:15px;line-height:1.5;color:#C3C9D1}
+.news-form--pop{display:flex;flex-direction:column;gap:12px}
+.news-pop__field{font:inherit;font-size:16px;color:#0B0E12;background:#F5F5F7;border:0;border-radius:12px;padding:14px 16px;text-align:left}
+.news-pop__field::placeholder{color:#5B6470}
+.news-pop__field:focus{outline:2px solid #E4572E;outline-offset:2px}
+.news-pop__go{margin-top:6px;font:inherit;font-size:17px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#FFFFFF;
+  background:#E4572E;border:0;border-radius:12px;padding:15px;cursor:pointer}
+.news-pop__go:hover{background:#C9461F}.news-pop__go[disabled]{opacity:.6;cursor:default}
+.news-pop__no{font:inherit;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:#E4572E;background:transparent;
+  border:1px solid #E4572E;border-radius:12px;padding:13px;cursor:pointer}
+.news-pop__no:hover{background:rgba(228,87,46,.1)}
+.news-pop__msg{margin:14px 0 0;min-height:1.4em;font-size:14px;color:#C3C9D1}
+.news-pop__msg[data-ok="true"]{color:#FFFFFF;font-weight:600}
+.news-pop__small{margin:10px 0 0;font-size:12px;color:#8A93A1}
 /* The announcement bar above the banner: one line pointing to the newsletter sign-up at the foot. */
 .announce{display:block;background:#0B0E12;color:#FFFFFF;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;line-height:17px;padding:10px 16px}   /* a whole-pixel height, so the bar below starts on a pixel */
@@ -238,7 +260,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 <body>
 <div style="--accent: #E4572E; font-family: Inter, system-ui, sans-serif; color: #0B0E12; background: #FFFFFF; min-height: 100vh">
 
-<a class="announce" href="#newsletter" aria-label="10% off your first order when you sign up to our newsletter"><span class="announce__txt" aria-hidden="true"><span class="announce__w"><span style="--i:0">1</span><span style="--i:1">0</span><span style="--i:2">%</span></span> <span class="announce__w"><span style="--i:4">o</span><span style="--i:5">f</span><span style="--i:6">f</span></span> <span class="announce__w"><span style="--i:8">y</span><span style="--i:9">o</span><span style="--i:10">u</span><span style="--i:11">r</span></span> <span class="announce__w"><span style="--i:13">f</span><span style="--i:14">i</span><span style="--i:15">r</span><span style="--i:16">s</span><span style="--i:17">t</span></span> <span class="announce__w"><span style="--i:19">o</span><span style="--i:20">r</span><span style="--i:21">d</span><span style="--i:22">e</span><span style="--i:23">r</span></span> <span class="announce__w"><span style="--i:25">w</span><span style="--i:26">h</span><span style="--i:27">e</span><span style="--i:28">n</span></span> <span class="announce__w"><span style="--i:30">y</span><span style="--i:31">o</span><span style="--i:32">u</span></span> <span class="announce__w"><span style="--i:34">s</span><span style="--i:35">i</span><span style="--i:36">g</span><span style="--i:37">n</span></span> <span class="announce__w"><span style="--i:39">u</span><span style="--i:40">p</span></span> <span class="announce__w"><span style="--i:42">t</span><span style="--i:43">o</span></span> <span class="announce__w"><span style="--i:45">o</span><span style="--i:46">u</span><span style="--i:47">r</span></span> <span class="announce__w"><span style="--i:49">n</span><span style="--i:50">e</span><span style="--i:51">w</span><span style="--i:52">s</span><span style="--i:53">l</span><span style="--i:54">e</span><span style="--i:55">t</span><span style="--i:56">t</span><span style="--i:57">e</span><span style="--i:58">r</span></span></span></a>
+<a class="announce" href="#newsletter" aria-haspopup="dialog" aria-label="10% off your first order when you sign up to our newsletter"><span class="announce__txt" aria-hidden="true"><span class="announce__w"><span style="--i:0">1</span><span style="--i:1">0</span><span style="--i:2">%</span></span> <span class="announce__w"><span style="--i:4">o</span><span style="--i:5">f</span><span style="--i:6">f</span></span> <span class="announce__w"><span style="--i:8">y</span><span style="--i:9">o</span><span style="--i:10">u</span><span style="--i:11">r</span></span> <span class="announce__w"><span style="--i:13">f</span><span style="--i:14">i</span><span style="--i:15">r</span><span style="--i:16">s</span><span style="--i:17">t</span></span> <span class="announce__w"><span style="--i:19">o</span><span style="--i:20">r</span><span style="--i:21">d</span><span style="--i:22">e</span><span style="--i:23">r</span></span> <span class="announce__w"><span style="--i:25">w</span><span style="--i:26">h</span><span style="--i:27">e</span><span style="--i:28">n</span></span> <span class="announce__w"><span style="--i:30">y</span><span style="--i:31">o</span><span style="--i:32">u</span></span> <span class="announce__w"><span style="--i:34">s</span><span style="--i:35">i</span><span style="--i:36">g</span><span style="--i:37">n</span></span> <span class="announce__w"><span style="--i:39">u</span><span style="--i:40">p</span></span> <span class="announce__w"><span style="--i:42">t</span><span style="--i:43">o</span></span> <span class="announce__w"><span style="--i:45">o</span><span style="--i:46">u</span><span style="--i:47">r</span></span> <span class="announce__w"><span style="--i:49">n</span><span style="--i:50">e</span><span style="--i:51">w</span><span style="--i:52">s</span><span style="--i:53">l</span><span style="--i:54">e</span><span style="--i:55">t</span><span style="--i:56">t</span><span style="--i:57">e</span><span style="--i:58">r</span></span></span></a>
 
 <header class="site-banner">
 <div class="site-banner__inner">
@@ -376,6 +398,23 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 <p style="margin: 14px 0 0; font-size: 16px; line-height: 1.6; color: #3A424C">[YOUR RETURNS POLICY]</p>
 </details>
 </section>
+
+<dialog class="news-pop" id="news-pop" aria-labelledby="news-pop-h">
+<button class="news-pop__x" type="button" data-close aria-label="Close">&times;</button>
+<h2 class="news-pop__h" id="news-pop-h">10% off your first order</h2>
+<p class="news-pop__lede">Sign up to our newsletter for new places, new sizes and first looks.</p>
+<form class="news-form news-form--pop" action="/api/newsletter" method="post" novalidate>
+<label class="news-form__label" for="pop-name">First name</label>
+<input class="news-pop__field" id="pop-name" type="text" name="firstName" placeholder="First name" autocomplete="given-name" maxlength="60">
+<label class="news-form__label" for="pop-email">Email address</label>
+<input class="news-pop__field" id="pop-email" type="email" name="email" placeholder="Email" autocomplete="email" required>
+<input class="news-form__trap" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button class="news-pop__go" type="submit">Sign up</button>
+<button class="news-pop__no" type="button" data-close>No thanks</button>
+</form>
+<p class="news-form__msg news-pop__msg" role="status" aria-live="polite"></p>
+<p class="news-pop__small">Available to new UK customers only. You can unsubscribe at any time.</p>
+</dialog>
 
 <footer class="site-footer">
 <div class="site-footer__inner">
@@ -624,13 +663,15 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
    1. (The footer's mountain logo used to rise as the page reached its end; it stands still now.)
    4. The size cards' prices come from the shared price list (/order-pricing.js), the same one the
       studio, the cart and checkout use, so a price changed there changes here too.
-   3. The newsletter box at the foot sends the address to /api/newsletter and says how it went.
+   3. The newsletter box at the foot, and the pop-up the 10% bar opens, send the address to /api/newsletter and says how it went.
    2. The questions come from /faq.txt, a plain text file you can edit on GitHub: each question starts
       "Q:", its answer "A:". If the file can't be read, the questions written into the page stay. */
 (() => {
-  const form = document.querySelector(".news-form");
-  if (form) {
-    const msg = document.querySelector(".news-form__msg"), btn = form.querySelector("button"), box = form.querySelector("input[type=email]");
+  /* Both sign-up forms (the footer's and the pop-up's) work the same way: check the address here,
+     send it (with a first name, if the form asks for one) and say how it went. */
+  const wire = (form) => {
+    const msg = form.parentElement.querySelector(".news-form__msg"), btn = form.querySelector("button[type=submit]"),
+          box = form.querySelector("input[type=email]"), name = form.querySelector("input[name=firstName]");
     const say = (text, good) => { msg.textContent = text; msg.dataset.ok = String(!!good); };
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -638,14 +679,27 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { say("Please enter your email address."); box.focus(); return; }
       btn.disabled = true; say("Signing you up…");
       try {
-        const r = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email, website: form.elements.website.value }) });
+        const body = { email, website: form.elements.website.value };
+        if (name && name.value.trim()) body.firstName = name.value.trim();
+        const r = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
         const b = await r.json().catch(() => ({}));
-        if (r.ok) { say("Thanks, you're on the list.", true); form.reset(); }
+        if (r.ok) { say("Thanks, you're on the list.", true); form.reset(); form.dispatchEvent(new CustomEvent("signed-up")); }
         else say(b.error || "We couldn't sign you up just now. Please try again in a little while.");
       } catch (err) { say("We couldn't sign you up just now. Please try again in a little while."); }
       btn.disabled = false;
     });
+  };
+  document.querySelectorAll(".news-form").forEach(wire);
+
+  /* The 10% bar opens the sign-up pop-up rather than jumping to the footer (without scripts, the link
+     still goes there). It closes with its cross, "No thanks", Escape or a click outside it. */
+  const bar = document.querySelector("a.announce"), pop = document.getElementById("news-pop");
+  if (bar && pop && typeof pop.showModal === "function") {
+    bar.addEventListener("click", (e) => { e.preventDefault(); pop.querySelector(".news-form__msg").textContent = ""; pop.showModal(); });
+    pop.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => pop.close()));
+    pop.addEventListener("click", (e) => { if (e.target === pop) pop.close(); });   // the backdrop
+    pop.querySelector(".news-form").addEventListener("signed-up", () => { pop.querySelector(".news-pop__no").textContent = "Close"; });
+    window.__newsPop = pop;
   }
 
   const prices = document.querySelectorAll(".size-price[data-size]");

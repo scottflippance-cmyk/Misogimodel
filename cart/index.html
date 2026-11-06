@@ -57,7 +57,7 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 px more above the heading */
 .empty .row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:22px}
 /* Suggestions under an empty cart: a row of models to scroll through, each opening in the studio */
-#inspire{margin:36px 0 0}
+#inspire{margin:22px 0 0}
 #inspire .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 18px}
 #inspire h2{margin:0;font-size:26px;letter-spacing:-0.02em}
 #inspire .head p{margin:4px 0 0;font-size:15px;color:#5B6470}
@@ -65,9 +65,16 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 #inspire .arrows button{width:40px;height:40px;border-radius:999px;border:0;background:#F5F5F7;color:#0B0E12;font-size:18px;cursor:pointer}
 #inspire .arrows button:hover:not(:disabled){background:#E9EDF3}
 #inspire .arrows button:disabled{opacity:.35;cursor:default}
-.track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:2px 2px 14px;
-  scrollbar-width:thin;scrollbar-color:#DDE1E7 transparent}
-.track::-webkit-scrollbar{height:6px} .track::-webkit-scrollbar-thumb{background:#DDE1E7;border-radius:6px}
+.track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:2px 2px 4px;
+  scrollbar-width:none}   /* no scroll bar: it showed the loop's second set; the dots below say where you are */
+.track::-webkit-scrollbar{display:none}
+/* Seven dots in a pill, one for each model; those on screen are lit, and the lit run wraps round
+   (6, 7 and 1, say) just as the row does. A dot takes you to its model. */
+.dots{display:flex;justify-content:center;margin:4px 0 0}
+.dots div{display:flex;gap:8px;padding:6px 12px;border-radius:999px;background:#F5F5F7}
+.dots button{width:8px;height:8px;padding:0;border:0;border-radius:999px;background:#C9CFD8;cursor:pointer;transition:background .25s, width .25s}
+.dots button.on{background:#E4572E;width:18px}
+.dots button:focus-visible{outline:2px solid #E4572E;outline-offset:2px}
 .sug{flex:0 0 calc((100% - 48px) / 3.4);min-width:220px;scroll-snap-align:start;text-decoration:none;color:#0B0E12;
   border-radius:20px;background:#F5F5F7;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s ease, box-shadow .2s ease}
 .sug:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(11,14,18,.10)}
@@ -146,6 +153,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   <div class="arrows"><button type="button" id="sugPrev" aria-label="Previous models">←</button><button type="button" id="sugNext" aria-label="More models">→</button></div>
 </div>
 <div class="track" id="sugTrack" role="list"></div>
+<div class="dots"><div id="sugDots" aria-label="Which models are showing"></div></div>
 </section>
 </main>
 <script type="module">
@@ -203,8 +211,29 @@ function renderSuggestions() {
   };
   $("sugPrev").addEventListener("click", () => { go(-1); hold(); });
   $("sugNext").addEventListener("click", () => { go(1); hold(); });
-  let settle = null;
-  track.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(wrap, 120); }, { passive: true });
+  // the dots: one per model, lit for every model at least half on screen, copies counting as their originals
+  const dotBox = $("sugDots");
+  SUGGESTIONS.forEach((s, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.key = s.key;
+    b.setAttribute("aria-label", "Show " + s.name + " (" + (i + 1) + " of " + SUGGESTIONS.length + ")");
+    b.addEventListener("click", () => { track.scrollTo({ left: i * step(), behavior: "smooth" }); hold(); });
+    dotBox.append(b);
+  });
+  const lightDots = () => {
+    const r = track.getBoundingClientRect(), on = new Set();
+    for (const c of track.querySelectorAll(".sug")) {
+      const q = c.getBoundingClientRect(), seen = Math.min(q.right, r.right) - Math.max(q.left, r.left);
+      if (seen >= q.width / 2) on.add(c.dataset.key);
+    }
+    for (const b of dotBox.children) { const lit = on.has(b.dataset.key); b.classList.toggle("on", lit); b.setAttribute("aria-current", lit ? "true" : "false"); }
+  };
+  let settle = null, frame = 0;
+  track.addEventListener("scroll", () => {
+    clearTimeout(settle); settle = setTimeout(wrap, 120);
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; lightDots(); });
+  }, { passive: true });
+  if (window.ResizeObserver) new ResizeObserver(lightDots).observe(track); else window.addEventListener("resize", lightDots);   // also when the row first shows
+  requestAnimationFrame(lightDots);
   // the timer: one card along every 5 seconds, unless something says wait
   let paused = 0, heldUntil = 0;
   const hold = () => { heldUntil = performance.now() + SUG_EVERY_MS; };   // a manual move restarts the count
@@ -213,7 +242,7 @@ function renderSuggestions() {
     track.addEventListener(on, () => { paused++; }); track.addEventListener(off, () => { paused = Math.max(0, paused - 1); hold(); });
   }
   track.addEventListener("touchstart", hold, { passive: true });
-  window.__sug = { ticks: 0, get paused() { return paused > 0; }, still };
+  window.__sug = { ticks: 0, get paused() { return paused > 0; }, still, lightDots };
   if (!still) setInterval(() => {
     if (paused || document.hidden || $("inspire").hidden || performance.now() < heldUntil) return;
     go(1); window.__sug.ticks++;

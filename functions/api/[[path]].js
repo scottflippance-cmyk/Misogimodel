@@ -11,7 +11,7 @@
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
      Newsletter:
-       POST /api/newsletter                { email }. Adds the address to Resend's contacts, nothing else.
+       POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts, nothing else.
      Paid:
        POST /api/stripe-webhook            Stripe saying the payment went through. One email goes to
                                            you listing every model, each with its print file attached.
@@ -52,6 +52,9 @@ async function newsletter(request, env) {
   const email = String((body && body.email) || "").trim().toLowerCase();
   if (email.length > 254 || !EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
   const contact = { email, unsubscribed: false };
+  // a first name, if the form asked for one: plain text, kept short, nothing that could pass for markup
+  const first = String((body && body.firstName) || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
+  if (first) contact.first_name = first;
   if (env.NEWSLETTER_SEGMENT_ID) contact.segments = [{ id: env.NEWSLETTER_SEGMENT_ID }];
   const r = await fetch("https://api.resend.com/contacts", {
     method: "POST", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" },
