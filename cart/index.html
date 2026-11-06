@@ -144,8 +144,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 </section>
 <section class="empty" id="empty" hidden>
 <h1>Your cart is empty.</h1>
-<p class="lede">Design a model of the place that matters, then add it here.<br>Your cart stays put while you look around.</p>
-<div class="row"><a class="quiet" href="/">Back to the homepage</a><a class="cta" href="/studio/" style="font-size:16px;padding:13px 24px">Start designing</a></div>
+<div class="row"><a class="cta" href="/studio/" style="font-size:16px;padding:13px 24px">Start designing</a></div>
 </section>
 <section id="inspire" hidden aria-labelledby="inspireTitle">
 <div class="head">
@@ -181,12 +180,12 @@ const SUGGESTIONS = [
   { key: "yosemite", name: "Yosemite Valley", where: "California, USA", say: "A glacier-carved valley between El Capitan and Half Dome." },
   { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy · 1,281 m", say: "The volcano that buried Pompeii in AD 79, above the Bay of Naples." },
 ];
-/* The row moves along one model every 5 seconds, round and round: a second set of the cards follows
+/* The row moves along one model every 3 seconds, round and round: a second set of the cards follows
    the first (hidden from screen readers and the keyboard), and once the row has moved a whole set
    along it steps back by exactly that much, unseen, so it never runs out or rewinds. It waits while
    the pointer is over it, while someone is using it or the arrows, and while the tab is hidden, and
    stays still for anyone who has asked their device for less motion. */
-const SUG_EVERY_MS = 5000;
+const SUG_EVERY_MS = 3000;
 function renderSuggestions() {
   const track = $("sugTrack"); if (track.childElementCount) return;
   const card = (s, clone) => {

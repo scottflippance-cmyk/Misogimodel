@@ -4863,9 +4863,9 @@ const fontCSS = (key, px) => { const f = FONTS[key]; return f[1] + " " + px + "p
    standing proud. Sides are numbered the way the frame is built, from 0. */
 const frameTexts = [];
 let frameTextSeq = 0, selTextId = null;
-/* Lettering is shaped, standing 1.5 mm proud of the frame. There is no flat option and no choice
+/* Lettering is shaped, standing 1 mm proud of the frame. There is no flat option and no choice
    of depth, so a piece of text carries neither. */
-const TEXT_DEPTH_MM = 1.5;
+const TEXT_DEPTH_MM = 1;
 const textStyle = { text: "", side: 0, font: "montserrat", pt: 17, align: "center" };
 const sideCount = () => (modelOutline === "hex" ? 6 : 4);
 const textsOnSide = (i) => frameTexts.filter((x) => x.side === i && x.text);
@@ -6910,8 +6910,12 @@ const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
    land colour left on that drop smears down the face and bleeds over the water. Carrying the
    water a third of a cell inland covers the face. */
 function paintOpenSea(ctx, data, px) {
-  if (!data.grid.sea || !show.water || !modelCarries()) return;   // slate unless colours are assigned
-  const colour = printCols.on ? (PC("water") || printCols.colours[0]) : COL.water;
+  /* This paints the model only, so it goes by the print colours alone: in one colour (Solid) the sea
+     is the same grey as the land, and it turns blue only in a colour way that gives water its own
+     colour. (It used to ask modelCarries(), which is true outside the feature painting, so a Solid
+     model's sea came out map-blue.) */
+  if (!data.grid.sea || !show.water || !printCols.on) return;
+  const colour = PC("water") || printCols.colours[0];
   const key = px + "/" + colour;
   if (data._seaPaint && data._seaPaint.key === key) { ctx.drawImage(data._seaPaint.canvas, 0, 0); return; }
   const c = document.createElement("canvas"); c.width = c.height = px;
