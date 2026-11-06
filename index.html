@@ -215,7 +215,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   animation:cta-spin 2.5s linear infinite}
 @keyframes cta-spin{to{--cta-angle:360deg}}
 @media (prefers-reduced-motion:reduce){.cta:hover{animation:none}}
-/* The size cards: one look for all four; under a pointer, the card grows by a quarter. */
+/* The size cards: one look for all four; under a pointer, the card grows (a quarter on narrower screens, more with all four in a row). */
 .size-card{position:relative;color:inherit;text-decoration:none;cursor:pointer;
   transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
 .size-card:hover{color:inherit}
@@ -223,6 +223,12 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
   .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
+/* With all four in one row there is room to grow further: half as big again plus a bit (1.5625x).
+   The end cards grow inwards so they never spill past the page's edge. */
+@media (hover:hover) and (min-width:1140px){
+  .size-card:hover{transform:scale(1.5625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
+  .size-card:first-child{transform-origin:left center}
+  .size-card:last-child{transform-origin:right center}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the
    pointer, else the one chosen (Natural to begin with). Photos dropped in /images/colourways/
    cover the placeholder automatically. */
