@@ -305,7 +305,10 @@ export async function onRequest(context) {
     .filter((k) => !env[k]);
   if (missing.length) {
     console.log("misogimodel orders are not set up: missing " + missing.join(", "));
-    return fail(503, "Ordering isn't switched on just yet");
+    // On the test sites (*.pages.dev) say which settings are missing, to make setting up easier;
+    // the live site keeps the plain message.
+    const test = url.hostname.endsWith(".pages.dev");
+    return fail(503, "Ordering isn't switched on just yet" + (test ? " (missing on this site: " + missing.join(", ") + ")" : ""));
   }
   try {
     if (parts[0] === "stripe-webhook" && m === "POST") return await webhook(request, env);
