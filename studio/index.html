@@ -598,6 +598,8 @@ label.check[data-tip]:focus-visible{outline:2px solid var(--accent); outline-off
 .design-list .dn{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .design-list small{display:block; color:var(--muted); font-size:11px; font-family:var(--mono); font-variant-numeric:tabular-nums}
 .design-list button{padding:4px 9px; font-size:12px; border-radius:6px; flex:0 0 auto}
+.design-list button.bin{display:grid; place-items:center; padding:4px 6px; margin-left:-4px; color:var(--muted)}
+.design-list button.bin:hover{color:var(--danger)}
 .design-list .empty{color:var(--muted); font-size:12.5px; border:0; background:none; cursor:default}
 #shareOut{margin-top:8px; font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:11.5px}
 
@@ -606,7 +608,7 @@ label.check[data-tip]:focus-visible{outline:2px solid var(--accent); outline-off
 .icon-grid button{padding:6px 0; display:grid; place-items:center}
 .icon-grid button[aria-pressed="true"]{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent)}
 .icon-grid svg{width:22px; height:22px}
-#iconList li svg{width:22px; height:22px; flex:0 0 auto}
+#iconList li > svg{width:22px; height:22px; flex:0 0 auto}   /* the icon itself, not the bin */
 .map-icon{background:none; border:0}
 .map-icon svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)); display:block}
 
@@ -1133,7 +1135,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
         <input type="range" id="lift" min="-40" max="40" step="0.5" value="0">
         <input type="number" id="liftNum" min="-40" max="40" step="0.5" value="0">
         <span id="liftOut"></span>
-        <select id="frameColour"><option value="walnut" selected>Walnut</option></select>
+        <select id="frameColour"><option value="black" selected>Black</option></select>
       </div>
 
       <!-- Add a piece and it opens in the window over the model, where the words are typed and
@@ -4791,10 +4793,14 @@ function pickScheme(key) {
   applyPrintColours();
 }
 /* A tile's fill: one colour flat, otherwise equal bands with hard edges between them. */
+/* The colour boxes show the model's grey a little lighter, so they don't read as heavy; the model
+   itself keeps its own grey. */
+const SWATCH_GREY = "#CED9E1";
 function schemeFill(cols) {
+  cols = cols.map((c) => c === PLAIN_GROUND ? SWATCH_GREY : c);
   if (cols.length < 2) return cols[0];
   const w = 100 / cols.length;
-  return "linear-gradient(125deg," +                 // the colours meet on a 125° diagonal, not a straight line
+  return "linear-gradient(90deg," +                  // the colours sit side by side, split by straight upright lines
     cols.map((c, i) => c + " " + (i * w).toFixed(4) + "% " + ((i + 1) * w).toFixed(4) + "%").join(",") + ")";
 }
 let printColUiReady = false;
@@ -4831,6 +4837,7 @@ function applyPrintColours() {
 
 /* ---------- frame ---------- */
 const FINISH = {                                 // [wood, text]
+  black: ["#1B1D20", "#E8E4DC"],                  // the frame: black, its lettering a warm off-white
   walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"],
   charcoal: ["#2C3034", "#E8E4DC"], white: ["#ECE8E1", "#3A3A3A"]
 };
@@ -5557,7 +5564,7 @@ $("frameBtn").addEventListener("click", () => {
    strip the viewer meets first is the one the frame is built second, so "Front" is that one and it
    heads the list — which is also where a new piece goes. Keeping the two apart means the naming can
    read the right way round without the geometry being renumbered underneath it. */
-const SIDE_NAMES = { 4: ["Back", "Front", "Left", "Right"],
+const SIDE_NAMES = { 4: ["Back", "Front", "Right", "Left"],   // the third and fourth strips, named as the viewer sees them
                      6: ["Side 1", "Side 2", "Side 3", "Side 4", "Side 5", "Side 6"] };
 const SIDE_ORDER = { 4: [1, 0, 2, 3], 6: [0, 1, 2, 3, 4, 5] };
 /* A hexagon's extra sides disappear when the shape goes back to a square: bring that text home
@@ -5589,6 +5596,22 @@ function reseatTextsForShape() {
   if (moved || dropped) { renderTextList(); queueFrame(); }
 }
 function syncTextControls() { reseatTextsForShape(); }
+/* A small bin beside each row's Edit: removes that piece straight away (undo is in the toast). */
+const BIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Zm4 2v8h1.6v-8H10Zm2.4 0v8H14v-8h-1.6Z" fill="currentColor"/></svg>';
+function binButton(label, onRemove) {
+  const b = document.createElement("button"); b.className = "ghost bin"; b.innerHTML = BIN_SVG;
+  b.setAttribute("aria-label", label); b.title = label;
+  b.addEventListener("click", (e) => { e.stopPropagation(); onRemove(); });
+  return b;
+}
+function removeTextPiece(id) {
+  pushUndo("Remove text");
+  const i = frameTexts.findIndex((x) => x.id === id); if (i < 0) return;
+  frameTexts.splice(i, 1); if (selTextId === id) selTextId = null;
+  if (typeof popTextId !== "undefined" && popTextId === id) closeTextPopup();
+  renderTextList(); queueFrame(); noteSoon();
+  toast("Text removed.", false, undoAction());
+}
 function renderTextList() {
   const ul = $("frameTextList"); if (!ul) return;
   syncAddButton();
@@ -5607,7 +5630,7 @@ function renderTextList() {
     // the row and its button do the same thing: open this piece's window, where it can also be removed
     edit.addEventListener("click", (e) => { e.stopPropagation(); selectText(ft.id); openTextPopup(ft.id); });
     li.addEventListener("click", () => { selectText(ft.id); openTextPopup(ft.id); });
-    li.append(nm, edit); ul.append(li);
+    li.append(nm, edit, binButton("Remove custom text " + (k + 1), () => removeTextPiece(ft.id))); ul.append(li);
   });
 }
 function selectText(id) {
@@ -5628,7 +5651,7 @@ function syncAddButton() {
   const b = $("addFrameText"); if (!b) return;
   const full = freeSide() === undefined;
   b.disabled = full;
-  b.textContent = full ? "A text on every side already" : "Add text to frame";
+  b.textContent = full ? "Text already added to every side" : "Add text to frame";
 }
 $("addFrameText").addEventListener("click", () => {
   const free = freeSide();
@@ -5785,11 +5808,7 @@ function textAtHit(hit) {
 function initTextPopup() {
   $("textPopClose").addEventListener("click", closeTextPopup);
   $("textPopDelete").addEventListener("click", () => {
-    const id = popTextId; pushUndo("Remove text");
-    const i = frameTexts.findIndex((x) => x.id === id); if (i < 0) return;
-    frameTexts.splice(i, 1); if (selTextId === id) selTextId = null;
-    closeTextPopup(); renderTextList(); queueFrame(); noteSoon();
-    toast("Text removed.", false, undoAction());
+    removeTextPiece(popTextId);
   });
   $("tpText").addEventListener("input", () => {
     const el = $("tpText");
@@ -6765,7 +6784,7 @@ function syncGates() {
   try {                                              // raised roads need the large printed size
   } catch (e) { /* not set up yet */ }
   // The gate pass above re-enables every button in an open box wholesale, which would wake
-  // "A text on every side already" back up: fullness has the last word. At start-up the text
+  // "Text already added to every side" back up: fullness has the last word. At start-up the text
   // machinery below this point is not built yet, and that pass can be skipped.
   try { syncAddButton(); } catch (e) { /* not set up yet */ }
 }
@@ -8094,9 +8113,17 @@ var iconUiReady = true;                              // lets drawSelection (defi
 let iconTimer = null;
 function iconsChanged() {
   noteSoon();
-  syncIconMarkers(); renderIconList();
+  syncIconMarkers(); renderIconList(); syncAddIcon();
   clearTimeout(iconTimer);
   iconTimer = setTimeout(() => { if (current && three) { paintSurface(current); buildIcons3D(); buildFeatures3D(current); } }, 120);   // clears features under icons
+}
+/* Up to three icons on a model (the price list holds the same limit). */
+const MAX_ICONS = 3;
+function syncAddIcon() {
+  const b = $("addIcon"); if (!b) return;
+  const full = icons.length >= MAX_ICONS;
+  b.disabled = full;
+  b.firstChild.textContent = full ? "Three icons added" : "Add icon";
 }
 function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = null; iconsChanged(); }
 function selectIcon(id) {
@@ -8122,16 +8149,19 @@ function renderIconList() {
     const sm = document.createElement("small");
     sm.textContent = ic.mm + " mm · " + ((ic.h ?? 3) > 0 ? (ic.h ?? 3) + " mm proud" : "level with the ground");
     nm.append(sm);
-    const del = document.createElement("button"); del.className = "ghost"; del.textContent = "Remove"; del.setAttribute("aria-label", "Remove " + nm.firstChild.textContent);
-    del.addEventListener("click", (e) => {
-      e.stopPropagation(); pushUndo("Remove icon");
+    const name = nm.firstChild.textContent;
+    const edit = document.createElement("button"); edit.className = "ghost"; edit.textContent = "Edit";
+    edit.setAttribute("aria-label", "Edit " + name);
+    edit.addEventListener("click", (e) => { e.stopPropagation(); selectIcon(ic.id); openIconWindow(ic.id); });
+    const del = binButton("Remove " + name, () => {
+      pushUndo("Remove icon");
       const i = icons.findIndex((x) => x.id === ic.id); icons.splice(i, 1);
       if (selIconId === ic.id) selIconId = null;
       if (typeof popIconId !== "undefined" && popIconId === ic.id) closeIconPopup();
       iconsChanged(); toast("Icon removed.", false, undoAction());
     });
     li.addEventListener("click", () => { selectIcon(ic.id); openIconWindow(ic.id); });
-    li.append(nm, del); ul.append(li);
+    li.append(nm, edit, del); ul.append(li);
   });
 }
 /* a change to the controls restyles the selected icon (if any) and future ones */
@@ -8155,6 +8185,7 @@ function initIconControls() {           // run at start-up, once every helper it
   bindPair("iconMM", "iconMMNum", 3, 40, (v) => { iconStyle.mm = v; iconControlChanged(); });
   bindPair("iconH", "iconHNum", 0, 20, (v) => { iconStyle.h = v; iconControlChanged(); });
   $("addIcon").addEventListener("click", () => {
+    if (icons.length >= MAX_ICONS) { toast("A model can carry up to " + MAX_ICONS + " icons."); return; }
     // New icons spiral out from the middle until they find a clear spot: never on top of another.
     const stepDeg = (sel.size * 0.06) / 111320;
     let la = sel.lat, ln = sel.lng;
@@ -8962,7 +8993,7 @@ async function applyState(st, origin, opts) {
   renderPrintSlots();
   setPairUI("frameH", "frameHNum", frameVals.h); setPairUI("frameT", "frameTNum", frameVals.t); setPairUI("frameD", "frameDNum", frameVals.d);
   setModelSize(frameVals.modelMM);                   // the one place the width is set, so it says so too
-  $("frameColour").value = F.colour in FINISH ? F.colour : "walnut";
+  $("frameColour").value = "black";               // every frame is black now, older saved designs included
   restoreFrameTexts(F);
   $("interval").value = st.interval || "auto";
   route = st.route ? decodeRoute(st.route) : null;
