@@ -103,9 +103,9 @@ body.light{
   --text:#313B47;
   --heading:#121820;
   --muted:#8A93A1;
-  --accent:#3E6FF2;
+  --accent:#E4572E;
   --accent-ink:#FFFFFF;
-  --accent-hover:#2F5BD8;
+  --accent-hover:#C9461F;
   --accent-2:#4D8F74;
   --danger:#C65545;
   --stage-bg:#F5F5F7;
@@ -195,7 +195,7 @@ body:not(.none) .head-btn.on small{color:var(--muted); font-weight:400}
 #themeBtn[hidden]{display:none}
 /* the banner wears the site's blue, not the studio's own slightly brighter one, so its button
    matches the homepage's exactly */
-.site-banner{--accent:#2F5BD8}
+.site-banner{--accent:#E4572E}
 header.site-banner{flex:0 0 auto}
 .site-banner--app{z-index:40}
 .site-banner .theme-btn{margin-left:0}
@@ -373,17 +373,20 @@ button:disabled{opacity:.45; cursor:not-allowed}
    painted under the border too so no seam shows at the ends; on hover a soft glow and a border
    whose light runs round it every 2.5 s, a pale tint of the accent rather than pure white (white
    read as a hard line down the straight end of a square-cornered button). In the accent of each
-   look: blue in the light, amber in the dark. */
-button.primary{border-radius:999px;            /* the same round ends as Start designing */
+   look: orange in the light, amber in the dark. */
+button.primary, a.primary{border-radius:999px;            /* the same round ends as Start designing */
   --cta-accent:var(--accent); --cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   color:var(--accent-ink); font-weight:600; border:2px solid transparent;
   background:var(--cta-sheen) border-box; box-shadow:none; transition:box-shadow .25s ease}
-button.primary:hover:not(:disabled){border-color:transparent;
+button.primary:hover:not(:disabled), a.primary:hover{border-color:transparent;
   background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),var(--cta-accent)) border-box;
   box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
   animation:cta-spin 2.5s linear infinite}
 @media (prefers-reduced-motion:reduce){button.primary:hover:not(:disabled){animation:none}}
 button.wide{width:100%}
+/* "View cart" is a link dressed as the same main button (it had been showing as a plain link). */
+a.primary{box-sizing:border-box; font-size:14px; padding:9px 12px; text-decoration:none}
+a.wide{width:100%}
 button.ghost{background:transparent}
 
 /* search results */
@@ -9176,7 +9179,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
   const bar = document.querySelector("header.site-banner");
   if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
   const REVEAL_MS = 2500, START_R = 15, FEATHER = 48;    // it begins as a small circle, 15 px round the pointer
-  const INK = "46, 90, 76", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
+  const INK = "228, 87, 46", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const cv = document.createElement("canvas");

@@ -26,7 +26,7 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .item h2{margin:2px 0 6px;font-size:18px;letter-spacing:-0.01em}
 .item .what{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#3A424C}
 .item .acts{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px}
-.item .acts a,.item .acts button{font:inherit;font-size:14px;font-weight:600;color:#2F5BD8;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
+.item .acts a,.item .acts button{font:inherit;font-size:14px;font-weight:600;color:#C9461F;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
 .item .acts button.remove{color:#9B2C1E}
 .item .acts a:hover,.item .acts button:hover{text-decoration:underline}
 .item .price{font-size:17px;font-weight:700;white-space:nowrap}
@@ -34,7 +34,7 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .summary h2{margin:0 0 12px;font-size:18px}
 .ship{display:flex;flex-direction:column;gap:8px}
 .ship label{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#FFFFFF;cursor:pointer;font-size:14px}
-.ship label:has(input:checked){outline:2px solid #2F5BD8}
+.ship label:has(input:checked){outline:2px solid #E4572E}
 .ship label > span:nth-of-type(1){white-space:nowrap}
 .ship small{color:#5B6470}
 .ship .p{margin-left:auto;font-weight:600}
@@ -71,7 +71,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 .sug{flex:0 0 calc((100% - 48px) / 3.4);min-width:220px;scroll-snap-align:start;text-decoration:none;color:#0B0E12;
   border-radius:20px;background:#F5F5F7;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s ease, box-shadow .2s ease}
 .sug:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(11,14,18,.10)}
-.sug:focus-visible{outline:2px solid #2F5BD8;outline-offset:2px}
+.sug:focus-visible{outline:2px solid #E4572E;outline-offset:2px}
 .sug img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain}   /* the whole render, never cropped */
 .sug .tx{padding:8px 16px 14px}
 .sug b{display:block;font-size:17px;letter-spacing:-0.01em}
@@ -320,7 +320,7 @@ window.__cartReady = true;
   const bar = document.querySelector("header.site-banner");
   if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
   const REVEAL_MS = 2500, START_R = 15, FEATHER = 48;    // it begins as a small circle, 15 px round the pointer
-  const INK = "46, 90, 76", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
+  const INK = "228, 87, 46", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const cv = document.createElement("canvas");

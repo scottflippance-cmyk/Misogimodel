@@ -1,6 +1,6 @@
 /* misogimodel site chrome: the banner and the call-to-action buttons.
    Generated from the landing-page design by build_landing.py; edit the design, not this. */
-:root{--accent:#2F5BD8}
+:root{--accent:#E4572E}
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
    same place on the homepage (which scrolls) and in the studio (which doesn't). */
 html{scroll-padding-top:96px;scrollbar-gutter:stable}
@@ -44,7 +44,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .site-banner__cart:hover{background:rgba(127,127,127,.12)}
 .site-banner__cart svg{display:block;width:24px;height:24px}
 .site-banner__count{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
-  border-radius:999px;background:var(--accent,#2F5BD8);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+  border-radius:999px;background:var(--accent,#E4572E);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .site-banner__count[hidden]{display:none}
 /* On a phone the banner stays one slim row: the section links step out (they are in the page
    anyway) and the mark, wordmark and button tighten to fit. */
@@ -65,7 +65,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
    a pale tint of the button's own colour, never pure white, which read as a hard line on a
    straight edge. */
 @property --cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
-.cta{--cta-accent:var(--accent,#2F5BD8);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
+.cta{--cta-accent:var(--accent,#E4572E);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   display:inline-block;color:#FFFFFF;text-decoration:none;font-weight:600;border-radius:999px;
   border:2px solid transparent;background:var(--cta-sheen) border-box;box-shadow:none;
   transition:box-shadow .25s ease}
@@ -79,7 +79,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .size-card{position:relative;color:inherit;text-decoration:none;cursor:pointer;
   transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
 .size-card:hover{color:inherit}
-.size-card:focus-visible{outline:3px solid var(--accent,#2F5BD8);outline-offset:4px}
+.size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
   .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the
@@ -90,8 +90,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .cw__opt{position:relative;display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:16px;
   background:#F5F5F7;border:2px solid transparent;cursor:pointer;transition:background .2s ease,border-color .2s ease}
 .cw__opt:hover{background:#ECEEF2}
-.cw__opt:has(input:checked){border-color:var(--accent,#2F5BD8);background:#FFFFFF}
-.cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#2F5BD8);outline-offset:2px}
+.cw__opt:has(input:checked){border-color:var(--accent,#E4572E);background:#FFFFFF}
+.cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#E4572E);outline-offset:2px}
 .cw__opt input{position:absolute;opacity:0;pointer-events:none}
 .cw__bar{flex:0 0 72px;height:40px;border-radius:10px;overflow:hidden;display:flex}
 .cw__bar span{flex:1}
