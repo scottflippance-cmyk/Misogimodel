@@ -83,10 +83,10 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
   .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
-/* With all four in one row there is room to grow further: half as big again plus a bit (1.5625x).
+/* With all four in one row there is room to grow further (1.40625x).
    The end cards grow inwards so they never spill past the page's edge. */
 @media (hover:hover) and (min-width:1140px){
-  .size-card:hover{transform:scale(1.5625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
+  .size-card:hover{transform:scale(1.40625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
   .size-card:first-child{transform-origin:left center}
   .size-card:last-child{transform-origin:right center}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the

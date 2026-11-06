@@ -243,12 +243,15 @@ aside{
   border-left:1px solid var(--line); overflow-y:scroll;    /* always scroll: the panel never changes width */
   scrollbar-gutter:stable;
   display:flex; flex-direction:column;
-  scrollbar-width:thin; scrollbar-color:var(--line) transparent;
   margin-right:-9px; padding-right:9px;              /* the scrollbar rides outside the panel's content */
 }
+/* The panel's scrollbar matches the homepage's: a pale grey rail with a rounded orange bar that
+   travels down it as you scroll. Browsers without the -webkit- parts get the same two colours. */
+@supports not selector(::-webkit-scrollbar){aside{scrollbar-width:thin; scrollbar-color:var(--accent) #E6E6E6}}
 aside::-webkit-scrollbar{width:9px}
-aside::-webkit-scrollbar-track{background:transparent}
-aside::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px; border:2px solid transparent; background-clip:content-box}
+aside::-webkit-scrollbar-track{background:#E6E6E6 content-box; border:2px solid transparent; border-radius:6px}
+aside::-webkit-scrollbar-thumb{background:var(--accent) content-box; border-radius:6px; border:2px solid transparent}
+aside::-webkit-scrollbar-thumb:hover{background:var(--accent-hover) content-box}
 /* The Order section stays in view at the foot of the Customise panel; everything else scrolls up
    behind it. The band of panel colour round it (and a soft fade above) hides what passes beneath,
    in the margins too. Sections scrolled to stop clear of it. */
@@ -383,6 +386,13 @@ button.primary:hover:not(:disabled), a.primary:hover{border-color:transparent;
   box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
   animation:cta-spin 2.5s linear infinite}
 @media (prefers-reduced-motion:reduce){button.primary:hover:not(:disabled){animation:none}}
+/* The way back is the main button in reverse (white, orange letters, orange edge) so it doesn't
+   compete with Add to cart; on hover the pale orange the selectors use. */
+button.primary.reverse{color:var(--accent);
+  background:linear-gradient(#FFFFFF,#FFFFFF) padding-box, linear-gradient(var(--accent),var(--accent)) border-box}
+button.primary.reverse:hover:not(:disabled){
+  background:linear-gradient(#FDF1EC,#FDF1EC) padding-box, linear-gradient(var(--accent),var(--accent)) border-box;
+  box-shadow:none; animation:none}
 button.wide{width:100%}
 /* "View cart" is a link dressed as the same main button (it had been showing as a plain link). */
 a.primary{box-sizing:border-box; font-size:14px; padding:9px 12px; text-decoration:none}
@@ -1013,7 +1023,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
   </aside>
 
   <aside id="panelView" hidden>
-    <div id="viewHead"><button class="primary wide" id="back">Pick another location</button></div>
+    <div id="viewHead"><button class="primary reverse wide" id="back">Pick another location</button></div>
 
     <div class="block" id="sizeBlock">
       <h2>Print Dimensions</h2>

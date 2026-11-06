@@ -223,10 +223,10 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
   .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
-/* With all four in one row there is room to grow further: half as big again plus a bit (1.5625x).
+/* With all four in one row there is room to grow further (1.40625x).
    The end cards grow inwards so they never spill past the page's edge. */
 @media (hover:hover) and (min-width:1140px){
-  .size-card:hover{transform:scale(1.5625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
+  .size-card:hover{transform:scale(1.40625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
   .size-card:first-child{transform-origin:left center}
   .size-card:last-child{transform-origin:right center}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the
@@ -325,8 +325,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </section>
 
 <section id="sizes" style="max-width: 1200px; margin: 0 auto; padding: 88px 24px 40px">
-<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Four sizes. Named for the days they remember.</h2>
-<p style="margin: 12px 0 0; font-size: 19px; color: #5B6470">Each one is shown to scale, on the same wall.</p>
+<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Pick your size.</h2>
+<p style="margin: 12px 0 0; font-size: 19px; color: #5B6470">Names for the days they remember.</p>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 48px">
 <a class="size-card" href="/studio/?size=100" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-100.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 10 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
@@ -352,7 +352,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 </section>
 
 <section aria-labelledby="colours-h" style="max-width: 1200px; margin: 0 auto; padding: 88px 24px 40px">
-<h2 id="colours-h" style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Five colour ways.</h2>
+<h2 id="colours-h" style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Pick your style.</h2>
 <p style="margin: 12px 0 0; font-size: 19px; color: #5B6470">From a single quiet grey to every feature picked out.</p>
 <div class="cw">
 <div class="cw__list" role="radiogroup" aria-label="Colour ways">
