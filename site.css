@@ -25,7 +25,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
    wordmark stays centred. */
 .site-banner__brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--sb-ink);
   align-self:stretch;margin:-14px 0}
-.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end}
+.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end;margin-bottom:-1px}   /* a pixel past the bar's edge: no pale hairline under the rock */
 .site-banner__brand:hover{color:var(--sb-ink)}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */

@@ -8434,8 +8434,15 @@ function backTextLayout(Wmm) {
    plan, in millimetres with x east and y north from the south-west corner. */
 const backTextPlan = (L, Wmm, u, v) => [Wmm / 2 + (u - 0.5) * L.lenMM, Wmm / 2 - (v - 0.5) * L.hMM];
 /* The artwork itself, drawn upright into a canvas px pixels to the millimetre, in one colour. */
+/* The artwork is drawn turned half a turn (180°) about its own centre, so it reads the right way up
+   when the print is lifted and turned over. A shift (dy, for the lit lip) still goes straight down. */
 function drawBackArt(g, L, px, colour, dy = 0) {
-  const x0 = L.margin * px, top = L.margin * px + dy, h = L.logoH * px;
+  g.save();
+  g.translate(L.lenMM * px / 2, L.hMM * px / 2 + dy); g.rotate(Math.PI); g.translate(-L.lenMM * px / 2, -L.hMM * px / 2);
+  try { drawBackArtUpright(g, L, px, colour); } finally { g.restore(); }
+}
+function drawBackArtUpright(g, L, px, colour) {
+  const x0 = L.margin * px, top = L.margin * px, h = L.logoH * px;
   if (BACK_MARK.complete && BACK_MARK.naturalWidth) {            // the mark, tinted to the colour asked for
     const t = document.createElement("canvas"); t.width = Math.max(1, Math.round(L.markMM * px)); t.height = Math.max(1, Math.round(h));
     const q = t.getContext("2d"); q.drawImage(BACK_MARK, 0, 0, t.width, t.height);
