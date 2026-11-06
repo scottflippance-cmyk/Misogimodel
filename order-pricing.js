@@ -32,6 +32,7 @@ export const PRICING = {
   ],
   countries: ["GB"],                                    // where Stripe will accept a delivery address
   maxItems: 20,                                         // models in one order
+  maxIcons: 3,                                          // icons on one model
 };
 
 /* What one model is, read from a design as the studio saves it (its collectState()). */
@@ -48,6 +49,7 @@ export function itemFromDesign(design) {
 
 /* One model's bill: the size, then each extra. Throws on anything not on the list. */
 export function priceItem(item, pricing = PRICING) {
+  if (item.icons > pricing.maxIcons) throw new Error("A model can carry up to " + pricing.maxIcons + " icons.");
   const size = pricing.sizes[item.sizeMM];
   if (!size) throw new Error("That printed size isn't on the price list.");
   const lines = [{ key: "size", label: size.name + " (" + size.dims + ")", unit: size.price, qty: 1, amount: size.price }];

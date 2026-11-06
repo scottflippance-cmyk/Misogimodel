@@ -6864,22 +6864,43 @@ async function surfaceBase(data, px, strength) {
   cv.width = cv.height = px;
   const ctx = cv.getContext("2d", { willReadFrequently: true });   // read back below: keep it in ordinary memory
   ctx.fillStyle = printCols.on ? printCols.colours[0] : (PLAIN_GROUND || PLAIN_STONE); ctx.fillRect(0, 0, px, px);
-  /* One tone has nothing but its shading to go on, so it is carried a little further than the
-     map-backed surface needs: the shadows deepen while the lit side stays where it is. */
+  const img = ctx.getImageData(0, 0, px, px);
+  shadePixels(img.data, shadeMap(data, px));
+  ctx.putImageData(img, 0, 0);
+  data._surfaceCache[key] = cv;
+  return cv;
+}
+/* The ground's light and shadow, one factor per pixel. One tone has nothing but its shading to go
+   on, so it is carried a little further than the map-backed surface needs: the shadows deepen
+   while the lit side stays where it is. The same factors go over every colour painted on the
+   ground (woods, fields, water, snow), so a coloured model keeps its hills and shadows just as the
+   grey one does, rather than the colours sitting flat on top. */
+function shadeMap(data, px) {
+  data._shadeCache = data._shadeCache || {};
+  if (data._shadeCache[px]) return data._shadeCache[px];
   const k = 1.05, light = lightGrid(data), n = data.n;
   const { mean, gain } = lightSpread(light);
-  const img = ctx.getImageData(0, 0, px, px), d = img.data;
+  const sh = new Float32Array(px * px);
   for (let y = 0; y < px; y++) {
     const v = y / (px - 1);
     for (let x = 0; x < px; x++) {
       const lit = clamp(mean + (gridAtSmooth(light, n, x / (px - 1), v) - mean) * gain, 0, 1);
-      const sh = 1 + k * ((0.35 + 0.8 * lit) - 1), i = (y * px + x) * 4;
-      d[i] = Math.min(255, d[i] * sh); d[i + 1] = Math.min(255, d[i + 1] * sh); d[i + 2] = Math.min(255, d[i + 2] * sh);
+      sh[y * px + x] = 1 + k * ((0.35 + 0.8 * lit) - 1);
     }
   }
-  ctx.putImageData(img, 0, 0);
-  data._surfaceCache[key] = cv;
-  return cv;
+  return (data._shadeCache[px] = sh);
+}
+function shadePixels(d, sh) {
+  for (let j = 0, i = 0; j < sh.length; j++, i += 4) {
+    if (!d[i + 3]) continue;                          // nothing painted here
+    const f = sh[j]; d[i] = Math.min(255, d[i] * f); d[i + 1] = Math.min(255, d[i + 1] * f); d[i + 2] = Math.min(255, d[i + 2] * f);
+  }
+}
+/* Shade a layer of painted colour (woods, water, snow…) the way the ground under it is shaded. */
+function shadeLayer(canvas, data) {
+  const g = canvas.getContext("2d", { willReadFrequently: true }), px = canvas.width;
+  const img = g.getImageData(0, 0, px, px); shadePixels(img.data, shadeMap(data, px)); g.putImageData(img, 0, 0);
+  return canvas;
 }
 
 const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -6990,12 +7011,27 @@ async function paintSurface(data) {
   const useHeight = $("useHeightColour").checked, W2 = canvas.width, mm = W2 / frameVals.modelMM;
   const base = await surfaceBase(data, useHeight ? 1024 : W2, 0.55);
   if (token !== surfaceToken) return;               // a newer repaint has started; drop this one
+  const flatTone = !useHeight || printCols.on;       // the shaded one-tone ground (height colours carry their own light)
+  let paintLayer = null;
   const compose = (low, high) => {
     ctx.drawImage(base, 0, 0, W2, W2);
+    /* Everything painted over the ground goes on a layer of its own first, so it can take the
+       ground's shading before it lands, then over the base it goes. */
+    if (flatTone) {
+      paintLayer = paintLayer || document.createElement("canvas");
+      paintLayer.width = paintLayer.height = W2;      // also clears it
+      const g = paintLayer.getContext("2d", { willReadFrequently: true });
+      paintOpenSea(g, data, W2);
+      if (low) g.drawImage(low, 0, 0);
+      drawSnow(g, data, W2, base);
+      if (high) g.drawImage(high, 0, 0);
+      ctx.drawImage(shadeLayer(paintLayer, data), 0, 0);
+    } else {
     paintOpenSea(ctx, data, W2);                     // before anything else: the water's edge belongs to the land
     if (low) ctx.drawImage(low, 0, 0);
     drawSnow(ctx, data, W2, base);                   // snow whitens the ground itself, print colours or not
     if (high) ctx.drawImage(high, 0, 0);
+    }
     if (routeStyle.mode === "painted" && (!printCols.on || printedSeparately("route"))) paintRoute(ctx, data.bounds, W2, mm);
     if (typeof paintIcons === "function") paintIcons(ctx, data.bounds, W2, mm, base);
     paintGloss(data, W2, wm);                        // the shine follows the paint it was made from

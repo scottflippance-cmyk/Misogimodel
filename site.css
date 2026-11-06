@@ -89,7 +89,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .cw__list{display:flex;flex-direction:column;gap:10px}
 .cw__opt{position:relative;display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:16px;
   background:#F5F5F7;border:2px solid transparent;cursor:pointer;transition:background .2s ease,border-color .2s ease}
-.cw__opt:hover{background:#ECEEF2}
+.cw__opt:hover{background:#FDF1EC}   /* a pale tint of the orange */
 .cw__opt:has(input:checked){border-color:var(--accent,#E4572E);background:#FFFFFF}
 .cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#E4572E);outline-offset:2px}
 .cw__opt input{position:absolute;opacity:0;pointer-events:none}
