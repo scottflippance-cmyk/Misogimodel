@@ -14,7 +14,8 @@
        POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts, nothing else.
      Contact page:
        POST /api/contact                   { name, email, topic, order?, message }. Emails it to you, with
-                                           Reply going straight back to the sender. Nothing is stored.
+                                           Reply going straight back to the sender, and sends the sender a
+                                           short "we've got your message" note. Nothing is stored.
      Paid:
        POST /api/stripe-webhook            Stripe saying the payment went through. One email goes to
                                            you listing every model, each with its print file attached.
@@ -331,7 +332,30 @@ ${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
       text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message,
     }),
   });
-  if (r.ok) return json({ ok: true });
+  if (r.ok) {
+    // A short confirmation to the sender. It deliberately doesn't repeat what they wrote, so the form
+    // can't be used to send someone else's words to a stranger's inbox. If it fails, the message to
+    // you has still gone, so the person is still told it worked.
+    try {
+      const first = name.split(" ")[0];
+      const c = await fetch("https://api.resend.com/emails", {
+        method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+        body: JSON.stringify({
+          from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
+          to: [email], reply_to: env.ORDER_EMAIL_TO,
+          subject: "We've got your message",
+          html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+<p style="margin:0 0 12px">Hi ${esc(first)},</p>
+<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1))}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
+<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
+<p style="margin:0">misogimodel</p></div>`,
+          text: "Hi " + first + ",\n\nThanks for getting in touch about " + TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1) + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel",
+        }),
+      });
+      if (!c.ok) console.log("contact: the confirmation wasn't sent, Resend said " + c.status);
+    } catch (e) { console.log("contact: the confirmation wasn't sent"); }
+    return json({ ok: true });
+  }
   console.log("contact: Resend said " + r.status + " " + (await r.text().catch(() => "")).slice(0, 200));
   return fail(502, "Your message couldn't be sent just now. Please try again in a little while.");
 }

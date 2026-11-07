@@ -27,15 +27,15 @@ input,select{height:44px}
 textarea{min-height:160px;resize:vertical;line-height:1.5}
 input:hover,select:hover,textarea:hover{border-color:#E4572E}
 input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-shadow:0 0 0 3px rgba(228,87,46,.18)}
+[hidden]{display:none !important}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .send{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .send .cta{font-size:16px;padding:13px 28px;border:0;cursor:pointer}
 .send .cta:disabled{opacity:.6;cursor:progress}
 .msg{margin:0;font-size:14px;color:#5B6470}
 .msg.bad{color:#C2412D}
-.done{margin-top:32px;padding:28px 24px;border-radius:20px;background:#F5F5F7}
-.done h2{margin:0;font-size:22px;letter-spacing:-0.01em}
-.done p{margin:10px 0 0;font-size:16px;line-height:1.55;color:#3A424C}
+/* once sent, the heading, intro and form all give way to just the thank-you */
+.done h1:focus{outline:none}
 @media (max-width:560px){ main{padding:32px 16px 64px} form{padding:18px} .two{grid-template-columns:1fr} }
 </style>
 </head>
@@ -59,8 +59,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
 </header>
 <!-- /site-banner -->
 <main>
-<h1>Get in touch.</h1>
-<p class="lede">A question about an order, help with a design, or an idea for something custom: send us a message and we'll reply by email.</p>
+<div id="intro"><h1>Get in touch.</h1>
+<p class="lede">A question about an order, help with a design, or an idea for something custom: send us a message and we'll reply by email.</p></div>
 <form id="contact" novalidate>
   <div class="two">
     <label>Name<input name="name" autocomplete="name" maxlength="80" required></label>
@@ -80,7 +80,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
   <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
   <div class="send"><button class="cta" type="submit" id="send">Send message</button><p class="msg" id="msg" role="status"></p></div>
 </form>
-<div class="done" id="done" hidden><h2>Thanks, your message is on its way.</h2><p id="doneText"></p></div>
+<div class="done" id="done" hidden><h1 tabindex="-1">Thanks, your message is on its way.</h1><p class="lede" id="doneText"></p></div>
 </main>
 <script>
 /* The contact form: checked here first, then sent to /api/contact, which emails it on. */
@@ -100,9 +100,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
       const r = await fetch("/api/contact", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(d) });
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b.error || "Your message couldn't be sent just now. Please try again in a little while.");
-      f.hidden = true;
+      f.hidden = true; document.getElementById("intro").hidden = true;
       document.getElementById("doneText").textContent = "We'll reply to " + d.email + " as soon as we can.";
       document.getElementById("done").hidden = false;
+      document.querySelector("#done h1").focus(); window.scrollTo(0, 0);
     } catch (err) {
       say(err.message || "Your message couldn't be sent just now. Please try again in a little while.", true);
     } finally { btn.disabled = false; }
