@@ -4,6 +4,15 @@
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
    same place on the homepage (which scrolls) and in the studio (which doesn't). */
 html{scroll-padding-top:96px;scrollbar-gutter:stable}
+/* The page's own scrollbar is the studio panel's, in place of the browser's default: the same 9 px
+   gutter and 5 px rounded orange bar on a pale grey rail, and like the panel's it floats — the rail
+   starts below the banner and stops short of the foot of the window. Browsers without the
+   -webkit- parts get the same two colours. */
+@supports not selector(::-webkit-scrollbar){html{scrollbar-width:thin;scrollbar-color:#E4572E #E6E6E6}}
+html::-webkit-scrollbar{width:9px;background:#FFFFFF}
+html::-webkit-scrollbar-track{background:#E6E6E6 content-box;border:2px solid transparent;border-radius:6px;margin:82px 0 16px}
+html::-webkit-scrollbar-thumb{background:#E4572E content-box;border:2px solid transparent;border-radius:6px}
+html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 /* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
 /* The banner sets its own type rather than taking the page's, so its lettering sits at the same

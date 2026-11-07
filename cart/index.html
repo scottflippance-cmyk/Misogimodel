@@ -25,10 +25,18 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .item .pic img{display:block;width:100%;height:100%;object-fit:cover}
 .item h2{margin:2px 0 6px;font-size:18px;letter-spacing:-0.01em}
 .item .what{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#3A424C}
-.item .acts{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px}
-.item .acts a,.item .acts button{font:inherit;font-size:14px;font-weight:600;color:#C9461F;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
-.item .acts button.remove{color:#9B2C1E}
-.item .acts a:hover,.item .acts button:hover{text-decoration:underline}
+/* Edit and a bin, the same pair the studio's lists use: a small outlined Edit button, then a grey
+   bin that turns red under the pointer. */
+/* Price at the top right; Edit and the bin under it, their bottom level with the bottom of the picture. */
+.item .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;height:calc(148px * 3 / 4)}
+.item .acts{display:flex;align-items:center;gap:4px;margin-right:-6px}
+.item .acts a.edit{font:inherit;font-size:13px;font-weight:500;color:#0B0E12;background:#FFFFFF;border:1px solid #D9DEE4;
+  border-radius:6px;padding:4px 10px;cursor:pointer;text-decoration:none;transition:background .12s ease,border-color .12s ease}
+.item .acts a.edit:hover{background:#FDF1EC;border-color:#E4572E}
+.item .acts button.remove{display:grid;place-items:center;background:none;border:0;padding:4px 6px;border-radius:6px;
+  color:#8A93A1;cursor:pointer;transition:color .12s ease}
+.item .acts button.remove:hover{color:#C9461F}
+.item .acts button.remove:focus-visible,.item .acts a.edit:focus-visible{outline:2px solid #E4572E;outline-offset:2px}
 .item .price{font-size:17px;font-weight:700;white-space:nowrap}
 .summary{position:sticky;top:100px;padding:22px;border-radius:20px;background:#F5F5F7}
 .summary h2{margin:0 0 12px;font-size:18px}
@@ -45,7 +53,8 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .placeholder{margin:10px 0 0;font-size:12.5px;color:#B26B00}
 #checkout{display:block;width:100%;margin-top:18px;font-size:16px;padding:13px 24px;cursor:pointer}
 #checkout:disabled{opacity:.6;cursor:progress}
-.msg{min-height:20px;margin:10px 0 0;font-size:13.5px;color:#5B6470}
+.msg{margin:10px 0 0;font-size:13.5px;color:#5B6470}
+.msg:empty{display:none}           /* no gap under Checkout until there is something to say */
 .msg.bad{color:#C2412D}
 .small{margin:8px 0 0;font-size:12px;color:#5B6470;text-align:center}
 .more{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
@@ -97,7 +106,8 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   .track{padding:12px 16px 36px;margin:-12px -16px -32px;scroll-padding-inline:16px}
   .item{grid-template-columns:96px minmax(0,1fr);gap:12px}
   .item .pic{width:96px}
-  .item .price{grid-column:2;grid-row:1;justify-self:end;font-size:15px}
+  .item .side{grid-column:2;grid-row:1;justify-self:end;height:72px}
+  .item .price{font-size:15px}
   .item .body{grid-column:1 / -1}
 }
 </style>
@@ -124,12 +134,11 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 <main>
 <section id="full" hidden>
 <h1>Your cart</h1>
-<p class="lede" id="lede"></p>
 <p class="notice" id="notice" role="status" hidden></p>
 <div class="layout">
   <div>
     <ul class="items" id="items"></ul>
-    <div class="more"><a class="quiet" href="/studio/">Add another model</a><a class="quiet" href="/">Back to the homepage</a></div>
+    <div class="more"><a class="quiet" href="/studio/">Add another model</a></div>
   </div>
   <aside class="summary" aria-label="Order summary">
     <h2>Delivery</h2>
@@ -142,7 +151,6 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
     <p class="placeholder" id="placeholder" hidden>Example prices: these aren't final yet.</p>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
-    <p class="small">You'll enter your address and pay on Stripe's secure page.</p>
   </aside>
 </div>
 </section>
@@ -265,19 +273,19 @@ function render() {
   try { bill = priceCart(cart.items.map((x) => x.item), cart.shipping, PRICING); }
   catch (e) { bill = null; }
   const n = cart.items.length;
-  $("lede").textContent = n + (n === 1 ? " model" : " models") + ", printed and posted together.";
   const list = $("items"); list.innerHTML = "";
   cart.items.forEach((it, i) => {
     let p = null; try { p = priceItem(it.item, PRICING); } catch (e) { /* off the price list now */ }
     const li = document.createElement("li"); li.className = "item"; li.dataset.id = it.id;
-    li.innerHTML = `<div class="pic"></div><div class="body"><h2></h2><ul class="what"></ul>
-      <div class="acts"><a class="edit">Open in the studio</a><button class="remove" type="button">Remove</button></div></div>
-      <div class="price"></div>`;
+    li.innerHTML = `<div class="pic"></div><div class="body"><h2></h2><ul class="what"></ul></div>
+      <div class="side"><div class="price"></div><div class="acts"><a class="edit">Edit</a><button class="remove" type="button" aria-label="Remove this model" title="Remove this model"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Zm4 2v8h1.6v-8H10Zm2.4 0v8H14v-8h-1.6Z" fill="currentColor"/></svg></button></div></div>`;
     if (it.picture) { const img = document.createElement("img"); img.src = it.picture; img.alt = ""; li.querySelector(".pic").append(img); }
     li.querySelector("h2").textContent = it.name || "Your place";
     const what = li.querySelector(".what");
-    const lines = [p ? p.size.name + " (" + p.size.dims + ")" : "This size is no longer offered"]
-      .concat((it.facts || []).filter((f) => !/web address on the back/i.test(f)));
+    // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
+    const facts = (it.facts || []).filter((f) => !/web address on the back/i.test(f))
+      .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
+    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" : "This size is no longer offered"].concat(facts);
     for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
     li.querySelector(".price").textContent = p ? money(p.subtotal, PRICING.currency) : "—";
     const edit = li.querySelector(".edit");

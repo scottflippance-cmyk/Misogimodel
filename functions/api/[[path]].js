@@ -12,6 +12,9 @@
                                            opened for the lot and its address handed back.
      Newsletter:
        POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts, nothing else.
+     Contact page:
+       POST /api/contact                   { name, email, topic, order?, message }. Emails it to you, with
+                                           Reply going straight back to the sender. Nothing is stored.
      Paid:
        POST /api/stripe-webhook            Stripe saying the payment went through. One email goes to
                                            you listing every model, each with its print file attached.
@@ -28,6 +31,8 @@
      ORDER_SECRET           any long random string; signs the upload and download links
      ORDER_EMAIL_TO         where orders are sent (you)
      ORDER_EMAIL_FROM       optional; defaults to misogimodel orders <orders@send.misogimodel.com>
+     CONTACT_EMAIL_FROM     optional; defaults to misogimodel contact <contact@send.misogimodel.com>
+                            (the contact page uses RESEND_API_KEY and ORDER_EMAIL_TO too)
      RESEND_CONTACTS_KEY    a full-access Resend key, used only to add newsletter sign-ups
      NEWSLETTER_SEGMENT_ID  optional; a Resend segment to put sign-ups in (they are kept as contacts either way) */
 import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
@@ -291,10 +296,54 @@ async function serve(env, id, file, request) {
   return new Response(obj.body, { headers });
 }
 
+/* ---- the contact page: one message, emailed to you, Reply goes back to the sender ----
+   Needs only RESEND_API_KEY and ORDER_EMAIL_TO. Every field is checked and kept short, and goes into
+   the email escaped, so nothing typed can become markup. The hidden "website" box catches bots. */
+const TOPICS = { order: "An order I've placed", design: "Help with a design", custom: "A custom or bulk request", other: "Something else" };
+const clean = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, n);
+async function contact(request, env) {
+  if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "The contact form isn't switched on just yet");
+  let body;
+  try { body = await request.json(); } catch (e) { return fail(400, "That didn't come through properly."); }
+  if (!body || typeof body !== "object") return fail(400, "That didn't come through properly.");
+  if (body.website) return json({ ok: true });                    // a bot: thank it, send nothing
+  const name = clean(body.name, 80).replace(/[\r\n]+/g, " ");
+  const email = clean(body.email, 254).toLowerCase();
+  const topic = TOPICS[body.topic] ? body.topic : "other";
+  const order = clean(body.order, 40).replace(/[\r\n]+/g, " ");
+  const message = clean(body.message, 4000);
+  if (!name) return fail(400, "Please add your name.");
+  if (!EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
+  if (message.length < 10) return fail(400, "Please write a little more in your message.");
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
+<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
+${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
+<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
+<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`;
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
+      to: [env.ORDER_EMAIL_TO], reply_to: email,
+      subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
+      html,
+      text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message,
+    }),
+  });
+  if (r.ok) return json({ ok: true });
+  console.log("contact: Resend said " + r.status + " " + (await r.text().catch(() => "")).slice(0, 200));
+  return fail(502, "Your message couldn't be sent just now. Please try again in a little while.");
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url), m = request.method;
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "contact" && parts.length === 1) {          // needs none of the ordering set-up
+    if (m !== "POST") return fail(405, "Not allowed.");
+    try { return await contact(request, env); } catch (err) { return fail(502, "Your message couldn't be sent just now. Please try again in a little while."); }
+  }
   if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");
     try { return await newsletter(request, env); } catch (err) { return fail(502, "We couldn't sign you up just now. Please try again in a little while."); }

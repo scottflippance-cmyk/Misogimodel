@@ -116,7 +116,7 @@ summary{cursor:pointer}
 .hero__title{margin:0;font-size:clamp(42px,5.4vw,80px);line-height:1.02;letter-spacing:-.035em;font-weight:700;color:#FFFFFF}
 .cta.hero__cta{--cta-accent:#E4572E;margin-top:57px;font-size:17px;padding:15px 30px;color:#FFFFFF}   /* the same button, in the route's orange */
 .cta.hero__cta:hover{color:#FFFFFF}
-.hero__fig{position:relative;margin:0;align-self:center;width:100%;max-width:calc((100svh - 220px) * 1.338);justify-self:center}
+.hero__fig{position:relative;margin:0;align-self:center;width:100%;max-width:calc((100svh - 220px) * 1.176);justify-self:center}
 .hero__model{display:block;width:100%;height:auto;filter:drop-shadow(0 30px 60px rgba(95,168,211,.35))}
 .hero__route{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 /* The route is printed on the model itself, rendered by the studio from the GPX file exactly as a customer sees it. */
@@ -144,6 +144,15 @@ summary{cursor:pointer}
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
    same place on the homepage (which scrolls) and in the studio (which doesn't). */
 html{scroll-padding-top:96px;scrollbar-gutter:stable}
+/* The page's own scrollbar is the studio panel's, in place of the browser's default: the same 9 px
+   gutter and 5 px rounded orange bar on a pale grey rail, and like the panel's it floats — the rail
+   starts below the banner and stops short of the foot of the window. Browsers without the
+   -webkit- parts get the same two colours. */
+@supports not selector(::-webkit-scrollbar){html{scrollbar-width:thin;scrollbar-color:#E4572E #E6E6E6}}
+html::-webkit-scrollbar{width:9px;background:#FFFFFF}
+html::-webkit-scrollbar-track{background:#E6E6E6 content-box;border:2px solid transparent;border-radius:6px;margin:82px 0 16px}
+html::-webkit-scrollbar-thumb{background:#E4572E content-box;border:2px solid transparent;border-radius:6px}
+html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 /* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
 /* The banner sets its own type rather than taking the page's, so its lettering sits at the same
@@ -295,8 +304,8 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 <a class="cta hero__cta" href="/studio/">Start designing</a>
 </div>
 <figure class="hero__fig">
-<img class="hero__model" src="/brand/hero-machame-framed.webp" width="1100" height="764" alt="A 25 cm 3D-printed terrain model of Kilimanjaro in a black frame, the 7-day Machame route printed on it in red, the frame lettered Mount Kilimanjaro - 5,895M and 7-day Machame Route - 56 km">
-<figcaption class="hero__callout" style="left:76.68%;top:12.25%"><span class="hero__callout-dot"></span><span class="hero__callout-line"></span><span class="hero__callout-box"><span class="hero__callout-k">Uhuru Peak · 5,895 m</span><span class="hero__callout-v">7-day Machame route</span><span class="hero__callout-s">56 km · 4,095 m of elevation gain</span></span></figcaption>
+<img class="hero__model" src="/brand/hero-machame-framed.webp" width="1100" height="869" alt="A 25 cm 3D-printed terrain model of Kilimanjaro in a black frame, the 7-day Machame route printed on it in red, the frame lettered Mount Kilimanjaro - 5,895M and 7-day Machame Route - 56 km">
+<figcaption class="hero__callout" style="left:78.23%;top:11.30%"><span class="hero__callout-dot"></span><span class="hero__callout-line"></span><span class="hero__callout-box"><span class="hero__callout-k">Uhuru Peak · 5,895 m</span><span class="hero__callout-v">7-day Machame route</span><span class="hero__callout-s">56 km · 4,095 m of elevation gain</span></span></figcaption>
 </figure>
 </div>
 </section>
