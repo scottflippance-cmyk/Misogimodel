@@ -58,26 +58,17 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
 </main>
 <!-- banner-contours -->
 <script>
-/* Hidden contours under the site banner.
-   A faint contour map lies under the banner, unseen. When the pointer comes over the banner the
-   lines show within about 3 cm of where it came in, then the lit patch grows outwards at a steady
-   speed until the whole bar is showing 2.5 seconds later. The lines sit under the logo, links and
-   button and stop 2 px short of their edges (and clear of the logo's whole square), so everything on
-   the bar stays as readable as before.
-   Leaving the bar fades them away again; coming back starts over from the new spot. With reduced
-   motion asked for, the whole map simply fades in. */
+/* Hidden contours under the site banner and the footer.
+   A faint contour map lies under each, unseen. Where the pointer passes, the lines show in a soft
+   circle about 80 px round it, and what has been uncovered stays uncovered, so moving about the bar
+   (or the footer) paints the map in like a torch trail. Nothing resets until the pointer leaves:
+   then the whole map fades away over half a second, and the next visit starts from nothing.
+   The lines keep 2 px clear of everything on the bar or footer (the words, links, buttons, the
+   email box and the mountains), so all of it stays as readable as before. Touch screens, which
+   have no hover, are left out. */
 (() => {
-  const bar = document.querySelector("header.site-banner");
-  if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
-  const REVEAL_MS = 2500, START_R = 15, FEATHER = 48;    // it begins as a small circle, 15 px round the pointer
-  const INK = "228, 87, 46", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  const cv = document.createElement("canvas");
-  cv.className = "site-banner__contours"; cv.setAttribute("aria-hidden", "true");
-  bar.prepend(cv);
-  const g = cv.getContext("2d");
-  let W = 0, H = 0, dpr = 1, lines = null, knock = null, anim = null;
+  if (!window.matchMedia("(hover:hover)").matches) return;     // touch screens have no hover
+  const R = 80, FEATHER = 36, GAP = 2, FADE_MS = 450;          // the torch: 80 px round, soft at its edge
 
   /* ---- a contour map of made-up ground: smooth noise, traced at even heights ---- */
   function noise(seed) {
@@ -94,16 +85,16 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
     const wx = x + 70 * (w1(x / 180, y / 180) - 0.5), wy = y + 70 * (w2(x / 180 + 9, y / 180 + 4) - 0.5);
     return 0.6 * n1(wx / 230, wy / 230) + 0.3 * n2(wx / 95, wy / 95) + 0.1 * n3(wx / 40, wy / 40);
   };
-  function drawLines() {
-    lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
+  function drawLines(W, H, dpr, ink, lineA, indexA, oy) {
+    const lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
     const c = lines.getContext("2d"); c.scale(dpr, dpr); c.lineCap = "round";
     const step = 3, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, f = new Float32Array(cols * rows);
-    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step + oy);
     const LEVEL = 0.016;
     let lo = Infinity, hi = -Infinity; for (const v of f) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
     for (let k = Math.ceil(lo / LEVEL); k * LEVEL <= hi; k++) {
       const L = k * LEVEL, index = k % 5 === 0;           // every fifth line a little stronger, as on a map
-      c.strokeStyle = `rgba(${INK}, ${index ? INDEX_A : LINE_A})`; c.lineWidth = index ? 1.1 : 0.8;
+      c.strokeStyle = `rgba(${ink}, ${index ? indexA : lineA})`; c.lineWidth = index ? 1.1 : 0.8;
       c.beginPath();
       for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
         const a = f[j * cols + i], b = f[j * cols + i + 1], d = f[(j + 1) * cols + i], e = f[(j + 1) * cols + i + 1];
@@ -116,10 +107,12 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
       }
       c.stroke();
     }
+    return lines;
   }
-  /* ---- where the lines must not go: everything on the bar, grown by 2 px all round ---- */
-  function drawKnockout() {
-    knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+
+  /* ---- where the lines must not go on the banner: everything on it, grown by 2 px all round ---- */
+  function bannerKnock(bar, W, H, dpr, shape) {
+    const knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
     const c = knock.getContext("2d"); c.scale(dpr, dpr);
     const box = bar.getBoundingClientRect();
     c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
@@ -180,66 +173,130 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
         c.beginPath(); c.roundRect(x - GAP, y - GAP, q.width + GAP * 2, q.height + GAP * 2, GAP); c.fill();
       }
     }
+    return knock;
   }
-  let shape = null;
-  (() => {
-    const m = bar.querySelector(".site-banner__brand svg"), src = m && m.getAttribute("data-shape");
-    if (!src) return;
-    shape = new Image();
-    shape.onload = () => { if (W) { drawKnockout(); paint(); } };
-    shape.src = src;
-  })();
-  function layout() {
-    const r = bar.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = Math.ceil(r.width); H = Math.ceil(r.height);
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
-    drawLines(); drawKnockout(); paint();
+
+  /* ---- where the lines must not go in the footer: its words line by line, the links, the email
+     box and button, and the big mountain and name, each grown by 2 px ---- */
+  function footerKnock(el, W, H, dpr, shapes) {
+    const knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+    const c = knock.getContext("2d"); c.scale(dpr, dpr); c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
+    const box = el.getBoundingClientRect(), rr = (q, rad) => { c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad + GAP); c.fill(); };
+    // the big name, letter by letter, as the banner's
+    for (const s of el.querySelectorAll(".site-footer__word > span")) {
+      if (!s.offsetParent) continue;
+      const cs = getComputedStyle(s), r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect();
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      if ("letterSpacing" in c) c.letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+      c.textBaseline = "middle"; c.lineWidth = GAP * 2;
+      const word = cs.textTransform === "uppercase" ? s.textContent.trim().toUpperCase() : s.textContent.trim();
+      c.fillText(word, q.left - box.left, q.top - box.top + q.height / 2); c.strokeText(word, q.left - box.left, q.top - box.top + q.height / 2);
+    }
+    // every other run of words: its lines' boxes
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if (!n.textContent.trim() || n.parentElement.closest(".site-footer__word, .news-form__label, .news-form__trap")) continue;
+      const r = document.createRange(); r.selectNodeContents(n);
+      for (const q of r.getClientRects()) if (q.width) rr(q, 2);
+    }
+    for (const f of el.querySelectorAll(".news-form__email, .news-form__go")) {
+      if (!f.offsetParent) continue;
+      const q = f.getBoundingClientRect(); rr(q, Math.min(q.height / 2, parseFloat(getComputedStyle(f).borderTopLeftRadius) || 0));
+    }
+    // the mountain: its own outline (the picture it is cut from), grown by 2 px
+    const m = el.querySelector(".site-footer__mountain");
+    if (m && m.offsetParent) {
+      const q = m.getBoundingClientRect(), x = q.left - box.left, y = q.top - box.top, img = shapes.footer;
+      if (img && img.complete && img.naturalWidth) {
+        for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; c.drawImage(img, x + Math.cos(a) * GAP, y + Math.sin(a) * GAP, q.width, q.height); }
+        c.drawImage(img, x, y, q.width, q.height);
+      } else rr(q, 0);
+    }
+    return knock;
   }
-  /* ---- the reveal: a soft-edged circle from where the pointer came in, growing steadily ---- */
-  let origin = null, t0 = 0, speed = 0, fade = 1, leaving = 0;
-  function paint() {
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
-    if (!origin || !lines) return;
-    const now = performance.now(), el = now - t0;
-    g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (!still) {
-      const r = START_R + speed * el;
-      if (r < Math.hypot(W, H) + FEATHER) {
-        const f = Math.min(FEATHER, r * 0.4);                 // a soft edge in proportion while the circle is small
-        const grad = g.createRadialGradient(origin.x, origin.y, Math.max(0, r - f), origin.x, origin.y, r);
-        grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
-        g.globalCompositeOperation = "destination-in"; g.fillStyle = grad; g.fillRect(0, 0, W, H);
+
+  /* ---- one torch-lit map, laid under the banner or the footer ---- */
+  function attach(el, o) {
+    const cv = document.createElement("canvas");
+    cv.className = o.cls; cv.setAttribute("aria-hidden", "true");
+    el.prepend(cv);
+    const g = cv.getContext("2d");
+    let W = 0, H = 0, dpr = 1, lines = null, knock = null, seen = null, sg = null, last = null, fade = 1, leaving = 0, anim = 0, lit = false;
+    function layout() {
+      const r = el.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.ceil(r.width); H = Math.ceil(r.height);
+      cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+      lines = drawLines(W, H, dpr, o.ink, o.lineA, o.indexA, o.oy || 0);
+      const old = seen; seen = document.createElement("canvas"); seen.width = W * dpr; seen.height = H * dpr;
+      sg = seen.getContext("2d"); if (old) sg.drawImage(old, 0, 0);
+      reknock();
+    }
+    function reknock() { if (W) { knock = o.knock(el, W, H, dpr); paint(); } }
+    function brush(x, y) {                                 // light a soft circle round the pointer, and keep it lit
+      const grad = sg.createRadialGradient(x * dpr, y * dpr, (R - FEATHER) * dpr, x * dpr, y * dpr, R * dpr);
+      grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
+      sg.fillStyle = grad; sg.beginPath(); sg.arc(x * dpr, y * dpr, R * dpr, 0, Math.PI * 2); sg.fill();
+    }
+    function trail(x, y) {                                 // fill in between pointer events so a quick sweep leaves no gaps
+      if (last) { const d = Math.hypot(x - last.x, y - last.y), n = Math.ceil(d / (R / 4));
+        for (let i = 1; i <= n; i++) brush(last.x + (x - last.x) * i / n, last.y + (y - last.y) * i / n); }
+      else brush(x, y);
+      last = { x, y }; lit = true;
+    }
+    function paint() {
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      if (!lit || !lines) return;
+      g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
+      g.globalCompositeOperation = "destination-in"; g.drawImage(seen, 0, 0);
+      if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
+      g.globalCompositeOperation = "source-over";
+    }
+    function frame() {
+      anim = 0;
+      if (leaving) {
+        fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        anim = requestAnimationFrame(frame);
       }
+      paint();
     }
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
-    g.globalCompositeOperation = "source-over";
+    function at(e) { const r = el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+    el.addEventListener("pointerenter", (e) => {
+      if (e.pointerType === "touch" || !seen) return;
+      if (leaving) { leaving = 0; fade = 1; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); }   // a fresh visit starts from nothing
+      trail(...at(e)); if (!anim) anim = requestAnimationFrame(frame);
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (e.pointerType === "touch" || !seen || leaving) return;
+      trail(...at(e)); if (!anim) anim = requestAnimationFrame(frame);
+    });
+    el.addEventListener("pointerleave", () => { if (lit) { leaving = performance.now(); last = null; if (!anim) anim = requestAnimationFrame(frame); } });
+    let rt = 0;
+    new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(el);
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+    return { reknock, get knock() { return knock; }, get state() { return { W, H, lit, fade, radius: R, feather: FEATHER, gap: GAP, last, ready: !!(lines && knock) }; } };
   }
-  function loop() {
-    if (leaving) {
-      fade = Math.max(0, 1 - (performance.now() - leaving) / 450);
-      if (fade === 0) { origin = null; leaving = 0; paint(); anim = null; return; }
-    } else if (still) fade = Math.min(1, (performance.now() - t0) / 400);
-    paint(); anim = requestAnimationFrame(loop);
+
+  const shapes = {};
+  const bar = document.querySelector("header.site-banner");
+  let top = null;
+  if (bar) {
+    top = attach(bar, { cls: "site-banner__contours", ink: "228, 87, 46", lineA: 0.20, indexA: 0.32,
+                        knock: (el, W, H, dpr) => bannerKnock(el, W, H, dpr, shapes.banner) });
+    const m = bar.querySelector(".site-banner__brand svg"), src = m && m.getAttribute("data-shape");
+    if (src) { shapes.banner = new Image(); shapes.banner.onload = () => top.reknock(); shapes.banner.src = src; }
+    window.addEventListener("misogimodel:banner-changed", () => top.reknock());   // e.g. the basket's number appearing
+    window.__bannerContours = top;
   }
-  bar.addEventListener("pointerenter", (e) => {
-    if (e.pointerType === "touch") return;
-    const r = bar.getBoundingClientRect();
-    if (!origin || leaving) {
-      origin = { x: e.clientX - r.left, y: e.clientY - r.top }; t0 = performance.now(); leaving = 0; fade = still ? 0 : 1;
-      // a fixed speed for this reveal, set so the farthest corner is reached 2.5 seconds in
-      const far = Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => Math.hypot(x - origin.x, y - origin.y)));
-      speed = Math.max(0, far + FEATHER - START_R) / REVEAL_MS;
-    }
-    if (!anim) anim = requestAnimationFrame(loop);
-  });
-  bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
-  let rt = 0;
-  new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
-  window.addEventListener("misogimodel:banner-changed", () => { if (W) { drawKnockout(); paint(); } });   // e.g. the cart's number appearing
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
-  window.__bannerContours = { get knock() { return knock; }, get state() { return { W, H, origin, speed, fade, startR: START_R, radius: origin ? START_R + speed * (performance.now() - t0) : 0, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
+  const footer = document.querySelector("footer.site-footer");
+  if (footer) {
+    const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
+                                 knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
+    const mt = footer.querySelector(".site-footer__mountain");
+    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
+    window.__footerContours = bot;
+  }
 })();
 /* The cart in the banner: a bag with the number of models in it. The cart itself is kept in this
    browser (localStorage, "misogimodel.cart.v1"), so the count follows the visitor round the site,
