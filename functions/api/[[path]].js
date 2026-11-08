@@ -7,7 +7,7 @@
        PUT  /api/items/:id/model?token=    the print file (a zip holding the STL), streamed into storage.
        PUT  /api/items/:id/preview?token=  a picture of the model.
      Checkout (cart page), once for the whole cart:
-       POST /api/checkout                  { items: [{ id, token }], shipping }. Every item is checked and
+       POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Every item is checked and
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
      Newsletter:
@@ -57,19 +57,25 @@ async function newsletter(request, env) {
   if (body && body.website) return json({ ok: true });  // a bot: thank it, keep nothing
   const email = String((body && body.email) || "").trim().toLowerCase();
   if (email.length > 254 || !EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
+  if (await addContact(env, email, body && body.firstName, "newsletter")) return json({ ok: true });
+  return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
+}
+/* One address onto the mailing list in Resend (the newsletter box, and buyers who left the box at
+   checkout ticked). True if it's on the list, including when it already was. */
+async function addContact(env, email, firstName, why) {
   const contact = { email, unsubscribed: false };
-  // a first name, if the form asked for one: plain text, kept short, nothing that could pass for markup
-  const first = String((body && body.firstName) || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
+  // a first name, if there is one: plain text, kept short, nothing that could pass for markup
+  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
   if (first) contact.first_name = first;
   if (env.NEWSLETTER_SEGMENT_ID) contact.segments = [{ id: env.NEWSLETTER_SEGMENT_ID }];
   const r = await fetch("https://api.resend.com/contacts", {
     method: "POST", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" },
     body: JSON.stringify(contact) });
-  if (r.ok) return json({ ok: true });
+  if (r.ok) return true;
   const said = await r.text().catch(() => "");
-  if (r.status === 409 || /already exists/i.test(said)) return json({ ok: true });   // signed up before: still fine
-  console.log("newsletter: Resend said " + r.status + " " + said.slice(0, 200));
-  return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
+  if (r.status === 409 || /already exists/i.test(said)) return true;   // on the list before: still fine
+  console.log(why + ": Resend said " + r.status + " " + said.slice(0, 200));
+  return false;
 }
 
 async function hmac(secret, text) {
@@ -157,22 +163,23 @@ async function upload(request, env, id, what) {
 /* ---- checkout: the whole cart, one Stripe page ---- */
 async function checkout(request, env) {
   let body;
-  try { body = await request.json(); } catch (e) { return fail(400, "The cart didn't come through properly."); }
+  try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
   const list = Array.isArray(body && body.items) ? body.items : [];
-  if (!list.length) return fail(400, "The cart is empty.");
+  if (!list.length) return fail(400, "The basket is empty.");
   if (list.length > PRICING.maxItems) return fail(400, "That's more models than one order can hold.");
   const items = [];
   for (const it of list) {
     const id = String((it && it.id) || "");
-    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) return fail(403, "One of the models in the cart isn't valid.");
+    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) return fail(403, "One of the models in the basket isn't valid.");
     const rec = await readJSON(env, itemKey(id));
-    if (!rec || rec.status !== "open") return fail(409, "One of the models in the cart has already been ordered or has expired. Please remove it and add it again.");
-    if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the cart is missing its print file. Please remove it and add it again.");
+    if (!rec || rec.status !== "open") return fail(409, "One of the models in the basket has already been ordered or has expired. Please remove it and add it again.");
+    if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the basket is missing its print file. Please remove it and add it again.");
     items.push(rec);
   }
   let price;
   try { price = priceCart(items.map((r) => r.item), body.shipping, PRICING); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
+  const updates = body.updates === true;       // the "send me updates" box on the basket page (ticked unless they untick it)
   const line_items = [];
   for (let i = 0; i < items.length; i++) {
     const rec = items[i], p = price.items[i];
@@ -185,7 +192,7 @@ async function checkout(request, env) {
   const session = await stripe(env, "checkout/sessions", {
     mode: "payment",
     client_reference_id: orderId,
-    metadata: { order_id: orderId },
+    metadata: { order_id: orderId, updates: updates ? "yes" : "no" },
     payment_intent_data: { metadata: { order_id: orderId } },
     line_items,
     shipping_address_collection: { allowed_countries: PRICING.countries },
@@ -199,7 +206,7 @@ async function checkout(request, env) {
     cancel_url: origin + "/cart/?checkout=cancelled",
   });
   await writeJSON(env, orderKey(orderId), { id: orderId, created: new Date().toISOString(), status: "awaiting payment",
-                                            items: items.map((r) => r.id), price, stripeSession: session.id });
+                                            items: items.map((r) => r.id), price, updates, stripeSession: session.id });
   return json({ url: session.url, order: orderId });
 }
 
@@ -255,6 +262,7 @@ async function webhook(request, env) {
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
 <p style="margin:0 0 16px;color:#5B6470">Order ${esc(id)} · ${esc(new Date().toUTCString())}</p>
 <h3>Send to</h3><p>${addr || "—"}<br>${esc(cd.email || "")}${cd.phone ? "<br>" + esc(cd.phone) : ""}</p>
+<p style="color:#5B6470">Wants updates by email: ${order.updates ? "yes" : "no"}</p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%">
 ${p.items.map((it, i) => `<tr><td>${i + 1}. ${esc(it.size.name)}${it.extras.length ? ", with " + esc(it.extras.join(", ")) : ""}</td><td align="right">${money(it.subtotal, p.currency)}</td></tr>`).join("")}
 <tr><td>${esc(p.shipping.label + " delivery")}</td><td align="right">${money(p.shipping.price, p.currency)}</td></tr>
@@ -280,6 +288,11 @@ ${blocks.join("\n")}
   Object.assign(order, { status: "emailed", paid: new Date().toISOString(), stripeSession: session.id,
                          customer: cd, amountPaid: session.amount_total });
   await writeJSON(env, orderKey(id), order);
+  // They left "send me updates" ticked: put their address on the mailing list. Never holds up the order.
+  if (order.updates && env.RESEND_CONTACTS_KEY && EMAIL.test(String(cd.email || "").toLowerCase())) {
+    try { await addContact(env, String(cd.email).toLowerCase(), String(cd.name || "").split(" ")[0], "checkout updates"); }
+    catch (e) { console.log("checkout updates: couldn't add the address"); }
+  }
   return json({ emailed: true });
 }
 

@@ -52,7 +52,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
 <a class="site-banner__link" href="/#sizes">Sizes</a>
 <a class="site-banner__link" href="/#faq">FAQ</a>
 <a class="site-banner__link" href="/contact">Contact</a>
-<a class="site-banner__cart" href="/cart/" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
+<a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
 </nav>
 </div>
@@ -309,7 +309,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
     for (const a of document.querySelectorAll(".site-banner__cart")) {
       const b = a.querySelector(".site-banner__count");
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
-      a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
+      a.setAttribute("aria-label", n ? "Basket, " + n + (n === 1 ? " model" : " models") : "Basket, empty");
     }
     window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }

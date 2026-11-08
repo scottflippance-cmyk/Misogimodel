@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your cart: misogimodel</title>
+<title>Your basket: misogimodel</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
@@ -51,7 +51,10 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .sums td:last-child{text-align:right;white-space:nowrap}
 .sums tr.total td{padding-top:12px;border-top:1px solid #DDE1E7;font-size:18px;font-weight:700}
 .placeholder{margin:10px 0 0;font-size:12.5px;color:#B26B00}
-#checkout{display:block;width:100%;margin-top:18px;font-size:16px;padding:13px 24px;cursor:pointer}
+/* "Send me updates": ticked to start with; unticking it keeps them off the mailing list. */
+.updates{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
+.updates input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
+#checkout{display:block;width:100%;margin-top:14px;font-size:16px;padding:13px 24px;cursor:pointer}
 #checkout:disabled{opacity:.6;cursor:progress}
 .msg{margin:10px 0 0;font-size:13.5px;color:#5B6470}
 .msg:empty{display:none}           /* no gap under Checkout until there is something to say */
@@ -125,7 +128,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 <a class="site-banner__link" href="/#sizes">Sizes</a>
 <a class="site-banner__link" href="/#faq">FAQ</a>
 <a class="site-banner__link" href="/contact">Contact</a>
-<a class="site-banner__cart" href="/cart/" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
+<a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
 </nav>
 </div>
@@ -133,7 +136,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 <!-- /site-banner -->
 <main>
 <section id="full" hidden>
-<h1>Your cart</h1>
+<h1>Your basket</h1>
 <p class="notice" id="notice" role="status" hidden></p>
 <div class="layout">
   <div>
@@ -149,13 +152,14 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
       <tr class="total"><td>Total</td><td id="total"></td></tr>
     </table>
     <p class="placeholder" id="placeholder" hidden>Example prices: these aren't final yet.</p>
+    <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases. You can unsubscribe at any time.</span></label>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
   </aside>
 </div>
 </section>
 <section class="empty" id="empty" hidden>
-<h1>Your cart is empty.</h1>
+<h1>Your basket is empty.</h1>
 <div class="row"><a class="cta" href="/studio/" style="font-size:16px;padding:13px 24px">Start designing</a></div>
 </section>
 <section id="inspire" hidden aria-labelledby="inspireTitle">
@@ -285,7 +289,7 @@ function render() {
     // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
     const facts = (it.facts || []).filter((f) => !/web address on the back/i.test(f))
       .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
-    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" : "This size is no longer offered"].concat(facts);
+    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? " · " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
     for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
     li.querySelector(".price").textContent = p ? money(p.subtotal, PRICING.currency) : "—";
     const edit = li.querySelector(".edit");
@@ -323,7 +327,7 @@ async function checkout() {
   $("checkout").disabled = true; say("Off to the payment page…");
   try {
     const r = await fetch(origin + "/api/checkout", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })), shipping: cart.shipping }) });
+      body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })), shipping: cart.shipping, updates: $("updates").checked }) });
     let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
     if (!r.ok || !data || !data.url) throw new Error((data && data.error) || "the server said no (" + r.status + ")");
     window.__checkoutGoingTo = data.url;
@@ -340,7 +344,7 @@ window.addEventListener("storage", (e) => { if (e.key === P.CART_KEY || e.key ==
 window.addEventListener("pageshow", (e) => { if (e.persisted) { $("checkout").disabled = false; say(""); render(); } });
 
 if (new URLSearchParams(location.search).get("checkout") === "cancelled") {
-  $("notice").textContent = "No payment taken. Your cart is just as you left it.";
+  $("notice").textContent = "No payment taken. Your basket is just as you left it.";
   $("notice").hidden = false;
   try { history.replaceState(null, "", location.pathname); } catch (e) { /* a file has no history to tidy */ }
 }
@@ -546,7 +550,7 @@ window.__cartReady = true;
     for (const a of document.querySelectorAll(".site-banner__cart")) {
       const b = a.querySelector(".site-banner__count");
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
-      a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
+      a.setAttribute("aria-label", n ? "Basket, " + n + (n === 1 ? " model" : " models") : "Basket, empty");
     }
     window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }

@@ -88,6 +88,7 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 .size-card{position:relative;color:inherit;text-decoration:none;cursor:pointer;
   transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
 .size-card:hover{color:inherit}
+.size-tiles{margin:2px 0 0;font-size:13.5px;color:#8A93A1}   /* how it is printed: one tile, or four that join */
 .size-photo{display:block;width:100%;height:auto;aspect-ratio:720/700;object-fit:cover;border-radius:12px;background:#ECEAE6}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){

@@ -220,6 +220,7 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg{display:grid; grid-template-columns:1fr 1fr}  /* four named sizes sit two by two */
 #sizeSeg button{font-size:12px; line-height:1.25; padding:7px 3px; white-space:nowrap}
 #sizeSeg button small{display:block; font-size:11px; color:var(--muted)}
+#sizeSeg button small.tiles{margin-top:1px; font-size:10.5px; opacity:.85}   /* one tile, or four that join */
 #sizeSeg button[aria-pressed="true"] small{color:inherit}
 /* Every price sits in the same pill: the size tiles, the GPX box, the frame button and each colour
    scheme. On a grey box the pill is white; on a chosen (white) one it is grey, so it always shows. */
@@ -967,7 +968,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 <a class="site-banner__link" href="/#sizes">Sizes</a>
 <a class="site-banner__link" href="/#faq">FAQ</a>
 <a class="site-banner__link" href="/contact">Contact</a>
-<a class="site-banner__cart" href="/cart/" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
+<a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
 <button id="themeBtn" hidden class="theme-btn" title="Light or dark" aria-label="Switch between the light and dark looks">
     <svg id="thSun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
@@ -1028,10 +1029,10 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
     <div class="block" id="sizeBlock">
       <h2>Print Dimensions</h2>
       <div class="seg" id="sizeSeg" role="group" aria-label="Print Dimensions">
-        <button data-mm="100" aria-pressed="false">The Side Quest<small>10 cm × 10 cm</small></button>
-        <button data-mm="150" aria-pressed="true">The Adventure<small>15 cm × 15 cm</small></button>
-        <button data-mm="250" aria-pressed="false">The Expedition<small>25 cm × 25 cm</small></button>
-        <button data-mm="500" aria-pressed="false">The Misogi<small>50 cm × 50 cm</small></button>
+        <button data-mm="100" aria-pressed="false">The Side Quest<small>10 cm × 10 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="150" aria-pressed="true">The Adventure<small>15 cm × 15 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="250" aria-pressed="false">The Expedition<small>25 cm × 25 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="500" aria-pressed="false">The Misogi<small>50 cm × 50 cm</small><small class="tiles">Four interlocking tiles</small></button>
       </div>
       <div hidden><span id="reliefOut">—</span><span id="reliefNote"></span></div>
     </div>
@@ -1178,7 +1179,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
         <input type="checkbox" id="stlFrame" checked><input type="checkbox" id="stlRoute" checked disabled><input type="checkbox" id="stlIcons" checked>
         <span id="stlSize">—</span><span id="stlInfo"></span>
       </div>
-      <button class="primary wide" id="buyBtn">Add to cart</button>
+      <button class="primary wide" id="buyBtn">Add to basket</button>
     </div>
 
   </aside>
@@ -1433,14 +1434,14 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
       <div class="od-total"><span>This model</span><b id="odTotal"></b></div>
       <p class="od-note" id="odNote" hidden>Example prices: these aren't final yet.</p>
       <p class="od-msg" id="odMsg" role="status"></p>
-      <button class="primary wide" id="odPay">Add to cart</button>
-      <p class="od-small">Delivery is chosen in the cart. Add as many models as you like first.</p>
+      <button class="primary wide" id="odPay">Add to basket</button>
+      <p class="od-small">Delivery is chosen in the basket. Add as many models as you like first.</p>
     </div>
     <div id="odAfter" hidden>
-      <p class="od-added" id="odAdded" role="status">Added to your cart.</p>
+      <p class="od-added" id="odAdded" role="status">Added to your basket.</p>
       <div class="od-next">
         <button class="wide" id="odKeep">Keep designing</button>
-        <a class="primary wide od-go" id="odCart" href="/cart/">View cart</a>
+        <a class="primary wide od-go" id="odCart" href="/cart/">View basket</a>
       </div>
     </div>
   </div>
@@ -8863,7 +8864,7 @@ async function renderOrder() {
   return bill;
 }
 async function openOrder() {
-  if (!current || !three) { toast("Build the model first, then you can add it to your cart."); return; }
+  if (!current || !three) { toast("Build the model first, then you can add it to your basket."); return; }
   $("odMsg").textContent = ""; $("odMsg").classList.remove("bad"); $("odPay").disabled = false;
   $("odBefore").hidden = false; $("odAfter").hidden = true; $("odTitle").textContent = "Your model";
   const pic = snapshotModel();
@@ -8885,7 +8886,7 @@ async function addToCart() {
   try {
     const P = await pricingModule();
     const cart = P.readCart();
-    if (cart.items.length >= P.PRICING.maxItems) throw new Error("your cart is full (" + P.PRICING.maxItems + " models at most)");
+    if (cart.items.length >= P.PRICING.maxItems) throw new Error("your basket is full (" + P.PRICING.maxItems + " models at most)");
     say("Packing up your mountain…");
     const st = collectState();
     const file = await buildPrintFile();
@@ -8905,10 +8906,10 @@ async function addToCart() {
     const fresh = P.readCart();                       // read again: another tab may have changed it meanwhile
     fresh.items.push({ id: made.id, token: made.token, name: st.sel.name || "Your place", item: P.itemFromDesign(st),
                        facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now() });
-    if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your cart");
+    if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your basket");
     const n = fresh.items.length;
-    $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your cart";
-    $("odAdded").textContent = "Added to your cart. You have " + n + (n === 1 ? " model" : " models") + " in it.";
+    $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your basket";
+    $("odAdded").textContent = "Added to your basket. You have " + n + (n === 1 ? " model" : " models") + " in it.";
     $("odCart").focus();
   } catch (err) {
     console.error(err);
@@ -9452,7 +9453,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
     for (const a of document.querySelectorAll(".site-banner__cart")) {
       const b = a.querySelector(".site-banner__count");
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
-      a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
+      a.setAttribute("aria-label", n ? "Basket, " + n + (n === 1 ? " model" : " models") : "Basket, empty");
     }
     window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }

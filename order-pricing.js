@@ -9,10 +9,10 @@ export const PRICING = {
   placeholder: true,
   currency: "gbp",
   sizes: {
-    100: { name: "The Side Quest", dims: "10 cm × 10 cm", price: 3500 },
-    150: { name: "The Adventure",  dims: "15 cm × 15 cm", price: 4900 },
-    250: { name: "The Expedition", dims: "25 cm × 25 cm", price: 8900 },
-    500: { name: "The Misogi",     dims: "50 cm × 50 cm", price: 19900 },
+    100: { name: "The Side Quest", dims: "10 cm × 10 cm", tiles: "One tile", price: 3500 },
+    150: { name: "The Adventure",  dims: "15 cm × 15 cm", tiles: "One tile", price: 4900 },
+    250: { name: "The Expedition", dims: "25 cm × 25 cm", tiles: "One tile", price: 8900 },
+    500: { name: "The Misogi",     dims: "50 cm × 50 cm", tiles: "Four interlocking tiles", price: 19900 },   // printed as four tiles that join
   },
   extras: {
     route: { label: "Your route, raised on the model", short: "route", price: 200 },
@@ -78,7 +78,7 @@ export const schemePrice = (scheme, pricing = PRICING) => {
 
 /* A whole cart: every model, one delivery, the total. */
 export function priceCart(items, shipping, pricing = PRICING) {
-  if (!items.length) throw new Error("The cart is empty.");
+  if (!items.length) throw new Error("The basket is empty.");
   if (items.length > pricing.maxItems) throw new Error("That's more models than one order can hold.");
   const ship = pricing.shipping.find((s) => s.id === shipping);
   if (!ship) throw new Error("That delivery option isn't on the price list.");
