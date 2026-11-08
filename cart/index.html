@@ -130,7 +130,15 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 <a class="site-banner__link" href="/contact">Contact</a>
 <a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
+<button class="site-banner__menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 </nav>
+</div>
+<div class="site-menu" id="site-menu" hidden>
+<a class="site-menu__link" href="/#how">How it works</a>
+<a class="site-menu__link" href="/#sizes">Sizes</a>
+<a class="site-menu__link" href="/#faq">FAQ</a>
+<a class="site-menu__link" href="/contact">Contact</a>
+<a class="cta site-menu__cta" href="/studio/">Start designing</a>
 </div>
 </header>
 <!-- /site-banner -->
@@ -432,7 +440,7 @@ window.__cartReady = true;
     }
     // The cart: the lines come right up to the bag itself (and its number badge), 2 px clear,
     // rather than keeping off a circle round it.
-    for (const cart of bar.querySelectorAll(".site-banner__cart")) {
+    for (const cart of bar.querySelectorAll(".site-banner__cart, .site-banner__menu")) {   // the menu's three lines too
       if (!cart.offsetParent) continue;
       const icon = cart.querySelector("svg");
       if (icon) {
@@ -453,7 +461,7 @@ window.__cartReady = true;
         c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, q.height / 2 + GAP); c.fill();
       }
     }
-    for (const b of bar.querySelectorAll(".cta, button")) {      // the buttons, round ends and all
+    for (const b of bar.querySelectorAll(".cta, button:not(.site-banner__menu)")) {      // the buttons, round ends and all
       if (!b.offsetParent) continue;
       const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
       c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
@@ -558,6 +566,31 @@ window.__cartReady = true;
   window.addEventListener("misogimodel:cart", show);
   window.addEventListener("storage", (e) => { if (e.key === KEY || e.key === null) show(); });
   window.addEventListener("pageshow", show);          // back from Stripe, the page may come from the cache
+})();
+/* The phone menu: the three lines in the banner open a full-screen list of the site's sections,
+   with "Start designing" at its foot. Tapping a link, the cross, Escape, or widening the window
+   past phone size closes it. */
+(() => {
+  const bar = document.querySelector("header.site-banner");
+  const btn = bar && bar.querySelector(".site-banner__menu");
+  const menu = bar && bar.querySelector(".site-menu");
+  if (!btn || !menu) return;
+  const LINES = "M4 7h16M4 12h16M4 17h16", CROSS = "M6 6l12 12M18 6L6 18";
+  const path = btn.querySelector("path");
+  function set(open) {
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    btn.setAttribute("aria-label", open ? "Close menu" : "Menu");
+    if (path) path.setAttribute("d", open ? CROSS : LINES);
+    document.body.classList.toggle("menu-open", open);
+    if (open) bar.style.setProperty("--sb-h", bar.getBoundingClientRect().height + "px");
+    window.dispatchEvent(new Event("misogimodel:banner-changed"));
+  }
+  btn.addEventListener("click", () => set(menu.hidden));
+  menu.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { set(false); btn.focus(); } });
+  matchMedia("(min-width:641px)").addEventListener("change", (e) => { if (e.matches && !menu.hidden) set(false); });
+  window.addEventListener("pageshow", () => { if (!menu.hidden) set(false); });
 })();
 </script>
 <!-- /banner-contours -->

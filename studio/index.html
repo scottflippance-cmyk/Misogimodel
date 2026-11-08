@@ -948,6 +948,36 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
   .stage{min-height:46vh}
   #stage{margin:10px}
 }
+/* Phones and small tablets, Customise (the map step is unchanged): the model first, a fixed share of the screen, with the
+   settings scrolling beneath it and "Add to basket" held at the foot of the screen. The model's
+   tools sit in a row along its bottom edge and Location Adjust folds to a small tab. */
+@media (max-width:860px){
+  body.mode-view main{flex-direction:column}
+  body.mode-view #stage{order:-1; flex:0 0 42svh; min-height:0; margin:8px 10px 0; border-radius:18px}
+  aside#panelView{order:1; flex:1 1 auto; max-height:none; width:auto; margin:0; padding:0 16px; border-top:0;
+    -webkit-mask-image:none; mask-image:none; overflow-x:hidden}
+  #panelView #viewHead{padding:10px 0 4px; position:static}
+  #back{width:auto; padding:8px 16px; font-size:14px}
+  #panelView .block{padding-left:0; padding-right:0}
+  #panelView h2{font-size:19px}
+  body.mode-view #mapTools{top:auto; bottom:10px; left:10px; transform:none; flex-direction:row; gap:6px}
+  body.mode-view #mapTools button{width:44px; height:44px}
+  body.mode-view #mapTools button small{display:none}
+  #inset{top:10px; right:10px; width:auto}
+  #inset.folded #fitInset{display:none}
+  #inset .inset-head{padding:6px 6px 6px 12px; gap:6px}
+  #inset .inset-head strong{font-size:13px}
+  body:not(.none) #panelView #printBlock{z-index:50; background:#FFFFFF; padding:10px 0 12px; margin:0;
+    box-shadow:0 -10px 16px -8px rgba(11,14,18,.10)}
+  #printBlock h2{display:none}
+  body:not(.none) #panelView #printBlock::before{top:-14px; height:14px; background:linear-gradient(rgba(255,255,255,0),#FFFFFF)}
+  #printColBlock .scheme{display:flex; align-items:center; gap:12px; padding:10px 12px; text-align:left}
+  #printColBlock .scheme .bar{flex:0 0 64px; width:64px; height:34px}
+  #printColBlock .scheme .nm{flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px}
+  #printColBlock .scheme .nm .pr{margin:0}
+}
+/* The phone menu opens over the studio too, above the map's own controls. */
+body.menu-open .site-banner--app{z-index:3000}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -970,11 +1000,19 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 <a class="site-banner__link" href="/contact">Contact</a>
 <a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
+<button class="site-banner__menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 <button id="themeBtn" hidden class="theme-btn" title="Light or dark" aria-label="Switch between the light and dark looks">
     <svg id="thSun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
     <svg id="thMoon" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M13.4 9.6A5.6 5.6 0 0 1 6.4 2.6a5.6 5.6 0 1 0 7 7z"/></svg>
   </button>
 </nav>
+</div>
+<div class="site-menu" id="site-menu" hidden>
+<a class="site-menu__link" href="/#how">How it works</a>
+<a class="site-menu__link" href="/#sizes">Sizes</a>
+<a class="site-menu__link" href="/#faq">FAQ</a>
+<a class="site-menu__link" href="/contact">Contact</a>
+<a class="cta site-menu__cta" href="/studio/">Start designing</a>
 </div>
 </header>
 <!-- /site-banner -->
@@ -9335,7 +9373,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
     }
     // The cart: the lines come right up to the bag itself (and its number badge), 2 px clear,
     // rather than keeping off a circle round it.
-    for (const cart of bar.querySelectorAll(".site-banner__cart")) {
+    for (const cart of bar.querySelectorAll(".site-banner__cart, .site-banner__menu")) {   // the menu's three lines too
       if (!cart.offsetParent) continue;
       const icon = cart.querySelector("svg");
       if (icon) {
@@ -9356,7 +9394,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
         c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, q.height / 2 + GAP); c.fill();
       }
     }
-    for (const b of bar.querySelectorAll(".cta, button")) {      // the buttons, round ends and all
+    for (const b of bar.querySelectorAll(".cta, button:not(.site-banner__menu)")) {      // the buttons, round ends and all
       if (!b.offsetParent) continue;
       const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
       c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
@@ -9461,6 +9499,31 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
   window.addEventListener("misogimodel:cart", show);
   window.addEventListener("storage", (e) => { if (e.key === KEY || e.key === null) show(); });
   window.addEventListener("pageshow", show);          // back from Stripe, the page may come from the cache
+})();
+/* The phone menu: the three lines in the banner open a full-screen list of the site's sections,
+   with "Start designing" at its foot. Tapping a link, the cross, Escape, or widening the window
+   past phone size closes it. */
+(() => {
+  const bar = document.querySelector("header.site-banner");
+  const btn = bar && bar.querySelector(".site-banner__menu");
+  const menu = bar && bar.querySelector(".site-menu");
+  if (!btn || !menu) return;
+  const LINES = "M4 7h16M4 12h16M4 17h16", CROSS = "M6 6l12 12M18 6L6 18";
+  const path = btn.querySelector("path");
+  function set(open) {
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    btn.setAttribute("aria-label", open ? "Close menu" : "Menu");
+    if (path) path.setAttribute("d", open ? CROSS : LINES);
+    document.body.classList.toggle("menu-open", open);
+    if (open) bar.style.setProperty("--sb-h", bar.getBoundingClientRect().height + "px");
+    window.dispatchEvent(new Event("misogimodel:banner-changed"));
+  }
+  btn.addEventListener("click", () => set(menu.hidden));
+  menu.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { set(false); btn.focus(); } });
+  matchMedia("(min-width:641px)").addEventListener("change", (e) => { if (e.matches && !menu.hidden) set(false); });
+  window.addEventListener("pageshow", () => { if (!menu.hidden) set(false); });
 })();
 </script>
 <!-- /banner-contours -->
