@@ -11,12 +11,7 @@
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
      Newsletter:
-       POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts; the first
-                                           time, emails them a welcome and you a note.
-     Contact page:
-       POST /api/contact                   { name, email, topic, order?, message }. Emails it to you, with
-                                           Reply going straight back to the sender, and sends the sender a
-                                           short "we've got your message" note. Nothing is stored.
+       POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts, nothing else.
      Paid:
        POST /api/stripe-webhook            Stripe saying the payment went through. One email goes to
                                            you listing every model, each with its print file attached.
@@ -33,13 +28,8 @@
      ORDER_SECRET           any long random string; signs the upload and download links
      ORDER_EMAIL_TO         where orders are sent (you)
      ORDER_EMAIL_FROM       optional; defaults to misogimodel orders <orders@send.misogimodel.com>
-     CONTACT_EMAIL_FROM     optional; defaults to misogimodel contact <contact@send.misogimodel.com>
-                            (the contact page uses RESEND_API_KEY and ORDER_EMAIL_TO too)
      RESEND_CONTACTS_KEY    a full-access Resend key, used only to add newsletter sign-ups
-     NEWSLETTER_SEGMENT_ID  optional; a Resend segment to put sign-ups in (they are kept as contacts either way)
-     NEWS_EMAIL_FROM        optional; defaults to misogimodel <hello@send.misogimodel.com>. A first-time
-                            sign-up gets a welcome from it, and you a note (with RESEND_API_KEY and
-                            ORDER_EMAIL_TO) */
+     NEWSLETTER_SEGMENT_ID  optional; a Resend segment to put sign-ups in (they are kept as contacts either way) */
 import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
@@ -61,78 +51,19 @@ async function newsletter(request, env) {
   if (body && body.website) return json({ ok: true });  // a bot: thank it, keep nothing
   const email = String((body && body.email) || "").trim().toLowerCase();
   if (email.length > 254 || !EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
-  const added = await addContact(env, email, body && body.firstName, "newsletter");
-  if (!added) return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
-  if (added === "new") await signupEmails(env, email, body && body.firstName);
-  return json({ ok: true });
-}
-/* A first-time sign-up gets a short welcome, and you get a one-line note saying who joined. Both go
-   with the sending key (RESEND_API_KEY), and either is simply skipped if it isn't set or Resend says
-   no: the person is on the list either way, so they are still told it worked. Someone already on the
-   list gets neither, so the box can't be used to send the welcome to the same inbox again and again.
-   The welcome doesn't repeat anything typed except the first name, escaped. */
-async function signupEmails(env, email, firstName) {
-  if (!env.RESEND_API_KEY) return;
-  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
-  const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
-  const send = (msg, what) => fetch("https://api.resend.com/emails", {
-      method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify(msg) })
-    .then((r) => { if (!r.ok) console.log("newsletter: the " + what + " wasn't sent, Resend said " + r.status); })
-    .catch(() => console.log("newsletter: the " + what + " wasn't sent"));
-  const jobs = [send({
-    from, to: [email], ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
-    subject: "You're on the list",
-    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
-<p style="margin:0 0 12px">Hi${first ? " " + esc(first) : ""},</p>
-<p style="margin:0 0 12px">Thanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.</p>
-<p style="margin:0 0 12px">If you didn't sign up, or change your mind, just reply to this email and we'll take you off.</p>
-<p style="margin:0">misogimodel</p></div>`,
-    text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, just reply to this email and we'll take you off.\n\nmisogimodel",
-  }, "welcome")];
-  if (env.ORDER_EMAIL_TO) jobs.push(send({
-    from, to: [env.ORDER_EMAIL_TO],
-    subject: "New sign-up: " + email,
-    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
-<p style="margin:0 0 8px"><b>${esc(email)}</b>${first ? " (" + esc(first) + ")" : ""} has joined the mailing list from the website.</p>
-<p style="margin:0;color:#5B6470;font-size:13px">Everyone on the list is under Audience → Contacts in Resend.</p></div>`,
-    text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from the website.\n\nEveryone on the list is under Audience → Contacts in Resend.",
-  }, "note to you"));
-  await Promise.all(jobs);
-}
-/* One address onto the mailing list in Resend (the newsletter box, and buyers who left the box at
-   checkout ticked). Returns "new" if it has just joined (or rejoined after unsubscribing), "existing"
-   if it was on the list already, and false if Resend said no.
-   Resend quietly accepts an address it already has as if it were new, so it is looked up first:
-   that is what keeps a second sign-up from getting a second welcome. If the look-up itself fails,
-   the address is still added but counted as "existing", so no email goes out on a guess. */
-async function addContact(env, email, firstName, why) {
-  const auth = { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" };
-  const at = "https://api.resend.com/contacts/" + encodeURIComponent(email);
-  // a first name, if there is one: plain text, kept short, nothing that could pass for markup
-  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
-  let was = null, known = false;
-  try {
-    const g = await fetch(at, { method: "GET", headers: auth });
-    if (g.ok) { was = await g.json().catch(() => ({})); known = true; }
-    else if (g.status === 404) known = true;
-  } catch (e) { /* couldn't look: carry on and add it, but send nothing */ }
-  if (was && !was.unsubscribed) return "existing";               // already on the list: nothing to do
-  if (was) {                                                      // unsubscribed before, signing up again
-    const u = await fetch(at, { method: "PATCH", headers: auth, body: JSON.stringify({ unsubscribed: false, ...(first ? { first_name: first } : {}) }) });
-    if (u.ok) return "new";
-    console.log(why + ": Resend said " + u.status + " to signing up again");
-    return false;
-  }
   const contact = { email, unsubscribed: false };
+  // a first name, if the form asked for one: plain text, kept short, nothing that could pass for markup
+  const first = String((body && body.firstName) || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
   if (first) contact.first_name = first;
   if (env.NEWSLETTER_SEGMENT_ID) contact.segments = [{ id: env.NEWSLETTER_SEGMENT_ID }];
-  const r = await fetch("https://api.resend.com/contacts", { method: "POST", headers: auth, body: JSON.stringify(contact) });
-  if (r.ok) return known ? "new" : "existing";
+  const r = await fetch("https://api.resend.com/contacts", {
+    method: "POST", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" },
+    body: JSON.stringify(contact) });
+  if (r.ok) return json({ ok: true });
   const said = await r.text().catch(() => "");
-  if (r.status === 409 || /already exists/i.test(said)) return "existing";   // on the list before: still fine
-  console.log(why + ": Resend said " + r.status + " " + said.slice(0, 200));
-  return false;
+  if (r.status === 409 || /already exists/i.test(said)) return json({ ok: true });   // signed up before: still fine
+  console.log("newsletter: Resend said " + r.status + " " + said.slice(0, 200));
+  return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
 }
 
 async function hmac(secret, text) {
@@ -434,10 +365,6 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url), m = request.method;
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
-  if (parts[0] === "contact" && parts.length === 1) {          // needs none of the ordering set-up
-    if (m !== "POST") return fail(405, "Not allowed.");
-    try { return await contact(request, env); } catch (err) { return fail(502, "Your message couldn't be sent just now. Please try again in a little while."); }
-  }
   if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");
     try { return await newsletter(request, env); } catch (err) { return fail(502, "We couldn't sign you up just now. Please try again in a little while."); }
