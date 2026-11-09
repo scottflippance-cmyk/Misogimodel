@@ -38,6 +38,16 @@ meant to be visible.
 - `ORDER_SECRET`: any long random string; signs the upload and download links
 - `ORDER_EMAIL_TO`: where order emails go
 - `ORDER_EMAIL_FROM` (optional): defaults to `misogimodel orders <orders@send.misogimodel.com>`
+- `RESEND_CONTACTS_KEY`: a **full-access** Resend key, used only for newsletter sign-ups
+  (adding contacts needs full access; the order emails keep the sending-only key above)
+- `NEWSLETTER_SEGMENT_ID` (optional): a Resend segment to put sign-ups in
+
+## Newsletter
+
+The box at the foot of the homepage (and the bar along the top that points to it) sends the
+address to `POST /api/newsletter`, which adds it to your contacts in Resend. Until
+`RESEND_CONTACTS_KEY` is set it says "Newsletter sign-up isn't switched on just yet".
+Sign-ups appear in Resend under Contacts, and you send the newsletter from there.
 
 ## Orders and the cart
 

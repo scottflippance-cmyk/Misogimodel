@@ -7,7 +7,7 @@
        PUT  /api/items/:id/model?token=    the print file (a zip holding the STL), streamed into storage.
        PUT  /api/items/:id/preview?token=  a picture of the model.
      Checkout (cart page), once for the whole cart:
-       POST /api/checkout                  { items: [{ id, token }], shipping }. Every item is checked and
+       POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Every item is checked and
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
      Newsletter:
@@ -151,22 +151,23 @@ async function upload(request, env, id, what) {
 /* ---- checkout: the whole cart, one Stripe page ---- */
 async function checkout(request, env) {
   let body;
-  try { body = await request.json(); } catch (e) { return fail(400, "The cart didn't come through properly."); }
+  try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
   const list = Array.isArray(body && body.items) ? body.items : [];
-  if (!list.length) return fail(400, "The cart is empty.");
+  if (!list.length) return fail(400, "The basket is empty.");
   if (list.length > PRICING.maxItems) return fail(400, "That's more models than one order can hold.");
   const items = [];
   for (const it of list) {
     const id = String((it && it.id) || "");
-    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) return fail(403, "One of the models in the cart isn't valid.");
+    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) return fail(403, "One of the models in the basket isn't valid.");
     const rec = await readJSON(env, itemKey(id));
-    if (!rec || rec.status !== "open") return fail(409, "One of the models in the cart has already been ordered or has expired. Please remove it and add it again.");
-    if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the cart is missing its print file. Please remove it and add it again.");
+    if (!rec || rec.status !== "open") return fail(409, "One of the models in the basket has already been ordered or has expired. Please remove it and add it again.");
+    if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the basket is missing its print file. Please remove it and add it again.");
     items.push(rec);
   }
   let price;
   try { price = priceCart(items.map((r) => r.item), body.shipping, PRICING); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
+  const updates = body.updates === true;       // the "send me updates" box on the basket page (ticked unless they untick it)
   const line_items = [];
   for (let i = 0; i < items.length; i++) {
     const rec = items[i], p = price.items[i];
@@ -179,7 +180,7 @@ async function checkout(request, env) {
   const session = await stripe(env, "checkout/sessions", {
     mode: "payment",
     client_reference_id: orderId,
-    metadata: { order_id: orderId },
+    metadata: { order_id: orderId, updates: updates ? "yes" : "no" },
     payment_intent_data: { metadata: { order_id: orderId } },
     line_items,
     shipping_address_collection: { allowed_countries: PRICING.countries },
@@ -193,7 +194,7 @@ async function checkout(request, env) {
     cancel_url: origin + "/cart/?checkout=cancelled",
   });
   await writeJSON(env, orderKey(orderId), { id: orderId, created: new Date().toISOString(), status: "awaiting payment",
-                                            items: items.map((r) => r.id), price, stripeSession: session.id });
+                                            items: items.map((r) => r.id), price, updates, stripeSession: session.id });
   return json({ url: session.url, order: orderId });
 }
 
@@ -249,6 +250,7 @@ async function webhook(request, env) {
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
 <p style="margin:0 0 16px;color:#5B6470">Order ${esc(id)} · ${esc(new Date().toUTCString())}</p>
 <h3>Send to</h3><p>${addr || "—"}<br>${esc(cd.email || "")}${cd.phone ? "<br>" + esc(cd.phone) : ""}</p>
+<p style="color:#5B6470">Wants updates by email: ${order.updates ? "yes" : "no"}</p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%">
 ${p.items.map((it, i) => `<tr><td>${i + 1}. ${esc(it.size.name)}${it.extras.length ? ", with " + esc(it.extras.join(", ")) : ""}</td><td align="right">${money(it.subtotal, p.currency)}</td></tr>`).join("")}
 <tr><td>${esc(p.shipping.label + " delivery")}</td><td align="right">${money(p.shipping.price, p.currency)}</td></tr>
@@ -274,6 +276,11 @@ ${blocks.join("\n")}
   Object.assign(order, { status: "emailed", paid: new Date().toISOString(), stripeSession: session.id,
                          customer: cd, amountPaid: session.amount_total });
   await writeJSON(env, orderKey(id), order);
+  // They left "send me updates" ticked: put their address on the mailing list. Never holds up the order.
+  if (order.updates && env.RESEND_CONTACTS_KEY && EMAIL.test(String(cd.email || "").toLowerCase())) {
+    try { await addContact(env, String(cd.email).toLowerCase(), String(cd.name || "").split(" ")[0], "checkout updates"); }
+    catch (e) { console.log("checkout updates: couldn't add the address"); }
+  }
   return json({ emailed: true });
 }
 
@@ -289,6 +296,69 @@ async function serve(env, id, file, request) {
   const headers = { "content-type": file === "model" ? "application/zip" : "image/jpeg", "cache-control": "private, max-age=3600" };
   if (file === "model") headers["content-disposition"] = 'attachment; filename="misogimodel-' + id.slice(0, 8) + '.zip"';
   return new Response(obj.body, { headers });
+}
+
+/* ---- the contact page: one message, emailed to you, Reply goes back to the sender ----
+   Needs only RESEND_API_KEY and ORDER_EMAIL_TO. Every field is checked and kept short, and goes into
+   the email escaped, so nothing typed can become markup. The hidden "website" box catches bots. */
+const TOPICS = { order: "An order I've placed", design: "Help with a design", custom: "A custom or bulk request", other: "Something else" };
+const clean = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, n);
+async function contact(request, env) {
+  if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "The contact form isn't switched on just yet");
+  let body;
+  try { body = await request.json(); } catch (e) { return fail(400, "That didn't come through properly."); }
+  if (!body || typeof body !== "object") return fail(400, "That didn't come through properly.");
+  if (body.website) return json({ ok: true });                    // a bot: thank it, send nothing
+  const name = clean(body.name, 80).replace(/[\r\n]+/g, " ");
+  const email = clean(body.email, 254).toLowerCase();
+  const topic = TOPICS[body.topic] ? body.topic : "other";
+  const order = clean(body.order, 40).replace(/[\r\n]+/g, " ");
+  const message = clean(body.message, 4000);
+  if (!name) return fail(400, "Please add your name.");
+  if (!EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
+  if (message.length < 10) return fail(400, "Please write a little more in your message.");
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
+<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
+${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
+<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
+<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`;
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
+      to: [env.ORDER_EMAIL_TO], reply_to: email,
+      subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
+      html,
+      text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message,
+    }),
+  });
+  if (r.ok) {
+    // A short confirmation to the sender. It deliberately doesn't repeat what they wrote, so the form
+    // can't be used to send someone else's words to a stranger's inbox. If it fails, the message to
+    // you has still gone, so the person is still told it worked.
+    try {
+      const first = name.split(" ")[0];
+      const c = await fetch("https://api.resend.com/emails", {
+        method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+        body: JSON.stringify({
+          from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
+          to: [email], reply_to: env.ORDER_EMAIL_TO,
+          subject: "We've got your message",
+          html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+<p style="margin:0 0 12px">Hi ${esc(first)},</p>
+<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1))}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
+<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
+<p style="margin:0">misogimodel</p></div>`,
+          text: "Hi " + first + ",\n\nThanks for getting in touch about " + TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1) + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel",
+        }),
+      });
+      if (!c.ok) console.log("contact: the confirmation wasn't sent, Resend said " + c.status);
+    } catch (e) { console.log("contact: the confirmation wasn't sent"); }
+    return json({ ok: true });
+  }
+  console.log("contact: Resend said " + r.status + " " + (await r.text().catch(() => "")).slice(0, 200));
+  return fail(502, "Your message couldn't be sent just now. Please try again in a little while.");
 }
 
 export async function onRequest(context) {

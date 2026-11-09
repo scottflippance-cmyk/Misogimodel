@@ -9,22 +9,30 @@ export const PRICING = {
   placeholder: true,
   currency: "gbp",
   sizes: {
-    100: { name: "The Side Quest", dims: "10 cm × 10 cm", price: 3500 },
-    150: { name: "The Adventure",  dims: "15 cm × 15 cm", price: 4900 },
-    250: { name: "The Expedition", dims: "25 cm × 25 cm", price: 8900 },
-    500: { name: "The Misogi",     dims: "50 cm × 50 cm", price: 19900 },
+    100: { name: "The Side Quest", dims: "10 cm × 10 cm", tiles: "One tile", price: 3500 },
+    150: { name: "The Adventure",  dims: "15 cm × 15 cm", tiles: "One tile", price: 4900 },
+    250: { name: "The Expedition", dims: "25 cm × 25 cm", tiles: "One tile", price: 8900 },
+    500: { name: "The Misogi",     dims: "50 cm × 50 cm", tiles: "Four interlocking tiles", price: 19900 },   // printed as four tiles that join
   },
   extras: {
     route: { label: "Your route, raised on the model", short: "route", price: 200 },
     frame: { label: "Frame with your engraved text", short: "frame", price: 800 },
     icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
   },
+  /* Print colours, by how many filaments the scheme uses: one colour is included, two or four cost more. */
+  colours: {
+    1: { label: "One colour", short: "", price: 0 },
+    2: { label: "Two-colour print", short: "two colours", price: 500 },
+    4: { label: "Four-colour print", short: "four colours", price: 1000 },
+  },
+  schemeColours: { solid: 1, water: 2, green: 2, natural: 4, bold: 4 },  // the studio's schemes, by colours used
   shipping: [
     { id: "uk-standard", label: "UK standard", note: "3–5 working days", price: 395, days: [3, 5] },
     { id: "uk-express",  label: "UK express",  note: "1–2 working days", price: 795, days: [1, 2] },
   ],
   countries: ["GB"],                                    // where Stripe will accept a delivery address
   maxItems: 20,                                         // models in one order
+  maxIcons: 3,                                          // icons on one model
 };
 
 /* What one model is, read from a design as the studio saves it (its collectState()). */
@@ -35,11 +43,13 @@ export function itemFromDesign(design) {
     route: !!(design && design.route),
     frame: !!frame.show,
     icons: Math.max(0, Math.min(50, ((design && design.icons) || []).length)),
+    scheme: (design && design.print && design.print.on && design.print.scheme) || "solid",
   };
 }
 
 /* One model's bill: the size, then each extra. Throws on anything not on the list. */
 export function priceItem(item, pricing = PRICING) {
+  if (item.icons > pricing.maxIcons) throw new Error("A model can carry up to " + pricing.maxIcons + " icons.");
   const size = pricing.sizes[item.sizeMM];
   if (!size) throw new Error("That printed size isn't on the price list.");
   const lines = [{ key: "size", label: size.name + " (" + size.dims + ")", unit: size.price, qty: 1, amount: size.price }];
@@ -51,14 +61,24 @@ export function priceItem(item, pricing = PRICING) {
   add("route", item.route);
   add("frame", item.frame);
   add("icon", item.icons > 0, item.icons);
+  // the colours: priced by the scheme's own count from this list, never by what the browser says
+  const nCol = pricing.schemeColours[item.scheme || "solid"];
+  if (nCol == null) throw new Error("That colour scheme isn't on the price list.");
+  const col = pricing.colours[nCol];
+  if (col && col.price > 0) lines.push({ key: "colours", label: col.label, unit: col.price, qty: 1, amount: col.price });
   const extras = [item.route && "route", item.frame && "frame",
-                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons"))].filter(Boolean);
+                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons")), col && col.short].filter(Boolean);
   return { size, lines, extras, subtotal: lines.reduce((t, l) => t + l.amount, 0) };
 }
 
+/* What a colour scheme adds to a model (0 for one colour). */
+export const schemePrice = (scheme, pricing = PRICING) => {
+  const n = pricing.schemeColours[scheme]; return n == null ? null : (pricing.colours[n] || { price: 0 }).price;
+};
+
 /* A whole cart: every model, one delivery, the total. */
 export function priceCart(items, shipping, pricing = PRICING) {
-  if (!items.length) throw new Error("The cart is empty.");
+  if (!items.length) throw new Error("The basket is empty.");
   if (items.length > pricing.maxItems) throw new Error("That's more models than one order can hold.");
   const ship = pricing.shipping.find((s) => s.id === shipping);
   if (!ship) throw new Error("That delivery option isn't on the price list.");

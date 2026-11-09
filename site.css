@@ -1,9 +1,18 @@
 /* misogimodel site chrome: the banner and the call-to-action buttons.
    Generated from the landing-page design by build_landing.py; edit the design, not this. */
-:root{--accent:#2F5BD8}
+:root{--accent:#E4572E}
 /* Room for a scrollbar is kept on every page, scrolling or not, so the centred banner sits in the
    same place on the homepage (which scrolls) and in the studio (which doesn't). */
 html{scroll-padding-top:96px;scrollbar-gutter:stable}
+/* The page's own scrollbar is the studio panel's, in place of the browser's default: the same 9 px
+   gutter and 5 px rounded orange bar on a pale grey rail, and like the panel's it floats — the rail
+   starts below the banner and stops short of the foot of the window. Browsers without the
+   -webkit- parts get the same two colours. */
+@supports not selector(::-webkit-scrollbar){html{scrollbar-width:thin;scrollbar-color:#E4572E #E6E6E6}}
+html::-webkit-scrollbar{width:9px;background:#FFFFFF}
+html::-webkit-scrollbar-track{background:#E6E6E6 content-box;border:2px solid transparent;border-radius:6px;margin:82px 0 16px}
+html::-webkit-scrollbar-thumb{background:#E4572E content-box;border:2px solid transparent;border-radius:6px}
+html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 /* The banner: pinned to the top, frosted glass over whatever scrolls beneath, a soft shadow below. */
 /* The banner sets its own type rather than taking the page's, so its lettering sits at the same
@@ -25,11 +34,11 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
    wordmark stays centred. */
 .site-banner__brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--sb-ink);
   align-self:stretch;margin:-14px 0}
-.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end}
+.site-banner__brand svg{display:block;flex:none;height:75%;width:auto;aspect-ratio:442/156;align-self:flex-end;margin-bottom:-1px}   /* a pixel past the bar's edge: no pale hairline under the rock */
 .site-banner__brand:hover{color:var(--sb-ink)}
 /* The name, stacked: MISOGI in extra-bold over MODEL in regular, the second line spaced out to the
    first's width exactly (0.036 em between its letters, the last letter's share given back). */
-.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:24px;line-height:.9;
+.site-banner__word{display:flex;flex-direction:column;align-items:flex-start;font-size:20px;line-height:.9;
   text-transform:uppercase;letter-spacing:0;white-space:nowrap;
   transform:translateY(.03em)}   /* capitals leave the line's descender room empty: a hair lower, the letters sit centred */
 .site-banner__word > span:first-child{font-weight:800}
@@ -44,7 +53,7 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .site-banner__cart:hover{background:rgba(127,127,127,.12)}
 .site-banner__cart svg{display:block;width:24px;height:24px}
 .site-banner__count{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
-  border-radius:999px;background:var(--accent,#2F5BD8);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+  border-radius:999px;background:var(--accent,#E4572E);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .site-banner__count[hidden]{display:none}
 /* On a phone the banner stays one slim row: the section links step out (they are in the page
    anyway) and the mark, wordmark and button tighten to fit. */
@@ -53,19 +62,38 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   .site-banner__inner{padding:10px 16px;flex-wrap:nowrap;gap:12px;min-height:0}
   .site-banner__nav{gap:16px;flex-wrap:nowrap}
   .site-banner__brand{margin:-10px 0;gap:6px}
-  .site-banner__word{font-size:19px}
+  .site-banner__word{font-size:15px}
   .cta--sm{padding:7px 12px;font-size:13.5px}}
 /* On phones the drawing stands for the name on its own, so the cart and the button fit beside it
    without anything overlapping. */
-@media (max-width:439px){
+@media (max-width:479px){
   .site-banner__word{display:none}}
+/* The phone menu: three lines beside the button open the section links as a full-screen list
+   under the banner (banner-menu.js). Above phone size the links are in the banner itself. */
+.site-banner__menu{display:none}
+.site-menu[hidden]{display:none}
+@media (hover:hover) and (max-width:640px){.site-banner__menu:hover{background:rgba(127,127,127,.12)}}
+@media (max-width:640px){
+  .site-banner__menu{display:flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 -8px 0 -4px;
+    padding:0;border:0;border-radius:999px;background:transparent;color:var(--sb-ink);cursor:pointer}
+  .site-banner__menu:focus-visible{outline:2px solid var(--accent,#E4572E);outline-offset:2px}
+  .site-banner__menu svg{display:block;width:24px;height:24px}
+  .site-menu{position:absolute;left:0;right:0;top:100%;z-index:1;height:calc(100vh - var(--sb-h,60px));height:calc(100dvh - var(--sb-h,60px));
+    box-sizing:border-box;display:flex;flex-direction:column;padding:8px 24px calc(24px + env(safe-area-inset-bottom));
+    background:#FFFFFF;overflow-y:auto;overscroll-behavior:contain}
+  .site-menu__link{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid #E6E8EB;
+    font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--sb-ink);text-decoration:none}
+  .site-menu__link::after{content:"\203A";color:#8A93A1;font-weight:400;font-size:26px;line-height:1}
+  .site-menu__cta{margin-top:auto;display:flex;justify-content:center;text-align:center;padding:16px;font-size:17px}
+  body.menu-open{overflow:hidden}
+  body.menu-open .site-banner{background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none}}
 /* The call-to-action buttons: flat, with a light diagonal sheen (lighter top left, deeper bottom
    right). The sheen is painted under the border too, so no seam of another colour shows at the
    rounded ends. On hover a soft glow, and a border whose light runs round it every 2.5 seconds:
    a pale tint of the button's own colour, never pure white, which read as a hard line on a
    straight edge. */
 @property --cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
-.cta{--cta-accent:var(--accent,#2F5BD8);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
+.cta{--cta-accent:var(--accent,#E4572E);--cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   display:inline-block;color:#FFFFFF;text-decoration:none;font-weight:600;border-radius:999px;
   border:2px solid transparent;background:var(--cta-sheen) border-box;box-shadow:none;
   transition:box-shadow .25s ease}
@@ -75,13 +103,21 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
   animation:cta-spin 2.5s linear infinite}
 @keyframes cta-spin{to{--cta-angle:360deg}}
 @media (prefers-reduced-motion:reduce){.cta:hover{animation:none}}
-/* The size cards: one look for all four; under a pointer, the card grows by a quarter. */
+/* The size cards: one look for all four; under a pointer, the card grows (a quarter on narrower screens, more with all four in a row). */
 .size-card{position:relative;color:inherit;text-decoration:none;cursor:pointer;
   transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
 .size-card:hover{color:inherit}
-.size-card:focus-visible{outline:3px solid var(--accent,#2F5BD8);outline-offset:4px}
+.size-tiles{margin:2px 0 0;font-size:13.5px;color:#8A93A1}   /* how it is printed: one tile, or four that join */
+.size-photo{display:block;width:100%;height:auto;aspect-ratio:720/700;object-fit:cover;border-radius:12px;background:#ECEAE6}
+.size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
   .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
+/* With all four in one row there is room to grow further (1.40625x).
+   The end cards grow inwards so they never spill past the page's edge. */
+@media (hover:hover) and (min-width:1140px){
+  .size-card:hover{transform:scale(1.40625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
+  .size-card:first-child{transform-origin:left center}
+  .size-card:last-child{transform-origin:right center}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the
    pointer, else the one chosen (Natural to begin with). Photos dropped in /images/colourways/
    cover the placeholder automatically. */
@@ -89,9 +125,9 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .cw__list{display:flex;flex-direction:column;gap:10px}
 .cw__opt{position:relative;display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:16px;
   background:#F5F5F7;border:2px solid transparent;cursor:pointer;transition:background .2s ease,border-color .2s ease}
-.cw__opt:hover{background:#ECEEF2}
-.cw__opt:has(input:checked){border-color:var(--accent,#2F5BD8);background:#FFFFFF}
-.cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#2F5BD8);outline-offset:2px}
+.cw__opt:hover{background:#FDF1EC}   /* a pale tint of the orange */
+.cw__opt:has(input:checked){border-color:var(--accent,#E4572E);background:#FFFFFF}
+.cw__opt:has(input:focus-visible){outline:3px solid var(--accent,#E4572E);outline-offset:2px}
 .cw__opt input{position:absolute;opacity:0;pointer-events:none}
 .cw__bar{flex:0 0 72px;height:40px;border-radius:10px;overflow:hidden;display:flex}
 .cw__bar span{flex:1}
@@ -115,3 +151,50 @@ html{scroll-padding-top:96px;scrollbar-gutter:stable}
 .cw:not(:has(.cw__opt:hover)):has(input[value=bold]:checked) .cw__img[data-cw=bold],
 .cw:has(.cw__opt[data-cw=bold]:hover) .cw__img[data-cw=bold]{opacity:1}
 @media (max-width:760px){.cw{grid-template-columns:1fr;gap:20px}.cw__view{order:-1;aspect-ratio:4/3}}
+/* Phones: tighter sections, the steps as short numbered cards, the four sizes two by two, and a
+   compact colour list. (The sections carry their desktop spacing inline, hence the !important.) */
+@media (max-width:640px){
+  #how,#sizes,section[aria-labelledby="colours-h"],section[aria-labelledby="why-h"],#faq{padding-top:56px !important;padding-bottom:8px !important}
+  #faq{padding-bottom:56px !important}
+  #how > p,#sizes > p,section[aria-labelledby] > p{font-size:16px !important}
+  #how > div{gap:10px !important;margin-top:24px !important}
+  #how > div > div{padding:18px 20px !important;display:grid;grid-template-columns:34px 1fr;align-items:baseline}
+  #how > div > div > p:first-child{grid-row:span 2;font-size:16px !important}
+  #how > div > div > h3{margin:0 !important;font-size:18px !important}
+  #how > div > div > p:last-child{margin:4px 0 0 !important;font-size:15px !important;line-height:1.5 !important}
+  #sizes > div{grid-template-columns:1fr 1fr !important;gap:12px !important;margin-top:24px !important}
+  .size-card{padding:10px 10px 14px !important;gap:10px !important;border-radius:16px !important}
+  .size-card .size-photo{border-radius:10px}
+  .size-card h3{font-size:16px !important}
+  .size-card h3 + p{font-size:13px !important}
+  .size-card .size-tiles{font-size:12px}
+  .size-card .size-price{font-size:16px !important}
+  .size-card > div,.size-card .size-price{padding:0 4px}
+  .cw{margin-top:24px;gap:12px}
+  .cw__list{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .cw__opt{flex-direction:column;align-items:stretch;gap:6px;padding:6px 6px 8px;border-radius:12px}
+  .cw__opt .cw__bar{flex:none;width:100%;height:44px;border-radius:8px}
+  .cw__name{font-size:11.5px;line-height:1.2;text-align:center}
+  .cw__note{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .cw .cw__caps{display:block}
+  .cw__cap{margin:0;font-size:14px;line-height:1.45;color:#5B6470;text-align:center}
+  .cw__cap b{color:#0B0E12;font-weight:600}
+  /* What is a misogi? and the questions, sized down for a phone */
+  section[aria-labelledby="why-h"]{gap:24px !important;padding-top:48px !important}
+  section[aria-labelledby="why-h"] > div:first-child > div{aspect-ratio:16/10 !important;border-radius:18px !important}
+  section[aria-labelledby="why-h"] > div:last-child p{font-size:15.5px !important;line-height:1.55 !important}
+  section[aria-labelledby="why-h"] h2 + p{margin-top:14px !important}
+  section[aria-labelledby="why-h"] p + p{margin-top:12px !important}
+  section[aria-labelledby="why-h"] .cta{margin-top:20px !important}
+  #faq h2{margin-bottom:12px !important}
+  #faq details{padding:16px 0 !important}
+  #faq summary{font-size:16px !important}
+  #faq details p{margin-top:10px !important;font-size:14.5px !important;line-height:1.55 !important}}
+/* Under the swatch row on a phone, one line describes the colour way picked (or hovered). */
+.cw__caps{display:none}
+.cw__cap{display:none}
+.cw:not(:has(.cw__opt:hover)):has(input[value=solid]:checked) .cw__cap[data-cw=solid],.cw:has(.cw__opt[data-cw=solid]:hover) .cw__cap[data-cw=solid],
+.cw:not(:has(.cw__opt:hover)):has(input[value=land-water]:checked) .cw__cap[data-cw=land-water],.cw:has(.cw__opt[data-cw=land-water]:hover) .cw__cap[data-cw=land-water],
+.cw:not(:has(.cw__opt:hover)):has(input[value=land-green]:checked) .cw__cap[data-cw=land-green],.cw:has(.cw__opt[data-cw=land-green]:hover) .cw__cap[data-cw=land-green],
+.cw:not(:has(.cw__opt:hover)):has(input[value=natural]:checked) .cw__cap[data-cw=natural],.cw:has(.cw__opt[data-cw=natural]:hover) .cw__cap[data-cw=natural],
+.cw:not(:has(.cw__opt:hover)):has(input[value=bold]:checked) .cw__cap[data-cw=bold],.cw:has(.cw__opt[data-cw=bold]:hover) .cw__cap[data-cw=bold]{display:block}

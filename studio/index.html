@@ -103,9 +103,9 @@ body.light{
   --text:#313B47;
   --heading:#121820;
   --muted:#8A93A1;
-  --accent:#3E6FF2;
+  --accent:#E4572E;
   --accent-ink:#FFFFFF;
-  --accent-hover:#2F5BD8;
+  --accent-hover:#C9461F;
   --accent-2:#4D8F74;
   --danger:#C65545;
   --stage-bg:#F5F5F7;
@@ -195,7 +195,7 @@ body:not(.none) .head-btn.on small{color:var(--muted); font-weight:400}
 #themeBtn[hidden]{display:none}
 /* the banner wears the site's blue, not the studio's own slightly brighter one, so its button
    matches the homepage's exactly */
-.site-banner{--accent:#2F5BD8}
+.site-banner{--accent:#E4572E}
 header.site-banner{flex:0 0 auto}
 .site-banner--app{z-index:40}
 .site-banner .theme-btn{margin-left:0}
@@ -220,6 +220,7 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg{display:grid; grid-template-columns:1fr 1fr}  /* four named sizes sit two by two */
 #sizeSeg button{font-size:12px; line-height:1.25; padding:7px 3px; white-space:nowrap}
 #sizeSeg button small{display:block; font-size:11px; color:var(--muted)}
+#sizeSeg button small.tiles{margin-top:1px; font-size:10.5px; opacity:.85}   /* one tile, or four that join */
 #sizeSeg button[aria-pressed="true"] small{color:inherit}
 /* Every price sits in the same pill: the size tiles, the GPX box, the frame button and each colour
    scheme. On a grey box the pill is white; on a chosen (white) one it is grey, so it always shows. */
@@ -243,12 +244,15 @@ aside{
   border-left:1px solid var(--line); overflow-y:scroll;    /* always scroll: the panel never changes width */
   scrollbar-gutter:stable;
   display:flex; flex-direction:column;
-  scrollbar-width:thin; scrollbar-color:var(--line) transparent;
   margin-right:-9px; padding-right:9px;              /* the scrollbar rides outside the panel's content */
 }
+/* The panel's scrollbar matches the homepage's: a pale grey rail with a rounded orange bar that
+   travels down it as you scroll. Browsers without the -webkit- parts get the same two colours. */
+@supports not selector(::-webkit-scrollbar){aside{scrollbar-width:thin; scrollbar-color:var(--accent) #E6E6E6}}
 aside::-webkit-scrollbar{width:9px}
-aside::-webkit-scrollbar-track{background:transparent}
-aside::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px; border:2px solid transparent; background-clip:content-box}
+aside::-webkit-scrollbar-track{background:#E6E6E6 content-box; border:2px solid transparent; border-radius:6px}
+aside::-webkit-scrollbar-thumb{background:var(--accent) content-box; border-radius:6px; border:2px solid transparent}
+aside::-webkit-scrollbar-thumb:hover{background:var(--accent-hover) content-box}
 /* The Order section stays in view at the foot of the Customise panel; everything else scrolls up
    behind it. The band of panel colour round it (and a soft fade above) hides what passes beneath,
    in the margins too. Sections scrolled to stop clear of it. */
@@ -373,17 +377,27 @@ button:disabled{opacity:.45; cursor:not-allowed}
    painted under the border too so no seam shows at the ends; on hover a soft glow and a border
    whose light runs round it every 2.5 s, a pale tint of the accent rather than pure white (white
    read as a hard line down the straight end of a square-cornered button). In the accent of each
-   look: blue in the light, amber in the dark. */
-button.primary{border-radius:999px;            /* the same round ends as Start designing */
+   look: orange in the light, amber in the dark. */
+button.primary, a.primary{border-radius:999px;            /* the same round ends as Start designing */
   --cta-accent:var(--accent); --cta-sheen:linear-gradient(135deg,color-mix(in srgb,var(--cta-accent) 75%,#FFFFFF),var(--cta-accent) 60%,color-mix(in srgb,var(--cta-accent) 80%,#000000));
   color:var(--accent-ink); font-weight:600; border:2px solid transparent;
   background:var(--cta-sheen) border-box; box-shadow:none; transition:box-shadow .25s ease}
-button.primary:hover:not(:disabled){border-color:transparent;
+button.primary:hover:not(:disabled), a.primary:hover{border-color:transparent;
   background:var(--cta-sheen) padding-box,conic-gradient(from var(--cta-angle),var(--cta-accent),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 45%,#FFFFFF),color-mix(in srgb,var(--cta-accent) 70%,#FFFFFF),var(--cta-accent)) border-box;
   box-shadow:0 0 24px color-mix(in srgb,var(--cta-accent) 41%,transparent);
   animation:cta-spin 2.5s linear infinite}
 @media (prefers-reduced-motion:reduce){button.primary:hover:not(:disabled){animation:none}}
+/* The way back is the main button in reverse (white, orange letters, orange edge) so it doesn't
+   compete with Add to cart; on hover the pale orange the selectors use. */
+button.primary.reverse{color:var(--accent);
+  background:linear-gradient(#FFFFFF,#FFFFFF) padding-box, linear-gradient(var(--accent),var(--accent)) border-box}
+button.primary.reverse:hover:not(:disabled){
+  background:linear-gradient(#FDF1EC,#FDF1EC) padding-box, linear-gradient(var(--accent),var(--accent)) border-box;
+  box-shadow:none; animation:none}
 button.wide{width:100%}
+/* "View cart" is a link dressed as the same main button (it had been showing as a plain link). */
+a.primary{box-sizing:border-box; font-size:14px; padding:9px 12px; text-decoration:none}
+a.wide{width:100%}
 button.ghost{background:transparent}
 
 /* search results */
@@ -595,6 +609,8 @@ label.check[data-tip]:focus-visible{outline:2px solid var(--accent); outline-off
 .design-list .dn{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .design-list small{display:block; color:var(--muted); font-size:11px; font-family:var(--mono); font-variant-numeric:tabular-nums}
 .design-list button{padding:4px 9px; font-size:12px; border-radius:6px; flex:0 0 auto}
+.design-list button.bin{display:grid; place-items:center; padding:4px 6px; margin-left:-4px; color:var(--muted)}
+.design-list button.bin:hover{color:var(--danger)}
 .design-list .empty{color:var(--muted); font-size:12.5px; border:0; background:none; cursor:default}
 #shareOut{margin-top:8px; font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:11.5px}
 
@@ -603,7 +619,7 @@ label.check[data-tip]:focus-visible{outline:2px solid var(--accent); outline-off
 .icon-grid button{padding:6px 0; display:grid; place-items:center}
 .icon-grid button[aria-pressed="true"]{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent)}
 .icon-grid svg{width:22px; height:22px}
-#iconList li svg{width:22px; height:22px; flex:0 0 auto}
+#iconList li > svg{width:22px; height:22px; flex:0 0 auto}   /* the icon itself, not the bin */
 .map-icon{background:none; border:0}
 .map-icon svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45)); display:block}
 
@@ -932,6 +948,36 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
   .stage{min-height:46vh}
   #stage{margin:10px}
 }
+/* Phones and small tablets, Customise (the map step is unchanged): the model first, a fixed share of the screen, with the
+   settings scrolling beneath it and "Add to basket" held at the foot of the screen. The model's
+   tools sit in a row along its bottom edge and Location Adjust folds to a small tab. */
+@media (max-width:860px){
+  body.mode-view main{flex-direction:column}
+  body.mode-view #stage{order:-1; flex:0 0 42svh; min-height:0; margin:8px 10px 0; border-radius:18px}
+  aside#panelView{order:1; flex:1 1 auto; max-height:none; width:auto; margin:0; padding:0 16px; border-top:0;
+    -webkit-mask-image:none; mask-image:none; overflow-x:hidden}
+  #panelView #viewHead{padding:10px 0 4px; position:static}
+  #back{width:auto; padding:8px 16px; font-size:14px}
+  #panelView .block{padding-left:0; padding-right:0}
+  #panelView h2{font-size:19px}
+  body.mode-view #mapTools{top:auto; bottom:10px; left:10px; transform:none; flex-direction:row; gap:6px}
+  body.mode-view #mapTools button{width:44px; height:44px}
+  body.mode-view #mapTools button small{display:none}
+  #inset{top:10px; right:10px; width:auto}
+  #inset.folded #fitInset{display:none}
+  #inset .inset-head{padding:6px 6px 6px 12px; gap:6px}
+  #inset .inset-head strong{font-size:13px}
+  body:not(.none) #panelView #printBlock{z-index:50; background:#FFFFFF; padding:10px 0 12px; margin:0;
+    box-shadow:0 -10px 16px -8px rgba(11,14,18,.10)}
+  #printBlock h2{display:none}
+  body:not(.none) #panelView #printBlock::before{top:-14px; height:14px; background:linear-gradient(rgba(255,255,255,0),#FFFFFF)}
+  #printColBlock .scheme{display:flex; align-items:center; gap:12px; padding:10px 12px; text-align:left}
+  #printColBlock .scheme .bar{flex:0 0 64px; width:64px; height:34px}
+  #printColBlock .scheme .nm{flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px}
+  #printColBlock .scheme .nm .pr{margin:0}
+}
+/* The phone menu opens over the studio too, above the map's own controls. */
+body.menu-open .site-banner--app{z-index:3000}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -952,13 +998,21 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 <a class="site-banner__link" href="/#sizes">Sizes</a>
 <a class="site-banner__link" href="/#faq">FAQ</a>
 <a class="site-banner__link" href="/contact">Contact</a>
-<a class="site-banner__cart" href="/cart/" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
+<a class="site-banner__cart" href="/cart/" aria-label="Basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10V7a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="site-banner__count" hidden>0</span></a>
 <a class="cta cta--sm" href="/studio/">Start designing</a>
+<button class="site-banner__menu" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 <button id="themeBtn" hidden class="theme-btn" title="Light or dark" aria-label="Switch between the light and dark looks">
     <svg id="thSun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>
     <svg id="thMoon" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M13.4 9.6A5.6 5.6 0 0 1 6.4 2.6a5.6 5.6 0 1 0 7 7z"/></svg>
   </button>
 </nav>
+</div>
+<div class="site-menu" id="site-menu" hidden>
+<a class="site-menu__link" href="/#how">How it works</a>
+<a class="site-menu__link" href="/#sizes">Sizes</a>
+<a class="site-menu__link" href="/#faq">FAQ</a>
+<a class="site-menu__link" href="/contact">Contact</a>
+<a class="cta site-menu__cta" href="/studio/">Start designing</a>
 </div>
 </header>
 <!-- /site-banner -->
@@ -1008,15 +1062,15 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
   </aside>
 
   <aside id="panelView" hidden>
-    <div id="viewHead"><button class="primary wide" id="back">Pick another location</button></div>
+    <div id="viewHead"><button class="primary reverse wide" id="back">Pick another location</button></div>
 
     <div class="block" id="sizeBlock">
       <h2>Print Dimensions</h2>
       <div class="seg" id="sizeSeg" role="group" aria-label="Print Dimensions">
-        <button data-mm="100" aria-pressed="false">The Side Quest<small>10 cm × 10 cm</small></button>
-        <button data-mm="150" aria-pressed="true">The Adventure<small>15 cm × 15 cm</small></button>
-        <button data-mm="250" aria-pressed="false">The Expedition<small>25 cm × 25 cm</small></button>
-        <button data-mm="500" aria-pressed="false">The Misogi<small>50 cm × 50 cm</small></button>
+        <button data-mm="100" aria-pressed="false">The Side Quest<small>10 cm × 10 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="150" aria-pressed="true">The Adventure<small>15 cm × 15 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="250" aria-pressed="false">The Expedition<small>25 cm × 25 cm</small><small class="tiles">One tile</small></button>
+        <button data-mm="500" aria-pressed="false">The Misogi<small>50 cm × 50 cm</small><small class="tiles">Four interlocking tiles</small></button>
       </div>
       <div hidden><span id="reliefOut">—</span><span id="reliefNote"></span></div>
     </div>
@@ -1130,7 +1184,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
         <input type="range" id="lift" min="-40" max="40" step="0.5" value="0">
         <input type="number" id="liftNum" min="-40" max="40" step="0.5" value="0">
         <span id="liftOut"></span>
-        <select id="frameColour"><option value="walnut" selected>Walnut</option></select>
+        <select id="frameColour"><option value="black" selected>Black</option></select>
       </div>
 
       <!-- Add a piece and it opens in the window over the model, where the words are typed and
@@ -1163,7 +1217,7 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
         <input type="checkbox" id="stlFrame" checked><input type="checkbox" id="stlRoute" checked disabled><input type="checkbox" id="stlIcons" checked>
         <span id="stlSize">—</span><span id="stlInfo"></span>
       </div>
-      <button class="primary wide" id="buyBtn">Add to cart</button>
+      <button class="primary wide" id="buyBtn">Add to basket</button>
     </div>
 
   </aside>
@@ -1418,14 +1472,14 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
       <div class="od-total"><span>This model</span><b id="odTotal"></b></div>
       <p class="od-note" id="odNote" hidden>Example prices: these aren't final yet.</p>
       <p class="od-msg" id="odMsg" role="status"></p>
-      <button class="primary wide" id="odPay">Add to cart</button>
-      <p class="od-small">Delivery is chosen in the cart. Add as many models as you like first.</p>
+      <button class="primary wide" id="odPay">Add to basket</button>
+      <p class="od-small">Delivery is chosen in the basket. Add as many models as you like first.</p>
     </div>
     <div id="odAfter" hidden>
-      <p class="od-added" id="odAdded" role="status">Added to your cart.</p>
+      <p class="od-added" id="odAdded" role="status">Added to your basket.</p>
       <div class="od-next">
         <button class="wide" id="odKeep">Keep designing</button>
-        <a class="primary wide od-go" id="odCart" href="/cart/">View cart</a>
+        <a class="primary wide od-go" id="odCart" href="/cart/">View basket</a>
       </div>
     </div>
   </div>
@@ -4788,10 +4842,14 @@ function pickScheme(key) {
   applyPrintColours();
 }
 /* A tile's fill: one colour flat, otherwise equal bands with hard edges between them. */
+/* The colour boxes show the model's grey a little lighter, so they don't read as heavy; the model
+   itself keeps its own grey. */
+const SWATCH_GREY = "#CED9E1";
 function schemeFill(cols) {
+  cols = cols.map((c) => c === PLAIN_GROUND ? SWATCH_GREY : c);
   if (cols.length < 2) return cols[0];
   const w = 100 / cols.length;
-  return "linear-gradient(125deg," +                 // the colours meet on a 125° diagonal, not a straight line
+  return "linear-gradient(90deg," +                  // the colours sit side by side, split by straight upright lines
     cols.map((c, i) => c + " " + (i * w).toFixed(4) + "% " + ((i + 1) * w).toFixed(4) + "%").join(",") + ")";
 }
 let printColUiReady = false;
@@ -4828,6 +4886,7 @@ function applyPrintColours() {
 
 /* ---------- frame ---------- */
 const FINISH = {                                 // [wood, text]
+  black: ["#1B1D20", "#E8E4DC"],                  // the frame: black, its lettering a warm off-white
   walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"],
   charcoal: ["#2C3034", "#E8E4DC"], white: ["#ECE8E1", "#3A3A3A"]
 };
@@ -4853,9 +4912,9 @@ const fontCSS = (key, px) => { const f = FONTS[key]; return f[1] + " " + px + "p
    standing proud. Sides are numbered the way the frame is built, from 0. */
 const frameTexts = [];
 let frameTextSeq = 0, selTextId = null;
-/* Lettering is shaped, standing 1.5 mm proud of the frame. There is no flat option and no choice
+/* Lettering is shaped, standing 1 mm proud of the frame. There is no flat option and no choice
    of depth, so a piece of text carries neither. */
-const TEXT_DEPTH_MM = 1.5;
+const TEXT_DEPTH_MM = 1;
 const textStyle = { text: "", side: 0, font: "montserrat", pt: 17, align: "center" };
 const sideCount = () => (modelOutline === "hex" ? 6 : 4);
 const textsOnSide = (i) => frameTexts.filter((x) => x.side === i && x.text);
@@ -5554,7 +5613,7 @@ $("frameBtn").addEventListener("click", () => {
    strip the viewer meets first is the one the frame is built second, so "Front" is that one and it
    heads the list — which is also where a new piece goes. Keeping the two apart means the naming can
    read the right way round without the geometry being renumbered underneath it. */
-const SIDE_NAMES = { 4: ["Back", "Front", "Left", "Right"],
+const SIDE_NAMES = { 4: ["Back", "Front", "Right", "Left"],   // the third and fourth strips, named as the viewer sees them
                      6: ["Side 1", "Side 2", "Side 3", "Side 4", "Side 5", "Side 6"] };
 const SIDE_ORDER = { 4: [1, 0, 2, 3], 6: [0, 1, 2, 3, 4, 5] };
 /* A hexagon's extra sides disappear when the shape goes back to a square: bring that text home
@@ -5586,6 +5645,22 @@ function reseatTextsForShape() {
   if (moved || dropped) { renderTextList(); queueFrame(); }
 }
 function syncTextControls() { reseatTextsForShape(); }
+/* A small bin beside each row's Edit: removes that piece straight away (undo is in the toast). */
+const BIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Zm4 2v8h1.6v-8H10Zm2.4 0v8H14v-8h-1.6Z" fill="currentColor"/></svg>';
+function binButton(label, onRemove) {
+  const b = document.createElement("button"); b.className = "ghost bin"; b.innerHTML = BIN_SVG;
+  b.setAttribute("aria-label", label); b.title = label;
+  b.addEventListener("click", (e) => { e.stopPropagation(); onRemove(); });
+  return b;
+}
+function removeTextPiece(id) {
+  pushUndo("Remove text");
+  const i = frameTexts.findIndex((x) => x.id === id); if (i < 0) return;
+  frameTexts.splice(i, 1); if (selTextId === id) selTextId = null;
+  if (typeof popTextId !== "undefined" && popTextId === id) closeTextPopup();
+  renderTextList(); queueFrame(); noteSoon();
+  toast("Text removed.", false, undoAction());
+}
 function renderTextList() {
   const ul = $("frameTextList"); if (!ul) return;
   syncAddButton();
@@ -5604,7 +5679,7 @@ function renderTextList() {
     // the row and its button do the same thing: open this piece's window, where it can also be removed
     edit.addEventListener("click", (e) => { e.stopPropagation(); selectText(ft.id); openTextPopup(ft.id); });
     li.addEventListener("click", () => { selectText(ft.id); openTextPopup(ft.id); });
-    li.append(nm, edit); ul.append(li);
+    li.append(nm, edit, binButton("Remove custom text " + (k + 1), () => removeTextPiece(ft.id))); ul.append(li);
   });
 }
 function selectText(id) {
@@ -5625,7 +5700,7 @@ function syncAddButton() {
   const b = $("addFrameText"); if (!b) return;
   const full = freeSide() === undefined;
   b.disabled = full;
-  b.textContent = full ? "A text on every side already" : "Add text to frame";
+  b.textContent = full ? "Text already added to every side" : "Add text to frame";
 }
 $("addFrameText").addEventListener("click", () => {
   const free = freeSide();
@@ -5782,11 +5857,7 @@ function textAtHit(hit) {
 function initTextPopup() {
   $("textPopClose").addEventListener("click", closeTextPopup);
   $("textPopDelete").addEventListener("click", () => {
-    const id = popTextId; pushUndo("Remove text");
-    const i = frameTexts.findIndex((x) => x.id === id); if (i < 0) return;
-    frameTexts.splice(i, 1); if (selTextId === id) selTextId = null;
-    closeTextPopup(); renderTextList(); queueFrame(); noteSoon();
-    toast("Text removed.", false, undoAction());
+    removeTextPiece(popTextId);
   });
   $("tpText").addEventListener("input", () => {
     const el = $("tpText");
@@ -6762,7 +6833,7 @@ function syncGates() {
   try {                                              // raised roads need the large printed size
   } catch (e) { /* not set up yet */ }
   // The gate pass above re-enables every button in an open box wholesale, which would wake
-  // "A text on every side already" back up: fullness has the last word. At start-up the text
+  // "Text already added to every side" back up: fullness has the last word. At start-up the text
   // machinery below this point is not built yet, and that pass can be skipped.
   try { syncAddButton(); } catch (e) { /* not set up yet */ }
 }
@@ -6842,22 +6913,43 @@ async function surfaceBase(data, px, strength) {
   cv.width = cv.height = px;
   const ctx = cv.getContext("2d", { willReadFrequently: true });   // read back below: keep it in ordinary memory
   ctx.fillStyle = printCols.on ? printCols.colours[0] : (PLAIN_GROUND || PLAIN_STONE); ctx.fillRect(0, 0, px, px);
-  /* One tone has nothing but its shading to go on, so it is carried a little further than the
-     map-backed surface needs: the shadows deepen while the lit side stays where it is. */
+  const img = ctx.getImageData(0, 0, px, px);
+  shadePixels(img.data, shadeMap(data, px));
+  ctx.putImageData(img, 0, 0);
+  data._surfaceCache[key] = cv;
+  return cv;
+}
+/* The ground's light and shadow, one factor per pixel. One tone has nothing but its shading to go
+   on, so it is carried a little further than the map-backed surface needs: the shadows deepen
+   while the lit side stays where it is. The same factors go over every colour painted on the
+   ground (woods, fields, water, snow), so a coloured model keeps its hills and shadows just as the
+   grey one does, rather than the colours sitting flat on top. */
+function shadeMap(data, px) {
+  data._shadeCache = data._shadeCache || {};
+  if (data._shadeCache[px]) return data._shadeCache[px];
   const k = 1.05, light = lightGrid(data), n = data.n;
   const { mean, gain } = lightSpread(light);
-  const img = ctx.getImageData(0, 0, px, px), d = img.data;
+  const sh = new Float32Array(px * px);
   for (let y = 0; y < px; y++) {
     const v = y / (px - 1);
     for (let x = 0; x < px; x++) {
       const lit = clamp(mean + (gridAtSmooth(light, n, x / (px - 1), v) - mean) * gain, 0, 1);
-      const sh = 1 + k * ((0.35 + 0.8 * lit) - 1), i = (y * px + x) * 4;
-      d[i] = Math.min(255, d[i] * sh); d[i + 1] = Math.min(255, d[i + 1] * sh); d[i + 2] = Math.min(255, d[i + 2] * sh);
+      sh[y * px + x] = 1 + k * ((0.35 + 0.8 * lit) - 1);
     }
   }
-  ctx.putImageData(img, 0, 0);
-  data._surfaceCache[key] = cv;
-  return cv;
+  return (data._shadeCache[px] = sh);
+}
+function shadePixels(d, sh) {
+  for (let j = 0, i = 0; j < sh.length; j++, i += 4) {
+    if (!d[i + 3]) continue;                          // nothing painted here
+    const f = sh[j]; d[i] = Math.min(255, d[i] * f); d[i + 1] = Math.min(255, d[i + 1] * f); d[i + 2] = Math.min(255, d[i + 2] * f);
+  }
+}
+/* Shade a layer of painted colour (woods, water, snow…) the way the ground under it is shaded. */
+function shadeLayer(canvas, data) {
+  const g = canvas.getContext("2d", { willReadFrequently: true }), px = canvas.width;
+  const img = g.getImageData(0, 0, px, px); shadePixels(img.data, shadeMap(data, px)); g.putImageData(img, 0, 0);
+  return canvas;
 }
 
 const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -6867,8 +6959,12 @@ const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
    land colour left on that drop smears down the face and bleeds over the water. Carrying the
    water a third of a cell inland covers the face. */
 function paintOpenSea(ctx, data, px) {
-  if (!data.grid.sea || !show.water || !modelCarries()) return;   // slate unless colours are assigned
-  const colour = printCols.on ? (PC("water") || printCols.colours[0]) : COL.water;
+  /* This paints the model only, so it goes by the print colours alone: in one colour (Solid) the sea
+     is the same grey as the land, and it turns blue only in a colour way that gives water its own
+     colour. (It used to ask modelCarries(), which is true outside the feature painting, so a Solid
+     model's sea came out map-blue.) */
+  if (!data.grid.sea || !show.water || !printCols.on) return;
+  const colour = PC("water") || printCols.colours[0];
   const key = px + "/" + colour;
   if (data._seaPaint && data._seaPaint.key === key) { ctx.drawImage(data._seaPaint.canvas, 0, 0); return; }
   const c = document.createElement("canvas"); c.width = c.height = px;
@@ -6968,12 +7064,27 @@ async function paintSurface(data) {
   const useHeight = $("useHeightColour").checked, W2 = canvas.width, mm = W2 / frameVals.modelMM;
   const base = await surfaceBase(data, useHeight ? 1024 : W2, 0.55);
   if (token !== surfaceToken) return;               // a newer repaint has started; drop this one
+  const flatTone = !useHeight || printCols.on;       // the shaded one-tone ground (height colours carry their own light)
+  let paintLayer = null;
   const compose = (low, high) => {
     ctx.drawImage(base, 0, 0, W2, W2);
+    /* Everything painted over the ground goes on a layer of its own first, so it can take the
+       ground's shading before it lands, then over the base it goes. */
+    if (flatTone) {
+      paintLayer = paintLayer || document.createElement("canvas");
+      paintLayer.width = paintLayer.height = W2;      // also clears it
+      const g = paintLayer.getContext("2d", { willReadFrequently: true });
+      paintOpenSea(g, data, W2);
+      if (low) g.drawImage(low, 0, 0);
+      drawSnow(g, data, W2, base);
+      if (high) g.drawImage(high, 0, 0);
+      ctx.drawImage(shadeLayer(paintLayer, data), 0, 0);
+    } else {
     paintOpenSea(ctx, data, W2);                     // before anything else: the water's edge belongs to the land
     if (low) ctx.drawImage(low, 0, 0);
     drawSnow(ctx, data, W2, base);                   // snow whitens the ground itself, print colours or not
     if (high) ctx.drawImage(high, 0, 0);
+    }
     if (routeStyle.mode === "painted" && (!printCols.on || printedSeparately("route"))) paintRoute(ctx, data.bounds, W2, mm);
     if (typeof paintIcons === "function") paintIcons(ctx, data.bounds, W2, mm, base);
     paintGloss(data, W2, wm);                        // the shine follows the paint it was made from
@@ -8091,9 +8202,17 @@ var iconUiReady = true;                              // lets drawSelection (defi
 let iconTimer = null;
 function iconsChanged() {
   noteSoon();
-  syncIconMarkers(); renderIconList();
+  syncIconMarkers(); renderIconList(); syncAddIcon();
   clearTimeout(iconTimer);
   iconTimer = setTimeout(() => { if (current && three) { paintSurface(current); buildIcons3D(); buildFeatures3D(current); } }, 120);   // clears features under icons
+}
+/* Up to three icons on a model (the price list holds the same limit). */
+const MAX_ICONS = 3;
+function syncAddIcon() {
+  const b = $("addIcon"); if (!b) return;
+  const full = icons.length >= MAX_ICONS;
+  b.disabled = full;
+  b.firstChild.textContent = full ? "Three icons added" : "Add icon";
 }
 function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = null; iconsChanged(); }
 function selectIcon(id) {
@@ -8119,16 +8238,19 @@ function renderIconList() {
     const sm = document.createElement("small");
     sm.textContent = ic.mm + " mm · " + ((ic.h ?? 3) > 0 ? (ic.h ?? 3) + " mm proud" : "level with the ground");
     nm.append(sm);
-    const del = document.createElement("button"); del.className = "ghost"; del.textContent = "Remove"; del.setAttribute("aria-label", "Remove " + nm.firstChild.textContent);
-    del.addEventListener("click", (e) => {
-      e.stopPropagation(); pushUndo("Remove icon");
+    const name = nm.firstChild.textContent;
+    const edit = document.createElement("button"); edit.className = "ghost"; edit.textContent = "Edit";
+    edit.setAttribute("aria-label", "Edit " + name);
+    edit.addEventListener("click", (e) => { e.stopPropagation(); selectIcon(ic.id); openIconWindow(ic.id); });
+    const del = binButton("Remove " + name, () => {
+      pushUndo("Remove icon");
       const i = icons.findIndex((x) => x.id === ic.id); icons.splice(i, 1);
       if (selIconId === ic.id) selIconId = null;
       if (typeof popIconId !== "undefined" && popIconId === ic.id) closeIconPopup();
       iconsChanged(); toast("Icon removed.", false, undoAction());
     });
     li.addEventListener("click", () => { selectIcon(ic.id); openIconWindow(ic.id); });
-    li.append(nm, del); ul.append(li);
+    li.append(nm, edit, del); ul.append(li);
   });
 }
 /* a change to the controls restyles the selected icon (if any) and future ones */
@@ -8152,6 +8274,7 @@ function initIconControls() {           // run at start-up, once every helper it
   bindPair("iconMM", "iconMMNum", 3, 40, (v) => { iconStyle.mm = v; iconControlChanged(); });
   bindPair("iconH", "iconHNum", 0, 20, (v) => { iconStyle.h = v; iconControlChanged(); });
   $("addIcon").addEventListener("click", () => {
+    if (icons.length >= MAX_ICONS) { toast("A model can carry up to " + MAX_ICONS + " icons."); return; }
     // New icons spiral out from the middle until they find a clear spot: never on top of another.
     const stepDeg = (sel.size * 0.06) / 111320;
     let la = sel.lat, ln = sel.lng;
@@ -8364,8 +8487,15 @@ function backTextLayout(Wmm) {
    plan, in millimetres with x east and y north from the south-west corner. */
 const backTextPlan = (L, Wmm, u, v) => [Wmm / 2 + (u - 0.5) * L.lenMM, Wmm / 2 - (v - 0.5) * L.hMM];
 /* The artwork itself, drawn upright into a canvas px pixels to the millimetre, in one colour. */
+/* The artwork is drawn turned half a turn (180°) about its own centre, so it reads the right way up
+   when the print is lifted and turned over. A shift (dy, for the lit lip) still goes straight down. */
 function drawBackArt(g, L, px, colour, dy = 0) {
-  const x0 = L.margin * px, top = L.margin * px + dy, h = L.logoH * px;
+  g.save();
+  g.translate(L.lenMM * px / 2, L.hMM * px / 2 + dy); g.rotate(Math.PI); g.translate(-L.lenMM * px / 2, -L.hMM * px / 2);
+  try { drawBackArtUpright(g, L, px, colour); } finally { g.restore(); }
+}
+function drawBackArtUpright(g, L, px, colour) {
+  const x0 = L.margin * px, top = L.margin * px, h = L.logoH * px;
   if (BACK_MARK.complete && BACK_MARK.naturalWidth) {            // the mark, tinted to the colour asked for
     const t = document.createElement("canvas"); t.width = Math.max(1, Math.round(L.markMM * px)); t.height = Math.max(1, Math.round(h));
     const q = t.getContext("2d"); q.drawImage(BACK_MARK, 0, 0, t.width, t.height);
@@ -8772,7 +8902,7 @@ async function renderOrder() {
   return bill;
 }
 async function openOrder() {
-  if (!current || !three) { toast("Build the model first, then you can add it to your cart."); return; }
+  if (!current || !three) { toast("Build the model first, then you can add it to your basket."); return; }
   $("odMsg").textContent = ""; $("odMsg").classList.remove("bad"); $("odPay").disabled = false;
   $("odBefore").hidden = false; $("odAfter").hidden = true; $("odTitle").textContent = "Your model";
   const pic = snapshotModel();
@@ -8794,7 +8924,7 @@ async function addToCart() {
   try {
     const P = await pricingModule();
     const cart = P.readCart();
-    if (cart.items.length >= P.PRICING.maxItems) throw new Error("your cart is full (" + P.PRICING.maxItems + " models at most)");
+    if (cart.items.length >= P.PRICING.maxItems) throw new Error("your basket is full (" + P.PRICING.maxItems + " models at most)");
     say("Packing up your mountain…");
     const st = collectState();
     const file = await buildPrintFile();
@@ -8814,10 +8944,10 @@ async function addToCart() {
     const fresh = P.readCart();                       // read again: another tab may have changed it meanwhile
     fresh.items.push({ id: made.id, token: made.token, name: st.sel.name || "Your place", item: P.itemFromDesign(st),
                        facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now() });
-    if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your cart");
+    if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your basket");
     const n = fresh.items.length;
-    $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your cart";
-    $("odAdded").textContent = "Added to your cart. You have " + n + (n === 1 ? " model" : " models") + " in it.";
+    $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your basket";
+    $("odAdded").textContent = "Added to your basket. You have " + n + (n === 1 ? " model" : " models") + " in it.";
     $("odCart").focus();
   } catch (err) {
     console.error(err);
@@ -8959,7 +9089,7 @@ async function applyState(st, origin, opts) {
   renderPrintSlots();
   setPairUI("frameH", "frameHNum", frameVals.h); setPairUI("frameT", "frameTNum", frameVals.t); setPairUI("frameD", "frameDNum", frameVals.d);
   setModelSize(frameVals.modelMM);                   // the one place the width is set, so it says so too
-  $("frameColour").value = F.colour in FINISH ? F.colour : "walnut";
+  $("frameColour").value = "black";               // every frame is black now, older saved designs included
   restoreFrameTexts(F);
   $("interval").value = st.interval || "auto";
   route = st.route ? decodeRoute(st.route) : null;
@@ -9164,26 +9294,17 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
 </script>
 <!-- banner-contours -->
 <script>
-/* Hidden contours under the site banner.
-   A faint contour map lies under the banner, unseen. When the pointer comes over the banner the
-   lines show within about 3 cm of where it came in, then the lit patch grows outwards at a steady
-   speed until the whole bar is showing 2.5 seconds later. The lines sit under the logo, links and
-   button and stop 2 px short of their edges (and clear of the logo's whole square), so everything on
-   the bar stays as readable as before.
-   Leaving the bar fades them away again; coming back starts over from the new spot. With reduced
-   motion asked for, the whole map simply fades in. */
+/* Hidden contours under the site banner and the footer.
+   A faint contour map lies under each, unseen. Where the pointer passes, the lines show in a soft
+   circle about 80 px round it, and what has been uncovered stays uncovered, so moving about the bar
+   (or the footer) paints the map in like a torch trail. Nothing resets until the pointer leaves:
+   then the whole map fades away over half a second, and the next visit starts from nothing.
+   The lines keep 2 px clear of everything on the bar or footer (the words, links, buttons, the
+   email box and the mountains), so all of it stays as readable as before. Touch screens, which
+   have no hover, are left out. */
 (() => {
-  const bar = document.querySelector("header.site-banner");
-  if (!bar || !window.matchMedia("(hover:hover)").matches) return;   // touch screens have no hover
-  const REVEAL_MS = 2500, START_R = 15, FEATHER = 48;    // it begins as a small circle, 15 px round the pointer
-  const INK = "46, 90, 76", LINE_A = 0.20, INDEX_A = 0.32, GAP = 2;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  const cv = document.createElement("canvas");
-  cv.className = "site-banner__contours"; cv.setAttribute("aria-hidden", "true");
-  bar.prepend(cv);
-  const g = cv.getContext("2d");
-  let W = 0, H = 0, dpr = 1, lines = null, knock = null, anim = null;
+  if (!window.matchMedia("(hover:hover)").matches) return;     // touch screens have no hover
+  const R = 80, FEATHER = 36, GAP = 2, FADE_MS = 450;          // the torch: 80 px round, soft at its edge
 
   /* ---- a contour map of made-up ground: smooth noise, traced at even heights ---- */
   function noise(seed) {
@@ -9200,16 +9321,16 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
     const wx = x + 70 * (w1(x / 180, y / 180) - 0.5), wy = y + 70 * (w2(x / 180 + 9, y / 180 + 4) - 0.5);
     return 0.6 * n1(wx / 230, wy / 230) + 0.3 * n2(wx / 95, wy / 95) + 0.1 * n3(wx / 40, wy / 40);
   };
-  function drawLines() {
-    lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
+  function drawLines(W, H, dpr, ink, lineA, indexA, oy) {
+    const lines = document.createElement("canvas"); lines.width = W * dpr; lines.height = H * dpr;
     const c = lines.getContext("2d"); c.scale(dpr, dpr); c.lineCap = "round";
     const step = 3, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, f = new Float32Array(cols * rows);
-    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) f[j * cols + i] = height(i * step, j * step + oy);
     const LEVEL = 0.016;
     let lo = Infinity, hi = -Infinity; for (const v of f) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
     for (let k = Math.ceil(lo / LEVEL); k * LEVEL <= hi; k++) {
       const L = k * LEVEL, index = k % 5 === 0;           // every fifth line a little stronger, as on a map
-      c.strokeStyle = `rgba(${INK}, ${index ? INDEX_A : LINE_A})`; c.lineWidth = index ? 1.1 : 0.8;
+      c.strokeStyle = `rgba(${ink}, ${index ? indexA : lineA})`; c.lineWidth = index ? 1.1 : 0.8;
       c.beginPath();
       for (let j = 0; j < rows - 1; j++) for (let i = 0; i < cols - 1; i++) {
         const a = f[j * cols + i], b = f[j * cols + i + 1], d = f[(j + 1) * cols + i], e = f[(j + 1) * cols + i + 1];
@@ -9222,10 +9343,12 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
       }
       c.stroke();
     }
+    return lines;
   }
-  /* ---- where the lines must not go: everything on the bar, grown by 2 px all round ---- */
-  function drawKnockout() {
-    knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+
+  /* ---- where the lines must not go on the banner: everything on it, grown by 2 px all round ---- */
+  function bannerKnock(bar, W, H, dpr, shape) {
+    const knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
     const c = knock.getContext("2d"); c.scale(dpr, dpr);
     const box = bar.getBoundingClientRect();
     c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
@@ -9243,7 +9366,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
     }
     // The cart: the lines come right up to the bag itself (and its number badge), 2 px clear,
     // rather than keeping off a circle round it.
-    for (const cart of bar.querySelectorAll(".site-banner__cart")) {
+    for (const cart of bar.querySelectorAll(".site-banner__cart, .site-banner__menu")) {   // the menu's three lines too
       if (!cart.offsetParent) continue;
       const icon = cart.querySelector("svg");
       if (icon) {
@@ -9264,7 +9387,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
         c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, q.height / 2 + GAP); c.fill();
       }
     }
-    for (const b of bar.querySelectorAll(".cta, button")) {      // the buttons, round ends and all
+    for (const b of bar.querySelectorAll(".cta, button:not(.site-banner__menu)")) {      // the buttons, round ends and all
       if (!b.offsetParent) continue;
       const q = b.getBoundingClientRect(), rad = Math.min(q.height / 2, parseFloat(getComputedStyle(b).borderTopLeftRadius) || 0) + GAP;
       c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad); c.fill();
@@ -9286,66 +9409,130 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
         c.beginPath(); c.roundRect(x - GAP, y - GAP, q.width + GAP * 2, q.height + GAP * 2, GAP); c.fill();
       }
     }
+    return knock;
   }
-  let shape = null;
-  (() => {
-    const m = bar.querySelector(".site-banner__brand svg"), src = m && m.getAttribute("data-shape");
-    if (!src) return;
-    shape = new Image();
-    shape.onload = () => { if (W) { drawKnockout(); paint(); } };
-    shape.src = src;
-  })();
-  function layout() {
-    const r = bar.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = Math.ceil(r.width); H = Math.ceil(r.height);
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
-    drawLines(); drawKnockout(); paint();
+
+  /* ---- where the lines must not go in the footer: its words line by line, the links, the email
+     box and button, and the big mountain and name, each grown by 2 px ---- */
+  function footerKnock(el, W, H, dpr, shapes) {
+    const knock = document.createElement("canvas"); knock.width = W * dpr; knock.height = H * dpr;
+    const c = knock.getContext("2d"); c.scale(dpr, dpr); c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = "round";
+    const box = el.getBoundingClientRect(), rr = (q, rad) => { c.beginPath(); c.roundRect(q.left - box.left - GAP, q.top - box.top - GAP, q.width + GAP * 2, q.height + GAP * 2, rad + GAP); c.fill(); };
+    // the big name, letter by letter, as the banner's
+    for (const s of el.querySelectorAll(".site-footer__word > span")) {
+      if (!s.offsetParent) continue;
+      const cs = getComputedStyle(s), r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect();
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      if ("letterSpacing" in c) c.letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+      c.textBaseline = "middle"; c.lineWidth = GAP * 2;
+      const word = cs.textTransform === "uppercase" ? s.textContent.trim().toUpperCase() : s.textContent.trim();
+      c.fillText(word, q.left - box.left, q.top - box.top + q.height / 2); c.strokeText(word, q.left - box.left, q.top - box.top + q.height / 2);
+    }
+    // every other run of words: its lines' boxes
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if (!n.textContent.trim() || n.parentElement.closest(".site-footer__word, .news-form__label, .news-form__trap")) continue;
+      const r = document.createRange(); r.selectNodeContents(n);
+      for (const q of r.getClientRects()) if (q.width) rr(q, 2);
+    }
+    for (const f of el.querySelectorAll(".news-form__email, .news-form__go")) {
+      if (!f.offsetParent) continue;
+      const q = f.getBoundingClientRect(); rr(q, Math.min(q.height / 2, parseFloat(getComputedStyle(f).borderTopLeftRadius) || 0));
+    }
+    // the mountain: its own outline (the picture it is cut from), grown by 2 px
+    const m = el.querySelector(".site-footer__mountain");
+    if (m && m.offsetParent) {
+      const q = m.getBoundingClientRect(), x = q.left - box.left, y = q.top - box.top, img = shapes.footer;
+      if (img && img.complete && img.naturalWidth) {
+        for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; c.drawImage(img, x + Math.cos(a) * GAP, y + Math.sin(a) * GAP, q.width, q.height); }
+        c.drawImage(img, x, y, q.width, q.height);
+      } else rr(q, 0);
+    }
+    return knock;
   }
-  /* ---- the reveal: a soft-edged circle from where the pointer came in, growing steadily ---- */
-  let origin = null, t0 = 0, speed = 0, fade = 1, leaving = 0;
-  function paint() {
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
-    if (!origin || !lines) return;
-    const now = performance.now(), el = now - t0;
-    g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (!still) {
-      const r = START_R + speed * el;
-      if (r < Math.hypot(W, H) + FEATHER) {
-        const f = Math.min(FEATHER, r * 0.4);                 // a soft edge in proportion while the circle is small
-        const grad = g.createRadialGradient(origin.x, origin.y, Math.max(0, r - f), origin.x, origin.y, r);
-        grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
-        g.globalCompositeOperation = "destination-in"; g.fillStyle = grad; g.fillRect(0, 0, W, H);
+
+  /* ---- one torch-lit map, laid under the banner or the footer ---- */
+  function attach(el, o) {
+    const cv = document.createElement("canvas");
+    cv.className = o.cls; cv.setAttribute("aria-hidden", "true");
+    el.prepend(cv);
+    const g = cv.getContext("2d");
+    let W = 0, H = 0, dpr = 1, lines = null, knock = null, seen = null, sg = null, last = null, fade = 1, leaving = 0, anim = 0, lit = false;
+    function layout() {
+      const r = el.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.ceil(r.width); H = Math.ceil(r.height);
+      cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+      lines = drawLines(W, H, dpr, o.ink, o.lineA, o.indexA, o.oy || 0);
+      const old = seen; seen = document.createElement("canvas"); seen.width = W * dpr; seen.height = H * dpr;
+      sg = seen.getContext("2d"); if (old) sg.drawImage(old, 0, 0);
+      reknock();
+    }
+    function reknock() { if (W) { knock = o.knock(el, W, H, dpr); paint(); } }
+    function brush(x, y) {                                 // light a soft circle round the pointer, and keep it lit
+      const grad = sg.createRadialGradient(x * dpr, y * dpr, (R - FEATHER) * dpr, x * dpr, y * dpr, R * dpr);
+      grad.addColorStop(0, "#000"); grad.addColorStop(1, "rgba(0,0,0,0)");
+      sg.fillStyle = grad; sg.beginPath(); sg.arc(x * dpr, y * dpr, R * dpr, 0, Math.PI * 2); sg.fill();
+    }
+    function trail(x, y) {                                 // fill in between pointer events so a quick sweep leaves no gaps
+      if (last) { const d = Math.hypot(x - last.x, y - last.y), n = Math.ceil(d / (R / 4));
+        for (let i = 1; i <= n; i++) brush(last.x + (x - last.x) * i / n, last.y + (y - last.y) * i / n); }
+      else brush(x, y);
+      last = { x, y }; lit = true;
+    }
+    function paint() {
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      if (!lit || !lines) return;
+      g.globalCompositeOperation = "source-over"; g.globalAlpha = fade; g.drawImage(lines, 0, 0); g.globalAlpha = 1;
+      g.globalCompositeOperation = "destination-in"; g.drawImage(seen, 0, 0);
+      if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
+      g.globalCompositeOperation = "source-over";
+    }
+    function frame() {
+      anim = 0;
+      if (leaving) {
+        fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        anim = requestAnimationFrame(frame);
       }
+      paint();
     }
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    if (knock) { g.globalCompositeOperation = "destination-out"; g.drawImage(knock, 0, 0); }
-    g.globalCompositeOperation = "source-over";
+    function at(e) { const r = el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+    el.addEventListener("pointerenter", (e) => {
+      if (e.pointerType === "touch" || !seen) return;
+      if (leaving) { leaving = 0; fade = 1; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); }   // a fresh visit starts from nothing
+      trail(...at(e)); if (!anim) anim = requestAnimationFrame(frame);
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (e.pointerType === "touch" || !seen || leaving) return;
+      trail(...at(e)); if (!anim) anim = requestAnimationFrame(frame);
+    });
+    el.addEventListener("pointerleave", () => { if (lit) { leaving = performance.now(); last = null; if (!anim) anim = requestAnimationFrame(frame); } });
+    let rt = 0;
+    new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(el);
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+    return { reknock, get knock() { return knock; }, get state() { return { W, H, lit, fade, radius: R, feather: FEATHER, gap: GAP, last, ready: !!(lines && knock) }; } };
   }
-  function loop() {
-    if (leaving) {
-      fade = Math.max(0, 1 - (performance.now() - leaving) / 450);
-      if (fade === 0) { origin = null; leaving = 0; paint(); anim = null; return; }
-    } else if (still) fade = Math.min(1, (performance.now() - t0) / 400);
-    paint(); anim = requestAnimationFrame(loop);
+
+  const shapes = {};
+  const bar = document.querySelector("header.site-banner");
+  let top = null;
+  if (bar) {
+    top = attach(bar, { cls: "site-banner__contours", ink: "228, 87, 46", lineA: 0.20, indexA: 0.32,
+                        knock: (el, W, H, dpr) => bannerKnock(el, W, H, dpr, shapes.banner) });
+    const m = bar.querySelector(".site-banner__brand svg"), src = m && m.getAttribute("data-shape");
+    if (src) { shapes.banner = new Image(); shapes.banner.onload = () => top.reknock(); shapes.banner.src = src; }
+    window.addEventListener("misogimodel:banner-changed", () => top.reknock());   // e.g. the basket's number appearing
+    window.__bannerContours = top;
   }
-  bar.addEventListener("pointerenter", (e) => {
-    if (e.pointerType === "touch") return;
-    const r = bar.getBoundingClientRect();
-    if (!origin || leaving) {
-      origin = { x: e.clientX - r.left, y: e.clientY - r.top }; t0 = performance.now(); leaving = 0; fade = still ? 0 : 1;
-      // a fixed speed for this reveal, set so the farthest corner is reached 2.5 seconds in
-      const far = Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => Math.hypot(x - origin.x, y - origin.y)));
-      speed = Math.max(0, far + FEATHER - START_R) / REVEAL_MS;
-    }
-    if (!anim) anim = requestAnimationFrame(loop);
-  });
-  bar.addEventListener("pointerleave", () => { if (origin) leaving = performance.now(); });
-  let rt = 0;
-  new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(layout, 120); }).observe(bar);
-  window.addEventListener("misogimodel:banner-changed", () => { if (W) { drawKnockout(); paint(); } });   // e.g. the cart's number appearing
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
-  window.__bannerContours = { get knock() { return knock; }, get state() { return { W, H, origin, speed, fade, startR: START_R, radius: origin ? START_R + speed * (performance.now() - t0) : 0, revealMs: REVEAL_MS, gap: GAP, ready: !!(lines && knock) }; } };
+  const footer = document.querySelector("footer.site-footer");
+  if (footer) {
+    const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
+                                 knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
+    const mt = footer.querySelector(".site-footer__mountain");
+    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
+    window.__footerContours = bot;
+  }
 })();
 /* The cart in the banner: a bag with the number of models in it. The cart itself is kept in this
    browser (localStorage, "misogimodel.cart.v1"), so the count follows the visitor round the site,
@@ -9361,7 +9548,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
     for (const a of document.querySelectorAll(".site-banner__cart")) {
       const b = a.querySelector(".site-banner__count");
       if (b) { b.textContent = n > 99 ? "99+" : String(n); b.hidden = n === 0; }
-      a.setAttribute("aria-label", n ? "Cart, " + n + (n === 1 ? " model" : " models") : "Cart, empty");
+      a.setAttribute("aria-label", n ? "Basket, " + n + (n === 1 ? " model" : " models") : "Basket, empty");
     }
     window.dispatchEvent(new Event("misogimodel:banner-changed"));     // the contour lines redraw their gaps
   }
@@ -9369,6 +9556,31 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
   window.addEventListener("misogimodel:cart", show);
   window.addEventListener("storage", (e) => { if (e.key === KEY || e.key === null) show(); });
   window.addEventListener("pageshow", show);          // back from Stripe, the page may come from the cache
+})();
+/* The phone menu: the three lines in the banner open a full-screen list of the site's sections,
+   with "Start designing" at its foot. Tapping a link, the cross, Escape, or widening the window
+   past phone size closes it. */
+(() => {
+  const bar = document.querySelector("header.site-banner");
+  const btn = bar && bar.querySelector(".site-banner__menu");
+  const menu = bar && bar.querySelector(".site-menu");
+  if (!btn || !menu) return;
+  const LINES = "M4 7h16M4 12h16M4 17h16", CROSS = "M6 6l12 12M18 6L6 18";
+  const path = btn.querySelector("path");
+  function set(open) {
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    btn.setAttribute("aria-label", open ? "Close menu" : "Menu");
+    if (path) path.setAttribute("d", open ? CROSS : LINES);
+    document.body.classList.toggle("menu-open", open);
+    if (open) bar.style.setProperty("--sb-h", bar.getBoundingClientRect().height + "px");
+    window.dispatchEvent(new Event("misogimodel:banner-changed"));
+  }
+  btn.addEventListener("click", () => set(menu.hidden));
+  menu.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { set(false); btn.focus(); } });
+  matchMedia("(min-width:641px)").addEventListener("change", (e) => { if (e.matches && !menu.hidden) set(false); });
+  window.addEventListener("pageshow", () => { if (!menu.hidden) set(false); });
 })();
 </script>
 <!-- /banner-contours -->
