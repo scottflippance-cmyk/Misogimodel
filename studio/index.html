@@ -690,6 +690,16 @@ body.focus-3d #textPop, body.focus-3d #iconWin, body.focus-3d #routeWin{display:
 #textPop .warn[hidden], #iconWin .warn[hidden]{display:none}
 #textPop .readout, #iconWin .readout{margin-top:5px}
 #textPop .field, #iconWin .field{margin-top:15px}
+/* Text direction: the letters as they are, or turned round 180° to read from the other side */
+#textPop span.field{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px}
+#textPop .tp-flip{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#textPop .tp-flip button{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 6px;min-height:38px;
+  border:1px solid #DADDE2;border-radius:10px;background:#FFFFFF;color:#0B0E12;font:inherit;font-size:12.5px;cursor:pointer}
+#textPop .tp-flip button:hover{border-color:#B9BFC8}
+#textPop .tp-flip button[aria-checked=true]{border-color:var(--accent,#E4572E);color:var(--accent,#E4572E);box-shadow:inset 0 0 0 1px var(--accent,#E4572E)}
+#textPop .tp-flip button:focus-visible{outline:2px solid var(--accent,#E4572E);outline-offset:2px}
+#textPop .tp-flip b{font-size:15px;font-weight:700;line-height:1}
+#textPop .tp-flip b.turned{display:inline-block;transform:rotate(180deg)}
 #textPop .pop-head + .field, #iconWin .pop-head + .field, #routeWin .pop-head + .field{margin-top:2px}
 #textPop .slider-row, #iconWin .slider-row{margin-top:7px}
 #moveHint{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:20; background:var(--panel-2);
@@ -1417,6 +1427,11 @@ body.menu-open .site-banner--app{z-index:3000}
         <option value="center" selected>Middle</option>
         <option value="right">Right</option>
       </select>
+      <span class="field" id="tpFlipLabel">Text direction</span>
+      <div class="tp-flip" role="radiogroup" aria-labelledby="tpFlipLabel">
+        <button type="button" id="tpUpright" role="radio" aria-checked="true"><b aria-hidden="true">A</b> Upright</button>
+        <button type="button" id="tpFlipped" role="radio" aria-checked="false"><b aria-hidden="true" class="turned">A</b> Flipped</button>
+      </div>
       <label class="field" for="tpFont">Font</label>
       <select id="tpFont">
         <option value="inter" style="font-family:'Inter'">Inter</option>
@@ -4983,6 +4998,14 @@ const usableLen = (lenU, inset) => Math.max(lenU * 0.2, lenU - 2 * inset);
    it with the wood colour instead gave the lettering a tone of its own, which showed up as a paler
    patch around every word. */
 const textAnchorX = (align, W, inset) => (align === "left" ? inset : align === "right" ? W - inset : W / 2);
+/* "Flipped" text: the same letters turned round 180° about their own middle, so they keep exactly
+   the place and the room they had and read the right way up from the other side of the frame.
+   Used for the screen and the print file alike, so the two always agree. */
+function turnRound(g, text, align, x, y) {
+  const w = g.measureText(text).width;
+  const cx = align === "left" ? x + w / 2 : align === "right" ? x - w / 2 : x;
+  g.translate(cx, y); g.rotate(Math.PI); g.translate(-cx, -y);
+}
 
 /* Where one piece of text lies on its side, in that side's own coordinates: the centre of its box
    and the box's size. The anchors are the ones the picture is laid out with, so the shaped letters
@@ -5015,6 +5038,7 @@ function reliefMask(it, lenU, hU, ink, inset) {
   g.font = fontCSS(it.font, it.fontU * d);
   g.textAlign = it.align; g.textBaseline = "middle";
   g.fillStyle = ink;
+  if (it.flip) turnRound(g, it.text, it.align, x, H / 2);
   g.fillText(it.text, x, H / 2);                     // the exact letters: this decides their shape
 
   /* A second, slightly fatter copy of the same letters, used only to colour them. The walls of a
@@ -5025,6 +5049,7 @@ function reliefMask(it, lenU, hU, ink, inset) {
   const sc = document.createElement("canvas"); sc.width = W; sc.height = H;
   const sg = sc.getContext("2d");
   sg.font = g.font; sg.textAlign = it.align; sg.textBaseline = "middle";
+  if (it.flip) turnRound(sg, it.text, it.align, x, H / 2);
   sg.strokeStyle = ink; sg.lineWidth = grow * 2; sg.lineJoin = "round"; sg.miterLimit = 2;
   sg.strokeText(it.text, x, H / 2);
   sg.fillStyle = ink; sg.fillText(it.text, x, H / 2);
@@ -5220,7 +5245,7 @@ function buildFrame() {
   const sized = (list) => list.filter((ft) => {
     if (textFits(ft)) return true;
     tooLong.push(ft.id); return false;
-  }).map((ft) => ({ id: ft.id, text: ft.text, font: ft.font, align: ft.align, fontU: ft.pt * PT_MM * u }));
+  }).map((ft) => ({ id: ft.id, text: ft.text, font: ft.font, align: ft.align, flip: !!ft.flip, fontU: ft.pt * PT_MM * u }));
 
   const side = (w, d, x, z) => {                     // plain now: the lettering lies on the top
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, H, d), plain);
@@ -5243,7 +5268,7 @@ function buildFrame() {
                   uDir: ux, vDir: uy, onTop: true, pieces: items.length,
                   used: items.map((x) => {
                     const bx = textBox(x, lenU, th, inset);   // where the letters land
-                    return { text: x.text, font: x.font, align: x.align,
+                    return { text: x.text, font: x.font, align: x.align, flip: x.flip,
                              mm: +(x.fontU / u).toFixed(2),
                              fromStart: +(bx.start / u).toFixed(2),
                              fromEnd: +((lenU - bx.end) / u).toFixed(2),
@@ -5353,7 +5378,7 @@ function buildFrame() {
   t.frameInfo = { letterBlocks: t._letterBlocks || 0, letterPushMM: t._letterPush || 0,
                   thickness: th, height: H, topY, botY, faces,
                   texts: frameTexts.map((x) => ({ text: x.text, side: x.side, font: x.font, pt: x.pt,
-                                                  align: x.align })) };
+                                                  align: x.align, flip: !!x.flip })) };
   } finally { workDone(); }
 }
 
@@ -5719,7 +5744,7 @@ let popTextId = null;
 function patchText(id, patch) {
   const ft = frameTexts.find((x) => x.id === id); if (!ft) return;
   Object.assign(ft, patch);
-  if (selTextId === id) Object.assign(textStyle, patch);
+  if (selTextId === id) { const { flip, ...style } = patch; Object.assign(textStyle, style); }   // a new piece starts upright
   syncTextControls(); renderTextList(); syncTextPopup();
   queueFrame(); noteSoon();
 }
@@ -5762,6 +5787,8 @@ function syncTextPopup() {
   });
   sel.value = String(ft.side);
   $("tpAlign").value = ft.align;
+  $("tpUpright").setAttribute("aria-checked", String(!ft.flip));
+  $("tpFlipped").setAttribute("aria-checked", String(!!ft.flip));
   $("tpFont").value = ft.font;
   setPairUI("tpSize", "tpSizeNum", ft.pt);
   updateTextCount();
@@ -5868,6 +5895,11 @@ function initTextPopup() {
   $("tpSide").addEventListener("change", (e) => tryPatch({ side: +e.target.value }));
   $("tpFont").addEventListener("change", (e) => { ensureFont(e.target.value); tryPatch({ font: e.target.value }); });
   $("tpAlign").addEventListener("change", (e) => patchText(popTextId, { align: e.target.value }));   // position never changes the room
+  // turning the letters round changes nothing else: same side, same place along it, same room
+  $("tpUpright").addEventListener("click", () => patchText(popTextId, { flip: false }));
+  $("tpFlipped").addEventListener("click", () => patchText(popTextId, { flip: true }));
+  for (const [a, b] of [["tpUpright", "tpFlipped"], ["tpFlipped", "tpUpright"]])   // arrow keys move between the two, as in any radio group
+    $(a).addEventListener("keydown", (e) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); $(b).click(); $(b).focus(); } });
   bindPair("tpSize", "tpSizeNum", MIN_PT, MAX_PT, (v) => { if (popTextId != null) tryPatch({ pt: v }); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("textPop").hidden) { e.preventDefault(); closeTextPopup(); }
@@ -5906,6 +5938,7 @@ function restoreFrameTexts(F) {
       add(x.text, clamp(+x.side || 0, 0, 5), {
         font: font(x.font), pt: clamp(Math.round(+x.pt) || pt, MIN_PT, MAX_PT),
         align: ["left", "center", "right"].includes(x.align) ? x.align : align,
+        flip: x.flip === true,
         });
     }
   } else if (F.outline === "hex") {
@@ -8426,7 +8459,7 @@ function stlSide(O, R, I, L, t, Ht, pieces) {
 /* White-on-black copy of one piece of text, laid out exactly like the on-screen frame. Drawn at
    about sixty pixels to the millimetre where the frame is short enough to allow it: spread thinly
    the glyphs come out only a few dozen pixels tall, and the engraving follows the pixels. */
-function textMask(text, lenMM, hMM, fontMM, fontKey, align, inset) {
+function textMask(text, lenMM, hMM, fontMM, fontKey, align, inset, flip) {
   if (!text) return null;
   const W = Math.round(clamp(lenMM * 60, 1024, 8192));
   const H = Math.round(clamp(W * hMM / lenMM, 24, 2048));
@@ -8434,7 +8467,9 @@ function textMask(text, lenMM, hMM, fontMM, fontKey, align, inset) {
   const g = c.getContext("2d", { willReadFrequently: true });
   g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
   g.font = fontCSS(fontKey, fontMM * (W / lenMM)); g.textAlign = align; g.textBaseline = "middle"; g.fillStyle = "#fff";
-  g.fillText(text, textAnchorX(align, W, (inset || 0) * (W / lenMM)), H / 2);
+  const ax = textAnchorX(align, W, (inset || 0) * (W / lenMM));
+  if (flip) turnRound(g, text, align, ax, H / 2);
+  g.fillText(text, ax, H / 2);
   const d = g.getImageData(0, 0, W, H).data;
   return (u, v) => {                                  // bilinear: soft letter walls rather than stair-steps
     const x = u * (W - 1), y = (1 - v) * (H - 1), x0 = Math.floor(x), y0 = Math.floor(y);
@@ -8559,7 +8594,7 @@ function stlTextPieces(sideIndex, lenMM, inset) {
   for (const ft of textsOnSide(sideIndex)) {
     if (!textFits(ft)) continue;                   // too long for its side: left off, as on screen
     const fontMM = ft.pt * PT_MM;
-    const mask = textMask(ft.text, lenMM, t, fontMM, ft.font, ft.align, inset);   // across the thickness
+    const mask = textMask(ft.text, lenMM, t, fontMM, ft.font, ft.align, inset, !!ft.flip);   // across the thickness
     if (!mask) continue;
     // where along the side this one lies, so the fine grid goes there and nowhere else
     const box = textBox({ text: ft.text, font: ft.font, align: ft.align, fontU: fontMM }, lenMM, t, inset);
@@ -9013,7 +9048,7 @@ function collectState() {
     frame: Object.assign({ show: chk("showFrame"),
                            outline: modelOutline, colour: $("frameColour").value,
                            texts: frameTexts.map((x) => ({ text: x.text, side: x.side, font: x.font, pt: x.pt,
-                                                           align: x.align })) }, frameVals),
+                                                           align: x.align, ...(x.flip ? { flip: true } : {}) })) }, frameVals),
     interval: $("interval").value,
     route: route ? encodeRoute(route) : null, routeStyle: Object.assign({}, routeStyle),
     icons: icons.map((ic) => ({ lat: +ic.lat.toFixed(6), lng: +ic.lng.toFixed(6), shape: ic.shape, badge: ic.badge, colour: ic.colour, mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 })),
