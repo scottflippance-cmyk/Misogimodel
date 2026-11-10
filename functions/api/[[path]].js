@@ -7,12 +7,16 @@
        PUT  /api/items/:id/model?token=    the print file (a zip holding the STL), streamed into storage.
        PUT  /api/items/:id/preview?token=  a picture of the model.
      Checkout (cart page), once for the whole cart:
-       POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Every item is checked and
+       POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Gives the order its number
+                                           (MM- and five characters, at random). Every item is checked and
                                            priced again; a Stripe Checkout page (address, payment) is
                                            opened for the lot and its address handed back.
      Newsletter:
        POST /api/newsletter                { email, firstName? }. Adds the address to Resend's contacts; the first
                                            time, emails them a welcome and you a note.
+     Unsubscribing:
+       GET  /api/unsubscribe?email=&token= a page asking them to confirm; POST (its button, or a mail
+                                           app's one-tap unsubscribe) takes the address off the list.
      Contact page:
        POST /api/contact                   { name, email, topic, order?, message }. Emails it to you, with
                                            Reply going straight back to the sender, and sends the sender a
@@ -39,7 +43,9 @@
      NEWSLETTER_SEGMENT_ID  optional; a Resend segment to put sign-ups in (they are kept as contacts either way)
      NEWS_EMAIL_FROM        optional; defaults to misogimodel <hello@send.misogimodel.com>. A first-time
                             sign-up gets a welcome from it, and you a note (with RESEND_API_KEY and
-                            ORDER_EMAIL_TO) */
+                            ORDER_EMAIL_TO), each from a Resend template you can edit there
+     NEWS_WELCOME_TEMPLATE  optional; the welcome's template, default newsletter-welcome
+     NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note */
 import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
@@ -63,41 +69,66 @@ async function newsletter(request, env) {
   if (email.length > 254 || !EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
   const added = await addContact(env, email, body && body.firstName, "newsletter");
   if (!added) return fail(502, "We couldn't sign you up just now. Please try again in a little while.");
-  if (added === "new") await signupEmails(env, email, body && body.firstName);
+  if (added === "new") await signupEmails(env, email, body && body.firstName, new URL(request.url).origin, "website");
   return json({ ok: true });
 }
 /* A first-time sign-up gets a short welcome, and you get a one-line note saying who joined. Both go
    with the sending key (RESEND_API_KEY), and either is simply skipped if it isn't set or Resend says
    no: the person is on the list either way, so they are still told it worked. Someone already on the
    list gets neither, so the box can't be used to send the welcome to the same inbox again and again.
-   The welcome doesn't repeat anything typed except the first name, escaped. */
-async function signupEmails(env, email, firstName) {
+
+   Their look and wording live in Resend, as two templates you can edit there (Templates →
+   "Newsletter welcome" and "New sign-up note", aliases newsletter-welcome and newsletter-signup-note).
+   The site fills in GREETING ("Hi Sam," or "Hi,"), UNSUBSCRIBE_URL (their own unsubscribe link, for
+   the welcome's button), SIGNUP_EMAIL, SIGNUP_NAME (" (Sam)" or nothing), SIGNUP_SOURCE ("the
+   website", or "checkout, with an order" for a buyer who left the box ticked) and SUBSCRIBER_COUNT
+   (how many are on the list and still subscribed, the new one included);
+   the subject comes from the template. If a template is missing or unpublished, the plain built-in
+   version below goes instead, so a sign-up is never left without its emails. */
+async function signupEmails(env, email, firstName, origin, source) {
+  const where = source === "checkout" ? "checkout, with an order" : "the website";
   if (!env.RESEND_API_KEY) return;
-  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").trim().slice(0, 60);
+  const unsub = await unsubscribeLink(env, origin, email);
+  // the first name as typed, cut down to plain text: no markup, and & written as "and" (the templates print it as is)
+  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").replace(/&/g, " and ").replace(/\s+/g, " ").trim().slice(0, 60);
   const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
-  const send = (msg, what) => fetch("https://api.resend.com/emails", {
-      method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify(msg) })
-    .then((r) => { if (!r.ok) console.log("newsletter: the " + what + " wasn't sent, Resend said " + r.status); })
-    .catch(() => console.log("newsletter: the " + what + " wasn't sent"));
-  const jobs = [send({
-    from, to: [email], ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
-    subject: "You're on the list",
-    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+  const post = (msg) => fetch("https://api.resend.com/emails", {
+    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify(msg) });
+  // the template first; if Resend turns it down, the built-in version
+  const send = async (head, template, plain, what) => {
+    try {
+      const t = await post({ ...head, template });
+      if (t.ok) return;
+      console.log("newsletter: the " + what + " template wasn't used, Resend said " + t.status + "; sending the plain one");
+      const r = await post({ ...head, ...plain });
+      if (!r.ok) console.log("newsletter: the " + what + " wasn't sent, Resend said " + r.status);
+    } catch (e) { console.log("newsletter: the " + what + " wasn't sent"); }
+  };
+  // the unsubscribe link also goes in the headers, so mail apps can show their own one-tap button
+  const jobs = [send({ from, to: [email], ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
+      headers: { "List-Unsubscribe": "<" + unsub + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } },
+    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: first ? "Hi " + first + "," : "Hi,", UNSUBSCRIBE_URL: unsub } },
+    { subject: "You're on the list",
+      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
 <p style="margin:0 0 12px">Hi${first ? " " + esc(first) : ""},</p>
 <p style="margin:0 0 12px">Thanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.</p>
-<p style="margin:0 0 12px">If you didn't sign up, or change your mind, just reply to this email and we'll take you off.</p>
-<p style="margin:0">misogimodel</p></div>`,
-    text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, just reply to this email and we'll take you off.\n\nmisogimodel",
-  }, "welcome")];
-  if (env.ORDER_EMAIL_TO) jobs.push(send({
-    from, to: [env.ORDER_EMAIL_TO],
-    subject: "New sign-up: " + email,
-    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
-<p style="margin:0 0 8px"><b>${esc(email)}</b>${first ? " (" + esc(first) + ")" : ""} has joined the mailing list from the website.</p>
+<p style="margin:0 0 12px">If you didn't sign up, or change your mind, you can unsubscribe at any time.</p>
+<p style="margin:0 0 20px">misogimodel</p>
+<p style="margin:0"><a href="${esc(unsub)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#F4F4F5;color:#5B6470;font-size:13px;text-decoration:none">Unsubscribe</a></p></div>`,
+      text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, you can unsubscribe at any time:\n" + unsub + "\n\nmisogimodel" },
+    "welcome")];
+  const count = env.ORDER_EMAIL_TO ? await countSubscribers(env) : null;
+  if (env.ORDER_EMAIL_TO) jobs.push(send({ from, to: [env.ORDER_EMAIL_TO] },
+    { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note",
+      variables: { SIGNUP_EMAIL: email, SIGNUP_NAME: first ? " (" + first + ")" : "", SIGNUP_SOURCE: where, ...(count ? { SUBSCRIBER_COUNT: count } : {}) } },
+    { subject: "New sign-up: " + email + (source === "checkout" ? " (at checkout)" : ""),
+      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+<p style="margin:0 0 8px"><b>${esc(email)}</b>${first ? " (" + esc(first) + ")" : ""} has joined the mailing list from ${where}.</p>${count ? `
+<p style="margin:0 0 8px">Active subscribers now: <b>${esc(count)}</b></p>` : ""}
 <p style="margin:0;color:#5B6470;font-size:13px">Everyone on the list is under Audience → Contacts in Resend.</p></div>`,
-    text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from the website.\n\nEveryone on the list is under Audience → Contacts in Resend.",
-  }, "note to you"));
+      text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from " + where + ".\n\n" + (count ? "Active subscribers now: " + count + "\n\n" : "") + "Everyone on the list is under Audience → Contacts in Resend." },
+    "note to you"));
   await Promise.all(jobs);
 }
 /* One address onto the mailing list in Resend (the newsletter box, and buyers who left the box at
@@ -157,6 +188,30 @@ const writeJSON = (env, key, data) =>
   env.ORDERS.put(key, JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
 const itemKey = (id) => "items/" + id + "/item.json";
 const orderKey = (id) => "orders/" + id + ".json";
+/* The order number customers see: MM- and five letters and digits, picked at random so it says
+   nothing about how many orders there have been. Letters and digits that are easily mixed up
+   (0 and O, 1, I and L) are left out, so it can be read out or typed in without mistakes. Each one
+   is noted in storage against its order, so an order can be found from the number someone quotes,
+   and no number is ever given out twice. */
+const ORDER_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+const numberKey = (no) => "order-numbers/" + no + ".json";
+export function randomOrderNumber() {
+  let out = "";
+  while (out.length < 5) {
+    for (const b of crypto.getRandomValues(new Uint8Array(8)))   // only values that share out evenly, so every character is as likely
+      if (b < 248 && out.length < 5) out += ORDER_CHARS[b % 31];
+  }
+  return "MM-" + out;
+}
+export async function newOrderNumber(env, orderId) {
+  for (let i = 0; i < 6; i++) {
+    const no = randomOrderNumber();
+    if (await env.ORDERS.head(numberKey(no))) continue;          // already given out: pick another
+    await writeJSON(env, numberKey(no), { order: orderId, created: new Date().toISOString() });
+    return no;
+  }
+  throw new Error("couldn't pick a free order number");
+}
 
 /* Stripe's API takes form fields, nested with brackets: shipping_options[0][shipping_rate_data][type]. */
 function formBody(obj, prefix = "", out = new URLSearchParams()) {
@@ -237,6 +292,8 @@ async function checkout(request, env) {
   try { price = priceCart(items.map((r) => r.item), body.shipping, PRICING); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
   const updates = body.updates === true;       // the "send me updates" box on the basket page (ticked unless they untick it)
+  let number;
+  try { number = await newOrderNumber(env, orderId); } catch (e) { return fail(503, "Checkout isn't available just this moment. Please try again."); }
   const line_items = [];
   for (let i = 0; i < items.length; i++) {
     const rec = items[i], p = price.items[i];
@@ -249,8 +306,9 @@ async function checkout(request, env) {
   const session = await stripe(env, "checkout/sessions", {
     mode: "payment",
     client_reference_id: orderId,
-    metadata: { order_id: orderId, updates: updates ? "yes" : "no" },
-    payment_intent_data: { metadata: { order_id: orderId } },
+    metadata: { order_id: orderId, order_number: number, updates: updates ? "yes" : "no" },
+    // the description is what Stripe shows for the payment, and on the customer's receipt
+    payment_intent_data: { description: "misogimodel order " + number, metadata: { order_id: orderId, order_number: number } },
     line_items,
     shipping_address_collection: { allowed_countries: PRICING.countries },
     shipping_options: [{ shipping_rate_data: {
@@ -259,17 +317,17 @@ async function checkout(request, env) {
       delivery_estimate: { minimum: { unit: "business_day", value: ship.days[0] }, maximum: { unit: "business_day", value: ship.days[1] } },
     } }],
     phone_number_collection: { enabled: true },
-    success_url: origin + "/thanks/?order=" + orderId,
+    success_url: origin + "/thanks/?order=" + orderId + "&no=" + number,
     cancel_url: origin + "/cart/?checkout=cancelled",
   });
-  await writeJSON(env, orderKey(orderId), { id: orderId, created: new Date().toISOString(), status: "awaiting payment",
+  await writeJSON(env, orderKey(orderId), { id: orderId, number, created: new Date().toISOString(), status: "awaiting payment",
                                             items: items.map((r) => r.id), price, updates, stripeSession: session.id });
-  return json({ url: session.url, order: orderId });
+  return json({ url: session.url, order: orderId, number });
 }
 
 /* ---- paid: one email, every model, each with its print file ---- */
 function itemBlock(rec, p, origin, modelUrl, attached) {
-  const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).map((t) => t.text).filter(Boolean);
+  const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
   const facts = [
     ["Size", p.size.name + " (" + p.size.dims + ")"],
     ["Centre", d.sel ? d.sel.lat + ", " + d.sel.lng : "—"],
@@ -299,7 +357,8 @@ async function webhook(request, env) {
   const order = id && await readJSON(env, orderKey(id));
   if (!order) return fail(404, "No such order.");
   if (order.status === "emailed") return json({ already: true });   // Stripe can send the same event twice
-  const origin = new URL(request.url).origin, short = id.slice(0, 8), p = order.price;
+  const origin = new URL(request.url).origin, p = order.price;
+  const short = order.number || id.slice(0, 8);                    // older orders, from before numbers, keep their first 8 characters
   const cd = session.customer_details || {};
   const sd = (session.collected_information && session.collected_information.shipping_details) || session.shipping_details || {};
   const a = sd.address || cd.address || {};
@@ -317,7 +376,7 @@ async function webhook(request, env) {
   const n = order.items.length;
   const html = `<div style="font-family:Inter,Arial,sans-serif;color:#0B0E12;max-width:640px">
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
-<p style="margin:0 0 16px;color:#5B6470">Order ${esc(id)} · ${esc(new Date().toUTCString())}</p>
+<p style="margin:0 0 16px;color:#5B6470">Order <b style="color:#0B0E12">${esc(short)}</b> · ${esc(new Date().toUTCString())}<br><span style="font-size:12px">Reference ${esc(id)}</span></p>
 <h3>Send to</h3><p>${addr || "—"}<br>${esc(cd.email || "")}${cd.phone ? "<br>" + esc(cd.phone) : ""}</p>
 <p style="color:#5B6470">Wants updates by email: ${order.updates ? "yes" : "no"}</p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%">
@@ -345,10 +404,15 @@ ${blocks.join("\n")}
   Object.assign(order, { status: "emailed", paid: new Date().toISOString(), stripeSession: session.id,
                          customer: cd, amountPaid: session.amount_total });
   await writeJSON(env, orderKey(id), order);
-  // They left "send me updates" ticked: put their address on the mailing list. Never holds up the order.
+  // They left "send me updates" ticked: put their address on the mailing list and, if they're new to
+  // it, send the same welcome (with its Unsubscribe button) and note to you as the footer's box does.
+  // Never holds up the order.
   if (order.updates && env.RESEND_CONTACTS_KEY && EMAIL.test(String(cd.email || "").toLowerCase())) {
-    try { await addContact(env, String(cd.email).toLowerCase(), String(cd.name || "").split(" ")[0], "checkout updates"); }
-    catch (e) { console.log("checkout updates: couldn't add the address"); }
+    try {
+      const email = String(cd.email).toLowerCase(), first = String(cd.name || "").split(" ")[0];
+      if (await addContact(env, email, first, "checkout updates") === "new")
+        await signupEmails(env, email, first, new URL(request.url).origin, "checkout");
+    } catch (e) { console.log("checkout updates: couldn't add the address"); }
   }
   return json({ emailed: true });
 }
@@ -365,6 +429,64 @@ async function serve(env, id, file, request) {
   const headers = { "content-type": file === "model" ? "application/zip" : "image/jpeg", "cache-control": "private, max-age=3600" };
   if (file === "model") headers["content-disposition"] = 'attachment; filename="misogimodel-' + id.slice(0, 8) + '.zip"';
   return new Response(obj.body, { headers });
+}
+
+/* How many people are on the list and still subscribed, for the note to you: "12", or "1,000+" past
+   the first thousand (Resend hands the list over 100 at a time, and a request can only make so many
+   calls). Null if it can't be counted, and the note then goes without it. */
+async function countSubscribers(env) {
+  try {
+    let n = 0, after = "", more = true, pages = 0;
+    while (more && pages < 10) {
+      const r = await fetch("https://api.resend.com/contacts?limit=100" + (after ? "&after=" + encodeURIComponent(after) : ""),
+        { method: "GET", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY } });
+      if (!r.ok) return null;
+      const page = await r.json(), list = Array.isArray(page && page.data) ? page.data : null;
+      if (!list) return null;
+      n += list.filter((c) => c && !c.unsubscribed).length;
+      more = !!page.has_more && list.length > 0; after = list.length ? list[list.length - 1].id : ""; pages++;
+    }
+    return n.toLocaleString("en-GB") + (more ? "+" : "");
+  } catch (e) { return null; }
+}
+
+/* ---- unsubscribing: the link in the welcome email (and in its headers, for mail apps' own button) ----
+   The link carries the address and a signature made with a secret only the site knows, so nobody can
+   take someone else off the list by guessing. Opening it shows a page with an Unsubscribe button,
+   rather than acting at once, because some email security systems open every link in an email to
+   check it. Pressing the button (or a mail app's one-tap unsubscribe, which posts straight to it)
+   marks the address unsubscribed in Resend, so it gets no more newsletters. */
+const unsubscribeToken = (env, email) => hmac(env.ORDER_SECRET || env.RESEND_CONTACTS_KEY, email + ":unsubscribe");
+async function unsubscribeLink(env, origin, email) {
+  return origin + "/api/unsubscribe?email=" + encodeURIComponent(email) + "&token=" + (await unsubscribeToken(env, email));
+}
+function page(status, title, body) {
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>${esc(title)}: misogimodel</title>
+<style>body{margin:0;background:#F4F4F5;color:#0B0E12;font:16px/1.55 Inter,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:520px;margin:12vh auto 0;padding:40px 32px;background:#FFFFFF;border-radius:20px;box-sizing:border-box}
+h1{margin:0 0 12px;font-size:28px;letter-spacing:-.02em;line-height:1.2}p{margin:0 0 20px;color:#5B6470}
+button,.home{display:inline-block;padding:12px 22px;border:0;border-radius:999px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+button{background:#E4572E;color:#FFFFFF}.home{color:#E4572E;padding-left:0}
+@media (max-width:560px){main{margin:16px;padding:28px 22px}}</style></head>
+<body><main>${body}</main></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "no-referrer" } });
+}
+async function unsubscribe(request, env, url) {
+  const home = `<a class="home" href="/">Back to misogimodel</a>`;
+  if (!env.RESEND_CONTACTS_KEY) return page(503, "Not available", `<h1>Not available just now</h1><p>Please try again later, or reply to any of our emails and we'll take you off the list.</p>${home}`);
+  const email = String(url.searchParams.get("email") || "").trim().toLowerCase(), token = String(url.searchParams.get("token") || "");
+  if (!EMAIL.test(email) || !sameText(token, await unsubscribeToken(env, email)))
+    return page(400, "Link not valid", `<h1>That link isn't valid</h1><p>Please use the Unsubscribe button in one of our emails, or reply to it and we'll take you off the list.</p>${home}`);
+  if (request.method === "GET")
+    return page(200, "Unsubscribe", `<h1>Unsubscribe?</h1><p>${esc(email)} will get no more emails about new products, deals and updates.</p>
+<form method="post"><button type="submit">Unsubscribe</button></form>`);
+  const r = await fetch("https://api.resend.com/contacts/" + encodeURIComponent(email), {
+    method: "PATCH", headers: { authorization: "Bearer " + env.RESEND_CONTACTS_KEY, "content-type": "application/json" },
+    body: JSON.stringify({ unsubscribed: true }) });
+  if (r.ok || r.status === 404)                                   // gone from the list already: just as good
+    return page(200, "Unsubscribed", `<h1>You're unsubscribed</h1><p>${esc(email)} won't get any more of our updates. If you change your mind, you can sign up again at the foot of our homepage.</p>${home}`);
+  console.log("unsubscribe: Resend said " + r.status);
+  return page(502, "Please try again", `<h1>That didn't work just now</h1><p>Please try again in a little while, or reply to any of our emails and we'll take you off the list.</p>${home}`);
 }
 
 /* ---- the contact page: one message, emailed to you, Reply goes back to the sender ----
@@ -437,6 +559,11 @@ export async function onRequest(context) {
   if (parts[0] === "contact" && parts.length === 1) {          // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");
     try { return await contact(request, env); } catch (err) { return fail(502, "Your message couldn't be sent just now. Please try again in a little while."); }
+  }
+  if (parts[0] === "unsubscribe" && parts.length === 1) {      // needs none of the ordering set-up
+    if (m !== "GET" && m !== "POST") return fail(405, "Not allowed.");
+    try { return await unsubscribe(request, env, url); }
+    catch (err) { return page(502, "Please try again", "<h1>That didn't work just now</h1><p>Please try again in a little while.</p>"); }
   }
   if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");

@@ -19,6 +19,9 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
 .row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:36px}
 .quiet{text-decoration:none;font-weight:600;font-size:16px;padding:15px 26px;border-radius:999px;background:#F5F5F7;color:#0B0E12}
 .quiet:hover{background:#E9EDF3}
+.ref{display:inline-block;margin:28px 0 0;padding:14px 22px;border-radius:16px;background:#F5F5F7;font-size:16px;color:#3A424C}
+.ref b{display:block;margin-top:2px;font-size:26px;letter-spacing:.06em;color:#0B0E12;font-variant-numeric:tabular-nums}
+.ref[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -51,12 +54,20 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
 <main>
 <h1>Your mountain's on its way.</h1>
 <p>Thank you: your order is in and your payment has gone through. Stripe will email you a receipt, and we'll be in touch when your model has been printed and posted.</p>
+<p class="ref" id="ref" hidden>Your order number<b id="refNo"></b></p>
+<p id="refNote" hidden style="font-size:15px;margin-top:12px">Keep it handy in case you need to get in touch.</p>
 <div class="row"><a class="quiet" href="/">Back to the homepage</a><a class="cta" href="/studio/" style="font-size:16px;padding:13px 24px">Design another</a></div>
 </main>
 <script>
-/* Paid: the models are on their way, so the cart starts afresh. */
+/* Paid: the models are on their way, so the cart starts afresh, and the order number is shown. */
 (() => {
-  if (!new URLSearchParams(location.search).get("order")) return;
+  const q = new URLSearchParams(location.search);
+  const no = String(q.get("no") || "").toUpperCase();
+  if (/^MM-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/.test(no)) {        // only a real-looking number is ever shown
+    document.getElementById("refNo").textContent = no;
+    document.getElementById("ref").hidden = false; document.getElementById("refNote").hidden = false;
+  }
+  if (!q.get("order")) return;
   try { localStorage.removeItem("misogimodel.cart.v1"); } catch (e) { /* storage off */ }
   try { window.dispatchEvent(new Event("misogimodel:cart")); } catch (e) { /* fine */ }
 })();
