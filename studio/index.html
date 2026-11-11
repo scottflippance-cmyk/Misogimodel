@@ -4219,6 +4219,7 @@ function buildScene(data, exag) {
   t.summitGroup = new THREE.Group();
   t.featureGroup = new THREE.Group();
   t.frameGroup = new THREE.Group();
+  t.seamGroup = new THREE.Group();
   t.routeGroup = new THREE.Group();
   t.iconGroup = new THREE.Group();
 
@@ -4353,10 +4354,12 @@ function buildScene(data, exag) {
                                        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     back.rotation.x = Math.PI / 2;                   // facing down; its top edge toward the south
     const backY = baseY - 0.01;                      // just under the bottom, so it never fights it
-    back.position.set(0, backY, 0);
+    const [bcx, bcy] = backArtCentre(frameVals.modelMM);   // where the print puts it
+    back.position.set(bcx * bu - WORLD / 2, backY, WORLD / 2 - bcy * bu);
     back.renderOrder = 2;
     t.group.add(back);
-    t.backText = { lenMM: BL.lenMM, hMM: BL.hMM, emMM: BL.emMM, artMM: BL.artMM, y: backY, facing: back.rotation.x };
+    t.backText = { lenMM: BL.lenMM, hMM: BL.hMM, emMM: BL.emMM, artMM: BL.artMM, y: backY, facing: back.rotation.x,
+                   centre: [+(bcx * bu - WORLD / 2).toFixed(4), +(WORLD / 2 - bcy * bu).toFixed(4)] };
     // a canvas can't wait for the web fonts or the mark: if they weren't in yet, redraw the sheet once they are
     if (!backArtLoaded()) {
       backArtReady().then(() => {
@@ -4400,7 +4403,8 @@ function buildScene(data, exag) {
     t.contourInfo = { drawn: 0, droppedOnRoute: 0 };
   }
 
-  t.group.add(t.summitGroup, t.featureGroup, t.frameGroup, t.routeGroup, t.iconGroup);
+  t.group.add(t.summitGroup, t.featureGroup, t.frameGroup, t.seamGroup, t.routeGroup, t.iconGroup);
+  buildTileSeams();
   buildIcons3D();
   buildRoute3D();
   buildSummit(data);
@@ -5378,9 +5382,9 @@ function buildFrame() {
     topPlate(2, W2, [[half, -hw], [half + th, -hw], [half + th, hw], [half, hw]], [1, 0, 0], 0);
     topPlate(3, W2, [[-half - th, -hw], [-half, -hw], [-half, hw], [-half - th, hw]], [-1, 0, 0], 0);
   }
-  /* The ledge: the frame's foot reaches 4 mm in under the model on every side, filling the frame's
-     2 mm below the base, so the model rests on it rather than relying on a tight fit to stay in.
-     Its outer edge is the model's outline; its inner edge the same shape drawn 4 mm in. */
+  /* The ledge: the frame's foot reaches 7 mm in under the model on every side, filling the frame's
+     3 mm below the base, so the model rests on it and the pins have solid frame round their heads.
+     Its outer edge is the model's outline; its inner edge the same shape drawn 7 mm in. */
   t.frameLedge = null;
   if (t.geom.baseY - botY > 1e-6) {
     const ring = outlineRing(), s = LEDGE_MM * u;
@@ -5402,6 +5406,7 @@ function buildFrame() {
     t.frameLedge = { mm: LEDGE_MM, thickMM: (yT - yB) / u, pieces: ring.length,
                      inner: inner.map(([x, z]) => [+(x / u).toFixed(3), +(z / u).toFixed(3)]) };
   }
+  t.frameDetails = frameDetails(t, u, topY, botY, th, wood);
   t._tooLong = tooLong;
   $("ftSizeNote").textContent = tooLong.length === 1
     ? "one piece is too long for its side and is not shown"
@@ -5412,6 +5417,91 @@ function buildFrame() {
                   texts: frameTexts.map((x) => ({ text: x.text, side: x.side, font: x.font, pt: x.pt,
                                                   align: x.align, flip: !!x.flip })) };
   } finally { workDone(); }
+}
+
+/* How the parts go together, drawn on the model so it can be seen before it is printed. Under the
+   frame, each pin's head in its recess, turned to locked, with the line beside it; on the Misogi's
+   frame, the joins: across the top, stepping down the outside where one section's top half lies over
+   the next one's bottom half, and across the underside. Thin and dark, like a seam. */
+const seamColourOn = (hex) => {                    // dark on a pale surface, pale on a dark one
+  const v = parseInt(String(hex || "#C8C8C8").replace("#", ""), 16), lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const l = 0.2126 * lin((v >> 16) & 255) + 0.7152 * lin((v >> 8) & 255) + 0.0722 * lin(v & 255);
+  return l < 0.2 ? BASE_GREY : "#15171A";             // on the dark frames, the grey of the model's own sides and base
+};
+const BASE_GREY = "#" + [0.24, 0.26, 0.27].map((q) => Math.round(q * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
+const seamMaterial = (on) => new THREE.LineBasicMaterial({ color: seamColourOn(on), transparent: !on, opacity: on ? 1 : 0.7 });
+const fromPrint = (W) => { const u = WORLD / W; return (x, y) => [x * u - WORLD / 2, WORLD / 2 - y * u]; };
+function frameDetails(t, u, topY, botY, th, wood) {
+  const W = frameVals.modelMM, M = fromPrint(W), mm = (v) => v * u;
+  const group = new THREE.Group(); t.frameGroup.add(group);
+  const flat = (geo, y, x, z, turn, mat) => {        // lying flat on the frame's underside, facing down
+    geo.rotateX(Math.PI / 2);
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = turn; group.add(m); return m;
+  };
+  const dark = new THREE.MeshBasicMaterial({ color: 0x15171a, side: THREE.DoubleSide });
+  const head = new THREE.MeshStandardMaterial({ color: srgb(wood), roughness: 0.6, side: THREE.DoubleSide });
+  const H = PRINT_PARTS.HOLE, PP = PRINT_PARTS.PIN, ST = PRINT_PARTS.STOP;
+  const places = pinPlaces(W, frameVals.t), drawn = [];
+  for (const p of places) {
+    const [x, z] = M(p.x, p.y), lockedA = p.dir + Math.PI / 2;     // the slot, a quarter turn on from the way in
+    drawn.push({ x: +x.toFixed(4), y: +(botY - 0.002).toFixed(4), z: +z.toFixed(4), slotTurn: +lockedA.toFixed(4), headMM: PP.headR * 2 });
+    flat(new THREE.RingGeometry(mm(PP.headR), mm(H.recessR), 40), botY - 0.004, x, z, 0, dark);
+    flat(new THREE.CircleGeometry(mm(PP.headR), 40), botY - 0.002, x, z, 0, head);
+    flat(new THREE.PlaneGeometry(mm(PP.slotL), mm(PP.slotW)), botY - 0.006, x, z, lockedA, dark);
+    for (const [r0, r1] of [[ST.from, ST.from + p.inLen], [-ST.from - p.outLen, -ST.from]]) {   // the moulded lines
+      const r = (r0 + r1) / 2, cx = p.x + Math.cos(lockedA) * r, cy = p.y + Math.sin(lockedA) * r, [lx, lz] = M(cx, cy);
+      flat(new THREE.PlaneGeometry(mm(r1 - r0), mm(ST.w)), botY - 0.004, lx, lz, lockedA, dark);
+    }
+  }
+  let joins = 0, seamColour = null, seams = [];
+  if (isMisogi()) {
+    const pts = [], lapY = botY + mm(PRINT_PARTS.LAP_Z), half = PRINT_PARTS.LAP_LEN / 2, t_ = frameVals.t, eps = 0.01;
+    const P3 = (q, y) => { const [x, z] = M(q[0], q[1]); return [x, y, z]; };
+    const at = (s, along, out) => [s.J[0] + s.u[0] * along + s.o[0] * out, s.J[1] + s.u[1] * along + s.o[1] * out];
+    for (const s of frameSides(W)) {
+      const seg = (a, b) => pts.push(...a, ...b);
+      seg(P3(at(s, -half, 0), topY + eps), P3(at(s, -half, t_), topY + eps));              // across the top
+      const o = t_ + 0.05;                                                                  // just off the outside face
+      seg(P3(at(s, -half, o), topY), P3(at(s, -half, o), lapY));                            // down the outside,
+      seg(P3(at(s, -half, o), lapY), P3(at(s, half, o), lapY));                             // along the lap,
+      seg(P3(at(s, half, o), lapY), P3(at(s, half, o), botY));                              // and down to the foot
+      seg(P3(at(s, half, -LEDGE_MM), botY - eps), P3(at(s, half, t_), botY - eps));         // across the underside
+      seams.push({ top: M(...at(s, -half, 0)), under: M(...at(s, half, 0)) });
+      joins++;
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    seamColour = seamColourOn(wood);
+    group.add(new THREE.LineSegments(g, seamMaterial(wood)));
+  }
+  return { pins: places.length, joins, drawn, seams, seamColour, lapY: botY + mm(PRINT_PARTS.LAP_Z), topY, botY };
+}
+/* The Misogi's four tiles, where they meet: across the ground, down the sides and under the base. */
+function buildTileSeams() {
+  const t = three; if (!t || !t.geom || !t.seamGroup) return;
+  disposeGroup(t.seamGroup);
+  t.tileSeams = 0;
+  if (!isMisogi()) return;
+  const G = t.geom, eps = 0.03, pts = [];
+  t.tileSeamEnds = [];
+  const edge = (x0, z0, dx, dz) => {                 // walk out from the middle to the outline
+    let lo = 0, hi = WORLD;
+    for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; if (insideOutline(x0 + dx * m, z0 + dz * m)) lo = m; else hi = m; }
+    return lo;
+  };
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const reach = edge(0, 0, dx, dz) - 0.001, steps = 160;
+    for (let i = 0; i < steps; i++) {
+      const a = reach * i / steps, b = reach * (i + 1) / steps;
+      pts.push(dx * a, G.groundY(dx * a, dz * a) + eps, dz * a, dx * b, G.groundY(dx * b, dz * b) + eps, dz * b);
+    }
+    const ex = dx * (reach + eps), ez = dz * (reach + eps);
+    pts.push(ex, G.groundY(dx * reach, dz * reach), ez, ex, G.baseY, ez);                    // down the side
+    pts.push(0, G.baseY - eps, 0, dx * reach, G.baseY - eps, dz * reach);                   // under the base
+    t.tileSeamEnds.push([+(dx * reach).toFixed(3), +(dz * reach).toFixed(3)]);
+    t.tileSeams++;
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  t.seamGroup.add(new THREE.LineSegments(g, seamMaterial()));
 }
 
 function currentInterval(data) {
@@ -8764,6 +8854,9 @@ const PRINT_PARTS = {
   DOWEL: { r: 3, len: 20, holeR: 3.2, holeLen: 20.8, up: 5, at: [0.35, 0.7] }
 };
 const isMisogi = () => frameVals.modelMM >= PRINT_PARTS.MISOGI_MM;
+/* Where the logo goes underneath, in print millimetres: in the middle, or on the Misogi in the middle
+   of its south-west tile, so it is never cut across the joins. The screen and the print both ask here. */
+const backArtCentre = (W) => (W >= PRINT_PARTS.MISOGI_MM ? [W / 2 - W / 5, W / 2 - W / 5] : [W / 2, W / 2]);
 const frameThicknessFor = (mm) => (mm >= PRINT_PARTS.MISOGI_MM ? PRINT_PARTS.MISOGI_T : PRINT_PARTS.T);
 
 let manifoldLib = null;
@@ -8899,8 +8992,10 @@ function pinCutter(S, cx, cy, dir) {
 /* The line beside a pin, moulded 0.4 mm into the underside: the slot points along it once locked. */
 function stopLines(S, cx, cy, dir, inLen, outLen) {
   const { CrossSection } = manifoldLib, P = PRINT_PARTS.STOP, a = dir + Math.PI / 2;
+  // a quarter turn past the way in points inward, towards the model; the longer bar goes the other
+  // way, outward into the frame where there is the most room for it
   const bar = (r0, r1) => S(S(CrossSection.square([r1 - r0, P.w], false)).translate([r0, -P.w / 2]));
-  const both = S(CrossSection.union([bar(P.from, P.from + outLen), bar(-P.from - inLen, -P.from)]));
+  const both = S(CrossSection.union([bar(P.from, P.from + inLen), bar(-P.from - outLen, -P.from)]));
   return S(prismOf(S, S(both.rotate(a * 180 / Math.PI)), -0.8, P.depth).translate([cx, cy, 0]));
 }
 
@@ -9001,11 +9096,17 @@ function frameSolid(S, W, t, Ht, d) {
 /* The Misogi's frame in sections: section k runs from just past corner k, along side k and round
    corner k + 1, to just past it. Below the lap line its ends sit a half-lap further on, above it a
    half-lap further back, so at each join the next section's top half lies over this one's bottom. */
+/* The Misogi frame's sides and joins, in print millimetres: each side's start, length, the way along
+   it (u) and the way out (o), and its join a tenth of the way along. */
+function frameSides(W) {
+  const ring = outlineMM(W), n = ring.length;
+  return ring.map((a, s) => { const b = ring[(s + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+    return { a, b, L, u, o: [u[1], -u[0]], J: [a[0] + u[0] * L * PRINT_PARTS.WRAP, a[1] + u[1] * L * PRINT_PARTS.WRAP] }; });
+}
 function frameSections(S, frame, W, Ht) {
-  const { CrossSection } = manifoldLib, ring = outlineMM(W), n = ring.length, P = PRINT_PARTS, out = [];
-  const sides = ring.map((a, s) => { const b = ring[(s + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; return { a, b, L, u, o: [u[1], -u[0]] }; });
-  const J = (s) => { const q = sides[s]; return [q.a[0] + q.u[0] * q.L * P.WRAP, q.a[1] + q.u[1] * q.L * P.WRAP]; };
+  const { CrossSection } = manifoldLib, sides = frameSides(W), n = sides.length, P = PRINT_PARTS, out = [];
+  const J = (s) => sides[s].J;
   const region = (k, shift) => {
     const s0 = sides[k], s1 = sides[(k + 1) % n], j0 = J(k), j1 = J((k + 1) % n), far = 60;
     const p0 = [j0[0] + s0.u[0] * shift, j0[1] + s0.u[1] * shift], p1 = [j1[0] + s1.u[0] * shift, j1[1] + s1.u[1] * shift];
@@ -9026,8 +9127,7 @@ function frameSections(S, frame, W, Ht) {
 /* The model: ground, the logo underneath, and what the frame needs cut into it. */
 function modelSolid(S, data, W, z0, baseMM, mmPerM, liftMM, withFrame, t) {
   let m = terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM);
-  const centre = isMisogi() ? [W / 2 - W / 5, W / 2 - W / 5] : [W / 2, W / 2];   // on one tile, not across the joins
-  m = S(m.subtract(backStamp(S, W, z0, centre)));
+  m = S(m.subtract(backStamp(S, W, z0, backArtCentre(W))));
   if (withFrame) {
     if (isMisogi()) {
       const R = PRINT_PARTS.RIDGE, c = PRINT_PARTS.CLR;
