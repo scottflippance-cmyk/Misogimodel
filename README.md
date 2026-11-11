@@ -8,6 +8,7 @@
 |---|---|---|
 | `/` | `index.html` | The landing page, built from the design canvas |
 | `/studio/` | `studio/index.html` | The studio: pick a place, shape it, export it |
+| `/studio/vendor/` | `studio/vendor/manifold.js`, `manifold.wasm` | Manifold 3.0.1, the geometry library the studio cuts the print parts with (frame, pins, tiles). Loaded only when a print file is made. Keep the two files together and at the same version |
 | anything missing | `404.html` | The "Off the map" page |
 | `/brand/` | `brand/*` | Logo files: the mark, the stone, lockups (SVG + PNG) |
 | `/favicon.svg` etc. | root icons | Browser tab and phone home-screen icons |

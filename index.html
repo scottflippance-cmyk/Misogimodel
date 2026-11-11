@@ -716,7 +716,7 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
       anim = 0;
       if (leaving) {
         fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
-        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); fade = 1; return; }   // gone; the next visit draws at full strength
         anim = requestAnimationFrame(frame);
       }
       paint();

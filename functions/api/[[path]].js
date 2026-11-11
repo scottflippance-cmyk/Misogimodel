@@ -325,6 +325,17 @@ async function checkout(request, env) {
   return json({ url: session.url, order: orderId, number });
 }
 
+/* What goes in the box besides the printed pieces, as the print file makes them: a pin for every
+   side of a frame (one per join on the Misogi), and eight dowels for the Misogi's four tiles. */
+export function looseParts(f) {
+  const misogi = +(f && f.modelMM) >= 500, sides = f && f.outline === "hex" ? 6 : 4;
+  const pins = f && f.show ? sides : 0, dowels = misogi ? 8 : 0;
+  const out = [];
+  if (pins) out.push(pins + " pins");
+  if (dowels) out.push(dowels + " dowels");
+  return out.length ? out.join(", ") : "None";
+}
+
 /* ---- paid: one email, every model, each with its print file ---- */
 function itemBlock(rec, p, origin, modelUrl, attached) {
   const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
@@ -335,6 +346,7 @@ function itemBlock(rec, p, origin, modelUrl, attached) {
     ["Shape", f.outline === "hex" ? "Hexagon" : "Square"],
     ["Colours", (d.print && d.print.scheme) || "plain"],
     ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
+    ["Loose parts", looseParts(f)],
     ["Route", d.route ? (d.route.name || "Yes") : "No"],
     ["Icons", String((d.icons || []).length)],
     ["Price", money(p.subtotal, PRICING.currency)],

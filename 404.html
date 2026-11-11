@@ -255,7 +255,7 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
       anim = 0;
       if (leaving) {
         fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
-        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); fade = 1; return; }   // gone; the next visit draws at full strength
         anim = requestAnimationFrame(frame);
       }
       paint();

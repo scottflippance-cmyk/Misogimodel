@@ -699,6 +699,9 @@ body.focus-3d #textPop, body.focus-3d #iconWin, body.focus-3d #routeWin{display:
 #textPop .tp-flip button[aria-checked=true]{border-color:var(--accent,#E4572E);color:var(--accent,#E4572E);box-shadow:inset 0 0 0 1px var(--accent,#E4572E)}
 #textPop .tp-flip button:focus-visible{outline:2px solid var(--accent,#E4572E);outline-offset:2px}
 #textPop .tp-flip b{font-size:15px;font-weight:700;line-height:1}
+/* Both trimmed to their capitals, so the letter and the word are centred on the ink you see, not on
+   their text boxes: a word's box carries room for descenders, which pushed its capitals up. */
+#textPop .tp-flip b, #textPop .tp-flip span{text-box:trim-both cap alphabetic}
 #textPop .tp-flip b.turned{display:inline-block;transform:rotate(180deg)}
 #textPop .pop-head + .field, #iconWin .pop-head + .field, #routeWin .pop-head + .field{margin-top:2px}
 #textPop .slider-row, #iconWin .slider-row{margin-top:7px}
@@ -1181,16 +1184,17 @@ body.menu-open .site-banner--app{z-index:3000}
       <input type="checkbox" id="showFrame" data-gate-master="frame" hidden>
       <div class="gated" data-gate="frame">
 
-      <!-- The frame is one shape now: level with the lowest ground, 10 mm across, 2 mm proud
-           underneath, with the model sitting where it falls. The controls stay here, out of sight,
+      <!-- The frame is one shape now: level with the lowest ground, 10 mm across (15 on the
+           Misogi), 3 mm proud underneath where its ledge holds the model, with the model sitting
+           where it falls. The controls stay here, out of sight,
            so everything that reads them still works. -->
       <div hidden>
         <input type="range" id="frameH" min="0" max="40" step="0.5" value="0">
         <input type="number" id="frameHNum" min="0" max="40" step="0.5" value="0">
         <input type="range" id="frameT" min="1" max="40" step="0.5" value="10">
         <input type="number" id="frameTNum" min="1" max="40" step="0.5" value="10">
-        <input type="range" id="frameD" min="0" max="40" step="0.5" value="2">
-        <input type="number" id="frameDNum" min="0" max="40" step="0.5" value="2">
+        <input type="range" id="frameD" min="0" max="40" step="0.5" value="3">
+        <input type="number" id="frameDNum" min="0" max="40" step="0.5" value="3">
         <input type="range" id="lift" min="-40" max="40" step="0.5" value="0">
         <input type="number" id="liftNum" min="-40" max="40" step="0.5" value="0">
         <span id="liftOut"></span>
@@ -1429,8 +1433,8 @@ body.menu-open .site-banner--app{z-index:3000}
       </select>
       <span class="field" id="tpFlipLabel">Text direction</span>
       <div class="tp-flip" role="radiogroup" aria-labelledby="tpFlipLabel">
-        <button type="button" id="tpUpright" role="radio" aria-checked="true"><b aria-hidden="true">A</b> Upright</button>
-        <button type="button" id="tpFlipped" role="radio" aria-checked="false"><b aria-hidden="true" class="turned">A</b> Flipped</button>
+        <button type="button" id="tpUpright" role="radio" aria-checked="true"><b aria-hidden="true">A</b> <span>Upright</span></button>
+        <button type="button" id="tpFlipped" role="radio" aria-checked="false"><b aria-hidden="true" class="turned">A</b> <span>Flipped</span></button>
       </div>
       <label class="field" for="tpFont">Font</label>
       <select id="tpFont">
@@ -3927,6 +3931,33 @@ const insideOutline = (x, z) => {                    // point in the outline, in
   }
   return n % 2 === 1;
 };
+/* The lowest and highest ground the model actually shows. The samplers measure the whole square,
+   but a hexagon leaves its corners out, so a valley in a cut-away corner used to set the bottom of
+   the print and the hexagon's own lowest ground stood well clear of the frame. Measured here over
+   the very triangles the outline keeps (cut the same way the surface is), so the first ground above
+   the base is the lowest point inside the shape. The square's own figures are kept in `full`. */
+function fitToOutline(d) {
+  if (!d || !d.grid || !d.n) return d;
+  if (!d.full) d.full = { min: d.min, max: d.max };
+  if (d.fitFor === modelOutline) return d;
+  d.fitFor = modelOutline;
+  if (modelOutline === "square") { d.min = d.full.min; d.max = d.full.max; return d; }
+  const n = d.n, g = d.grid, step = WORLD / (n - 1);
+  const P = (r, c) => [-WORLD / 2 + c * step, g[r * n + c], -WORLD / 2 + r * step];
+  const inside = new Uint8Array(n * n);
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) inside[r * n + c] = insideOutline(-WORLD / 2 + c * step, -WORLD / 2 + r * step) ? 1 : 0;
+  let lo = Infinity, hi = -Infinity;
+  const take = (v) => { if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
+  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+    const k = [r * n + c, (r + 1) * n + c, r * n + c + 1, (r + 1) * n + c + 1];
+    if (k.every((i) => inside[i])) { k.forEach((i) => take(g[i])); continue; }
+    // anything else is cut to the outline: a cell can be crossed by it with no corner inside
+    for (const tri of [[P(r, c), P(r + 1, c), P(r, c + 1)], [P(r + 1, c), P(r + 1, c + 1), P(r, c + 1)]])
+      for (const q of clipTriToOutline(tri)) take(q[1]);
+  }
+  if (isFinite(lo)) { d.min = lo; d.max = hi; }
+  return d;
+}
 /* One triangle cut down to the outline: Sutherland–Hodgman in plan, carrying the height along. */
 function clipTriToOutline(tri) {
   let poly = tri;
@@ -4165,6 +4196,7 @@ function buildScene(data, exag) {
   const t = initThree();
   disposeGroup(t.group);          // free the previous model's GPU memory
 
+  fitToOutline(data);                                // the shape's own lowest ground sits on the base
   const n = data.n;
   const hScale = (WORLD / sel.size) * exag;
   const step = WORLD / (n - 1);
@@ -4905,8 +4937,8 @@ const FINISH = {                                 // [wood, text]
   walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"],
   charcoal: ["#2C3034", "#E8E4DC"], white: ["#ECE8E1", "#3A3A3A"]
 };
-const LEDGE_MM = 4;                                // how far the frame's foot reaches in under the model
-const frameVals = { h: 0, t: 10, d: 2, modelMM: 150, text: 17 * (25.4 / 72), lift: 0 };   // text: 17 pt, held in mm   // 15 cm: the middle size   // lift: model height in the frame, mm
+const LEDGE_MM = 7;                                // how far the frame's foot reaches in under the model: past a pin's head
+const frameVals = { h: 0, t: 10, d: 3, modelMM: 150, text: 17 * (25.4 / 72), lift: 0 };   // text: 17 pt, held in mm   // 15 cm: the middle size   // lift: model height in the frame, mm
 /* How far (model units) the terrain is raised (+) or lowered (−) inside the frame. The lowest ground may
    not go below the frame's halfway height, and at least 1 mm of solid base always stays underneath. */
 function liftUnits(baseY) {
@@ -5504,6 +5536,7 @@ const MAX_TALL_MM = 200;
 let heightCapBy = null;
 function heightCapX() {
   heightCapBy = null;
+  fitToOutline(current);                             // a hexagon's relief is the ground inside it
   if (!current || !sel.size || !(current.max > current.min)) return RELIEF_MAX;
   const perX = (current.max - current.min) * frameVals.modelMM / sel.size;  // mm of relief at 1×
   const wide = modelOutline === "hex" ? frameVals.modelMM * 0.866 : frameVals.modelMM;
@@ -5994,6 +6027,8 @@ $("frameColour").addEventListener("change", queueFrame);
    its text, the raised roads — keeps its real size, so a bigger model wears a slimmer frame. */
 function setModelSize(mm) {
   frameVals.modelMM = mm;
+  frameVals.t = frameThicknessFor(mm);               // the Misogi's frame is half as thick again, to take its joins
+  $("frameT").value = $("frameTNum").value = String(frameVals.t);
   if (exagOff()) setExag(exagWanted);   // a new print size moves the height limits
   setTimeout(updateRelief, 0);
   setTimeout(syncRoadSize, 0);                       // raised roads come and go with the printed size
@@ -8331,75 +8366,6 @@ function initIconControls() {           // run at start-up, once every helper it
 function triPush(out, a, b, c) { out.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); }
 
 /* Terrain block: height-grid top, walls sharing its edge vertices, flat bottom. */
-function stlTerrain(data, W, z0, baseMM, mmPerM, liftMM = 0) {
-  const n = data.n, step = W / (n - 1), tris = [];
-  const top = (r, c) => [c * step, (n - 1 - r) * step, z0 + baseMM + liftMM + (data.grid[r * n + c] - data.min) * mmPerM];
-  const bot = (r, c) => [c * step, (n - 1 - r) * step, z0];
-  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
-    triPush(tris, top(r, c), top(r + 1, c), top(r + 1, c + 1));
-    triPush(tris, top(r, c), top(r + 1, c + 1), top(r, c + 1));
-  }
-  const per = [];                                   // perimeter, anticlockwise seen from above
-  for (let c = 0; c < n; c++) per.push([n - 1, c]);
-  for (let r = n - 2; r >= 0; r--) per.push([r, n - 1]);
-  for (let c = n - 2; c >= 0; c--) per.push([0, c]);
-  for (let r = 1; r <= n - 2; r++) per.push([r, 0]);
-  per.forEach((a, i) => {
-    const b = per[(i + 1) % per.length];
-    triPush(tris, top(...a), bot(...a), bot(...b)); triPush(tris, top(...a), bot(...b), top(...b));
-  });
-  stlBackFace(per.map((a) => bot(...a)), W, z0, tris);
-  return tris;
-}
-
-/* The flat bottom with the web address cut into it. The lettering's patch is a fine grid lifted
-   into the base by the letters' mask; its edge is held flat, and the rest of the bottom is laid
-   between the outline and that edge using the very same points, so the solid stays closed. */
-function stlBackFace(ring, Wmm, z0, tris) {
-  const L = backTextLayout(Wmm);
-  const mask = backArtMask(L);
-  const step = clamp(Math.min(L.emMM, L.wordMM) / 60, 0.08, 0.2);  // about 60 points up each letter, fine enough for the mark
-  const gx = Math.ceil(L.lenMM / step), gy = Math.ceil(L.hMM / step);
-  const P = (i, j) => {
-    const u = i / gx, v = j / gy, [x, y] = backTextPlan(L, Wmm, u, v);
-    const edge = i === 0 || j === 0 || i === gx || j === gy;
-    return [x, y, z0 + (edge || !mask ? 0 : BACK_DEPTH_MM * clamp(mask(u, v), 0, 1))];
-  };
-  const G = [];
-  for (let j = 0; j <= gy; j++) for (let i = 0; i <= gx; i++) G.push(P(i, j));
-  const at = (i, j) => G[j * (gx + 1) + i];
-  const signed = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
-  const down = (a, b, c) => (signed(a, b, c) > 0 ? triPush(tris, a, c, b) : triPush(tris, a, b, c));   // faces down
-  /* The flat part is the square outline less the patch: four four-sided pieces, one per side,
-     each between a run of the outline and the matching run of the patch's edge. Each piece is
-     convex, so stitching the two runs together in step fills it exactly. */
-  const corner = (p, x, y) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9;
-  const k0 = ring.findIndex((p) => corner(p, 0, 0));
-  const R = ring.slice(k0).concat(ring.slice(0, k0 + 1));       // anticlockwise from the south-west corner, closed
-  const cut = [0, R.findIndex((p) => corner(p, Wmm, 0)), R.findIndex((p) => corner(p, Wmm, Wmm)),
-               R.findIndex((p) => corner(p, 0, Wmm)), R.length - 1];
-  const runI = (i0, i1, j) => { const o = []; for (let i = i0; i0 <= i1 ? i <= i1 : i >= i1; i += i0 <= i1 ? 1 : -1) o.push(at(i, j)); return o; };
-  const runJ = (j0, j1, i) => { const o = []; for (let j = j0; j0 <= j1 ? j <= j1 : j >= j1; j += j0 <= j1 ? 1 : -1) o.push(at(i, j)); return o; };
-  const inner = [runI(0, gx, gy), runJ(gy, 0, gx), runI(gx, 0, 0), runJ(0, gy, 0)];   // south, east, north, west
-  const along = (run, axis) => { const a0 = run[0][axis], a1 = run[run.length - 1][axis];
-    return run.map((p) => (p[axis] - a0) / (a1 - a0)); };
-  for (let side = 0; side < 4; side++) {
-    const A = R.slice(cut[side], cut[side + 1] + 1), B = inner[side], axis = side % 2 === 0 ? 0 : 1;
-    const ta = along(A, axis), tb = along(B, axis);
-    let i = 0, j = 0;
-    while (i < A.length - 1 || j < B.length - 1) {
-      if (j === B.length - 1 || (i < A.length - 1 && ta[i + 1] <= tb[j + 1])) { down(A[i], A[i + 1], B[j]); i++; }
-      else { down(A[i], B[j + 1], B[j]); j++; }
-    }
-  }
-  const flip = signed(at(0, 0), at(1, 0), at(1, 1)) > 0;
-  for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) {
-    const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
-    if (flip) { triPush(tris, a, c, b); triPush(tris, a, d, c); }
-    else { triPush(tris, a, b, c); triPush(tris, a, c, d); }
-  }
-}
-
 /* One frame side: outer face is a fine grid so text can be engraved into it.
    Local axes: a runs along the face (left→right seen from outside), b points into the wood, c is up. */
 /* One frame side as a closed solid, with the lettering worked into its top surface. The
@@ -8604,38 +8570,6 @@ function stlTextPieces(sideIndex, lenMM, inset) {
   }
   return out;
 }
-/* The ledge in the print file: four closed pieces, one along each side, from the bed up to the
-   underside of the model, reaching LEDGE_MM in. Their corners are mitred so no two overlap; each
-   meets the inside of its frame side, and the model rests on their tops. */
-function stlLedges(W) {
-  const d = frameVals.d, s = LEDGE_MM, out = [];
-  if (d <= 0) return out;
-  const ring = [[0, 0], [W, 0], [W, W], [0, W]], inner = [[s, s], [W - s, s], [W - s, W - s], [s, W - s]];
-  const names = ["frame ledge south", "frame ledge east", "frame ledge north", "frame ledge west"];
-  for (let i = 0; i < 4; i++) {
-    const j = (i + 1) % 4, poly = [ring[i], ring[j], inner[j], inner[i]], tris = [];   // anticlockwise from above
-    const B = (p) => [p[0], p[1], 0], T = (p) => [p[0], p[1], d];
-    triPush(tris, T(poly[0]), T(poly[1]), T(poly[2])); triPush(tris, T(poly[0]), T(poly[2]), T(poly[3]));   // top, up
-    triPush(tris, B(poly[0]), B(poly[2]), B(poly[1])); triPush(tris, B(poly[0]), B(poly[3]), B(poly[2]));   // bottom, down
-    for (let e = 0; e < 4; e++) {
-      const p = poly[e], q = poly[(e + 1) % 4];
-      triPush(tris, B(p), B(q), T(q)); triPush(tris, B(p), T(q), T(p));                                   // walls, out
-    }
-    out.push({ name: names[i], tris });
-  }
-  return out;
-}
-function stlFrameSides(W, baseMM) {
-  const t = frameVals.t, Ht = frameVals.d + baseMM + frameVals.h, L = W + 2 * t;
-  return [...stlLedges(W),
-    // as on screen: front and back are inset by the frame's thickness, left and right not at all
-    { name: "frame south", tris: stlSide([-t, -t], [1, 0], [0, 1], L, t, Ht, stlTextPieces(0, L, t)) },         // front
-    { name: "frame north", tris: stlSide([W + t, W + t], [-1, 0], [0, -1], L, t, Ht, stlTextPieces(1, L, t)) }, // reverse
-    { name: "frame east",  tris: stlSide([W + t, 0], [0, 1], [-1, 0], W, t, Ht, stlTextPieces(2, W, 0)) },
-    { name: "frame west",  tris: stlSide([-t, W], [0, -1], [1, 0], W, t, Ht, stlTextPieces(3, W, 0)) }
-  ];
-}
-
 /* Top and bottom caps for a prism. The triangulator's winding is judged once for the whole face,
    never per triangle: flipping individual triangles of a concave shape breaks the surface. */
 function capsFor(outer, holes, zt, zb, tris) {
@@ -8803,6 +8737,399 @@ function modelXML(bodies) {
     "</basematerials>" + objs + "</resources><build>" + build + "</build></model>";
 }
 
+/* ---------- the print parts: model, frame, pins and dowels, cut with Manifold ----------
+   The model and its frame print separately and are fitted together afterwards. The frame stands
+   13 mm tall: a 3 mm ledge at its foot reaches 7 mm in under the model, which sits on it with
+   0.3 mm to spare all round, and the frame's top lands level with the lowest ground. They are held
+   together by one small quarter-turn pin per side (or per join on the Misogi), pushed up from
+   underneath and turned with a coin until the slot meets a line moulded beside it.
+
+   The Misogi (50 cm) is too big to print whole: its model is cut into four tiles, lined up by
+   dowels in the faces where they meet, and its frame comes in one section per side. Each section
+   runs most of its side and wraps the first tenth of the next; where two meet, one's top half
+   sits over the other's bottom half and a pin clamps the two. A square ridge along the frame's
+   inside sits in a groove round the model, so the closed frame holds the four tiles in.
+
+   Holes, pockets and joins are cut with Manifold, a geometry library the page loads from its own
+   site the first time a print file is made. Every size takes the same pin. */
+const PRINT_PARTS = {
+  CLR: 0.3,                                          // the gap between the model's sides and the frame
+  PIN: { headR: 5, headH: 1.6, shaftR: 2.5, shaftH: 6, lugL: 9, lugW: 2.6, lugH: 2, lift: 0.4,
+         slotL: 8, slotW: 1.4, slotD: 0.9 },
+  HOLE: { recessR: 5.3, recessTop: 2.0, shaftR: 2.8, slotL: 9.6, slotW: 3.2, passTop: 7.8, chamberTop: 10.4 },
+  STOP: { w: 0.8, depth: 0.4, from: 5.7, len: 2.2 },
+  MISOGI_MM: 500, MISOGI_T: 15, T: 10,
+  LAP_Z: 5.5, LAP_LEN: 24, WRAP: 0.10,
+  RIDGE: { z0: 6.5, z1: 10.5, depth: 3 },
+  DOWEL: { r: 3, len: 20, holeR: 3.2, holeLen: 20.8, up: 5, at: [0.35, 0.7] }
+};
+const isMisogi = () => frameVals.modelMM >= PRINT_PARTS.MISOGI_MM;
+const frameThicknessFor = (mm) => (mm >= PRINT_PARTS.MISOGI_MM ? PRINT_PARTS.MISOGI_T : PRINT_PARTS.T);
+
+let manifoldLib = null;
+async function manifoldReady() {
+  if (manifoldLib) return manifoldLib;
+  // served from the site, beside the page; a page opened from a file (as the checks do) can't fetch
+  // its engine from there, so it can be pointed somewhere else
+  const base = new URL(window.MANIFOLD_FROM || "vendor/", document.baseURI);
+  const mod = await import(new URL("manifold.js", base).href);
+  const wasm = await mod.default({ locateFile: (f) => new URL(f, base).href });
+  wasm.setup();
+  manifoldLib = wasm;
+  return wasm;
+}
+
+/* Manifold keeps its shapes in its own memory, which is only handed back when told, so every
+   shape made while a print file is built is noted here and let go of at the end. */
+function partsScope() {
+  const made = [];
+  const S = (m) => { made.push(m); return m; };
+  S.free = () => { for (const m of made) { try { m.delete(); } catch (e) { /* already gone */ } } made.length = 0; };
+  return S;
+}
+/* Triangles (x, y, z, three to a corner) to a solid and back. Corners closer than a ten-thousandth
+   of a millimetre are the same corner, so shared edges join up. */
+function solidOf(S, tris) {
+  const { Manifold, Mesh } = manifoldLib;
+  const index = new Map(), verts = [], tv = new Uint32Array(tris.length / 3);
+  for (let k = 0; k < tris.length; k += 3) {
+    const key = Math.round(tris[k] * 1e4) + "," + Math.round(tris[k + 1] * 1e4) + "," + Math.round(tris[k + 2] * 1e4);
+    let id = index.get(key);
+    if (id === undefined) { id = verts.length / 3; index.set(key, id); verts.push(tris[k], tris[k + 1], tris[k + 2]); }
+    tv[k / 3] = id;
+  }
+  const mesh = new Mesh({ numProp: 3, vertProperties: new Float32Array(verts), triVerts: tv });
+  mesh.merge();
+  return S(new Manifold(mesh));
+}
+/* Back to triangles. Where a cut grazes a surface the library can leave a triangle with two of its
+   corners on one spot; it adds nothing, and slicers grumble at it, so it is left out. */
+function trisOf(m) {
+  const mesh = m.getMesh(), V = mesh.vertProperties, T = mesh.triVerts, np = mesh.numProp, out = [];
+  for (let i = 0; i < T.length; i += 3) {
+    const a = T[i] * np, b = T[i + 1] * np, c = T[i + 2] * np;
+    const same = (p, q) => V[p] === V[q] && V[p + 1] === V[q + 1] && V[p + 2] === V[q + 2];
+    if (same(a, b) || same(b, c) || same(c, a)) continue;   // a flat sliver with three corners in a line stays: it joins its neighbours
+    out.push(V[a], V[a + 1], V[a + 2], V[b], V[b + 1], V[b + 2], V[c], V[c + 1], V[c + 2]);
+  }
+  return out;
+}
+const prismOf = (S, cs, z0, z1) => S(cs.extrude(z1 - z0).translate([0, 0, z0]));
+const unionOf = (S, list) => { const live = list.filter(Boolean); return live.length ? S(manifoldLib.Manifold.union(live)) : null; };
+
+/* The model's outline on the print, in millimetres with x east and y north from the south-west
+   corner, anticlockwise seen from above. */
+function outlineMM(W) {
+  const k = W / WORLD;
+  let pts = outlineRing().map(([x, z]) => [(x + WORLD / 2) * k, (WORLD / 2 - z) * k]);
+  let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; }
+  if (a < 0) pts = pts.reverse();
+  return pts;
+}
+const outlineCS = (S, W, grow = 0) => {
+  const cs = S(new manifoldLib.CrossSection([outlineMM(W)], "Positive"));
+  return grow ? S(cs.offset(grow, "Miter", 4)) : cs;
+};
+
+/* A closed block whose top follows a height field: nx by ny points, the top at z(i, j), a flat
+   bottom at zb, and four upright walls. The bottom is a fan from its middle, so no triangle in it
+   is ever a sliver. */
+function heightBlock(nx, ny, X, Y, Z, zb) {
+  const tris = [];
+  const top = (i, j) => [X(i), Y(j), Z(i, j)], bot = (i, j) => [X(i), Y(j), zb];
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    triPush(tris, top(i, j), top(i + 1, j), top(i + 1, j + 1));
+    triPush(tris, top(i, j), top(i + 1, j + 1), top(i, j + 1));
+  }
+  const per = [];                                   // the edge, anticlockwise seen from above
+  for (let i = 0; i < nx; i++) per.push([i, 0]);
+  for (let j = 1; j < ny; j++) per.push([nx - 1, j]);
+  for (let i = nx - 2; i >= 0; i--) per.push([i, ny - 1]);
+  for (let j = ny - 2; j >= 1; j--) per.push([0, j]);
+  const mid = [(X(0) + X(nx - 1)) / 2, (Y(0) + Y(ny - 1)) / 2, zb];
+  per.forEach((a, n) => {
+    const b = per[(n + 1) % per.length];
+    triPush(tris, top(...a), bot(...a), bot(...b)); triPush(tris, top(...a), bot(...b), top(...b));
+    triPush(tris, mid, bot(...b), bot(...a));
+  });
+  orientOutward(tris);
+  return tris;
+}
+/* The ground as a solid: the terrain's own grid on top, flat underneath, cut to the outline. */
+function terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM) {
+  const n = data.n, step = W / (n - 1);
+  const tris = heightBlock(n, n, (c) => c * step, (r) => r * step,
+    (c, r) => z0 + baseMM + liftMM + (data.grid[(n - 1 - r) * n + c] - data.min) * mmPerM, z0);
+  let m = solidOf(S, tris);
+  if (modelOutline !== "square") m = S(m.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4)));
+  return m;
+}
+/* The logo and web address, as a stamp pressed up into the underside: where the artwork is solid
+   it reaches 2 mm in; everywhere else it stays just short of the bottom, so it cuts nothing. */
+function backStamp(S, W, z0, centre) {
+  const L = backTextLayout(W), mask = backArtMask(L);
+  const step = clamp(Math.min(L.emMM, L.wordMM) / 60, 0.08, 0.2);
+  const gx = Math.ceil(L.lenMM / step) + 1, gy = Math.ceil(L.hMM / step) + 1;
+  const [cx, cy] = centre;
+  const X = (i) => cx + (i / (gx - 1) - 0.5) * L.lenMM, Y = (j) => cy - (0.5 - j / (gy - 1)) * L.hMM;
+  const Z = (i, j) => {
+    const edge = i === 0 || j === 0 || i === gx - 1 || j === gy - 1;
+    const v = edge || !mask ? 0 : clamp(mask(i / (gx - 1), 1 - j / (gy - 1)), 0, 1);
+    return z0 - 0.05 + (BACK_DEPTH_MM + 0.05) * v;
+  };
+  return solidOf(S, heightBlock(gx, gy, X, Y, Z, z0 - 1));
+}
+
+/* The hole a pin goes up: a recess for the head, a keyhole for the shaft and the lugs, and above
+   it the pocket the lugs turn into. The pocket is swept a quarter turn anticlockwise seen from
+   above (clockwise seen from underneath, the way a coin turns it), and no further, so the lugs
+   meet a wall at exactly a quarter turn. `dir` is the way the lugs point going in. */
+function pinCutter(S, cx, cy, dir) {
+  const { CrossSection } = manifoldLib, H = PRINT_PARTS.HOLE, deg = dir * 180 / Math.PI;
+  const slot = (a) => S(S(CrossSection.square([H.slotL, H.slotW], true)).rotate(a));
+  const round = (r) => S(CrossSection.circle(r, 48));
+  // the keyhole runs right up through the pocket, and the pocket is the slot swept on from 5° to 90°:
+  // no face of one lies exactly on a face of the other, which leaves the cut clean
+  const key = S(CrossSection.union([round(H.shaftR), slot(deg)]));
+  const sweep = []; for (let a = 5; a <= 90; a += 5) sweep.push(slot(deg + a));
+  const turn = S(CrossSection.union(sweep));
+  return S(unionOf(S, [prismOf(S, round(H.recessR), -1, H.recessTop), prismOf(S, key, -0.9, H.chamberTop),
+                       prismOf(S, turn, H.passTop, H.chamberTop)]).translate([cx, cy, 0]));
+}
+/* The line beside a pin, moulded 0.4 mm into the underside: the slot points along it once locked. */
+function stopLines(S, cx, cy, dir, inLen, outLen) {
+  const { CrossSection } = manifoldLib, P = PRINT_PARTS.STOP, a = dir + Math.PI / 2;
+  const bar = (r0, r1) => S(S(CrossSection.square([r1 - r0, P.w], false)).translate([r0, -P.w / 2]));
+  const both = S(CrossSection.union([bar(P.from, P.from + outLen), bar(-P.from - inLen, -P.from)]));
+  return S(prismOf(S, S(both.rotate(a * 180 / Math.PI)), -0.8, P.depth).translate([cx, cy, 0]));
+}
+
+/* The lettering on the frame's top, side by side as before, each a block standing on the frame's
+   own top with the words worked into it. They are laid along the frame's outer edges so the words
+   sit where the screen shows them. */
+function frameTextBlocks(S, W, t, Ht) {
+  const c = PRINT_PARTS.CLR, out = [];
+  const side = (i, O, R, I, L, inset) => {
+    const pieces = stlTextPieces(i, L, inset);
+    if (!pieces.length) return;
+    out.push(solidOf(S, textCap(O, R, I, L, t, Ht, pieces)));
+  };
+  if (modelOutline === "square") {
+    const L = W + 2 * t + 2 * c, s = W + 2 * c;
+    side(0, [-t - c, -t - c], [1, 0], [0, 1], L, t);                 // front, read from the south
+    side(1, [W + t + c, W + t + c], [-1, 0], [0, -1], L, t);         // back
+    side(2, [W + t + c, -c], [0, 1], [-1, 0], s, 0);                 // east
+    side(3, [-t - c, W + c], [0, -1], [1, 0], s, 0);                 // west
+  } else {
+    const ring = outlineMM(W), n = ring.length, grow = (c + t) / Math.cos(Math.PI / n);   // a corner moves out this far when every side moves out c + t
+    const C = [W / 2, W / 2];
+    const outer = ring.map(([x, y]) => { const dx = x - C[0], dy = y - C[1], r = Math.hypot(dx, dy); return [x + dx / r * grow, y + dy / r * grow]; });
+    const k = W / WORLD, src = outlineRing().map(([x, z]) => [(x + WORLD / 2) * k, (WORLD / 2 - z) * k]);
+    for (let i = 0; i < n; i++) {
+      // the screen's side i runs from its corner i to corner i + 1; find those corners on the print
+      const a = src[i], b = src[(i + 1) % n];
+      const ia = ring.findIndex((p) => Math.hypot(p[0] - a[0], p[1] - a[1]) < 1e-6);
+      const ib = ring.findIndex((p) => Math.hypot(p[0] - b[0], p[1] - b[1]) < 1e-6);
+      const A = outer[ia], B = outer[ib], L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      const R = [(B[0] - A[0]) / L, (B[1] - A[1]) / L];
+      const mid = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], I0 = [-R[1], R[0]];
+      const I = (I0[0] * (C[0] - mid[0]) + I0[1] * (C[1] - mid[1]) > 0) ? I0 : [-I0[0], -I0[1]];
+      side(i, A, R, I, L, mitreInset(t));
+    }
+  }
+  return out;
+}
+
+/* The words on one side as a cap for the frame's top: a block over just the stretch the words take,
+   kept 0.05 mm inside the frame's faces, reaching half a millimetre down into the frame, with its top
+   a whisker below the frame's own where there are no letters and 1 mm above it where there are. So
+   it adds the letters and nothing else, and no face of it lies on a face of the frame. */
+function textCap(O, R, I, L, t, Ht, pieces) {
+  const spans = pieces.map((p) => p.span).filter(Boolean);
+  const u0 = Math.max(0.05, Math.min(...spans.map((s) => s[0])) - 0.5), u1 = Math.min(L - 0.05, Math.max(...spans.map((s) => s[1])) + 0.5);
+  const step = 0.15, nu = Math.max(2, Math.ceil((u1 - u0) / step) + 1), nv = Math.max(2, Math.ceil((t - 0.1) / step) + 1);
+  const U = (i) => u0 + (u1 - u0) * i / (nu - 1), V = (j) => 0.05 + (t - 0.1) * j / (nv - 1);
+  const Z = (i, j) => {
+    let best = 0;
+    if (i > 0 && j > 0 && i < nu - 1 && j < nv - 1) for (const p of pieces) { const v = p.depth * p.mask(U(i) / L, V(j) / t); if (v > best) best = v; }
+    return Ht - 0.02 + (best > 0 ? best + 0.02 * Math.min(1, best / TEXT_DEPTH_MM) : 0);
+  };
+  const local = heightBlock(nu, nv, U, V, Z, Ht - 0.5), out = new Array(local.length);
+  for (let k = 0; k < local.length; k += 3) {       // from along-and-in to the print's own x and y
+    const u = local[k], v = local[k + 1];
+    out[k] = O[0] + R[0] * u + I[0] * v; out[k + 1] = O[1] + R[1] * u + I[1] * v; out[k + 2] = local[k + 2];
+  }
+  orientOutward(out);
+  return out;
+}
+/* Where the pins go, and which way their lugs point going in. The smaller sizes take one in the
+   middle of each side, on the line between model and frame; the Misogi one at each join, in the
+   middle of the frame. */
+function pinPlaces(W, t) {
+  const ring = outlineMM(W), n = ring.length, c = PRINT_PARTS.CLR, out = [];
+  for (let s = 0; s < n; s++) {
+    const a = ring[s], b = ring[(s + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], o = [u[1], -u[0]];   // along the side, and outward
+    const f = isMisogi() ? PRINT_PARTS.WRAP : 0.5, off = isMisogi() ? c + t / 2 : c / 2;
+    out.push({ x: a[0] + u[0] * L * f + o[0] * off, y: a[1] + u[1] * L * f + o[1] * off,
+               dir: Math.atan2(u[1], u[0]), side: s, inLen: isMisogi() ? 1.2 : 1.2, outLen: isMisogi() ? 1.2 : 2.2 });
+  }
+  return out;
+}
+
+/* The frame, whole: walls, ledge, lettering, the Misogi's ridge, and every pin hole. */
+function frameSolid(S, W, t, Ht, d) {
+  const c = PRINT_PARTS.CLR, inner = outlineCS(S, W, c), outer = outlineCS(S, W, c + t);
+  // the ledge and the ridge each start half a millimetre inside the wall, so they overlap it rather
+  // than merely touching it, and the lettering stands just inside the wall's faces: nothing here
+  // lies face to face, which keeps the joined-up solid clean
+  const intoWall = outlineCS(S, W, c + 0.5);
+  const parts = [prismOf(S, S(outer.subtract(inner)), 0, Ht),
+                 prismOf(S, S(intoWall.subtract(outlineCS(S, W, -LEDGE_MM))), 0, d)];
+  if (isMisogi()) {
+    const R = PRINT_PARTS.RIDGE;
+    parts.push(prismOf(S, S(intoWall.subtract(outlineCS(S, W, c - R.depth))), R.z0, R.z1));
+  }
+  parts.push(...frameTextBlocks(S, W, t, Ht));
+  let m = unionOf(S, parts);
+  for (const p of pinPlaces(W, t)) {
+    m = S(m.subtract(pinCutter(S, p.x, p.y, p.dir)));
+    m = S(m.subtract(stopLines(S, p.x, p.y, p.dir, p.inLen, p.outLen)));
+  }
+  return m;
+}
+/* The Misogi's frame in sections: section k runs from just past corner k, along side k and round
+   corner k + 1, to just past it. Below the lap line its ends sit a half-lap further on, above it a
+   half-lap further back, so at each join the next section's top half lies over this one's bottom. */
+function frameSections(S, frame, W, Ht) {
+  const { CrossSection } = manifoldLib, ring = outlineMM(W), n = ring.length, P = PRINT_PARTS, out = [];
+  const sides = ring.map((a, s) => { const b = ring[(s + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; return { a, b, L, u, o: [u[1], -u[0]] }; });
+  const J = (s) => { const q = sides[s]; return [q.a[0] + q.u[0] * q.L * P.WRAP, q.a[1] + q.u[1] * q.L * P.WRAP]; };
+  const region = (k, shift) => {
+    const s0 = sides[k], s1 = sides[(k + 1) % n], j0 = J(k), j1 = J((k + 1) % n), far = 60;
+    const p0 = [j0[0] + s0.u[0] * shift, j0[1] + s0.u[1] * shift], p1 = [j1[0] + s1.u[0] * shift, j1[1] + s1.u[1] * shift];
+    const v = s1.a, bis = [s0.o[0] + s1.o[0], s0.o[1] + s1.o[1]], bl = Math.hypot(...bis);
+    const poly = [[p0[0] - s0.o[0] * far, p0[1] - s0.o[1] * far], [p0[0] + s0.o[0] * far, p0[1] + s0.o[1] * far],
+                  [v[0] + bis[0] / bl * far * 2, v[1] + bis[1] / bl * far * 2],
+                  [p1[0] + s1.o[0] * far, p1[1] + s1.o[1] * far], [p1[0] - s1.o[0] * far, p1[1] - s1.o[1] * far]];
+    return S(new CrossSection([poly], "Positive"));
+  };
+  for (let k = 0; k < n; k++) {
+    const low = S(frame.intersect(prismOf(S, region(k, P.LAP_LEN / 2), -1, P.LAP_Z)));
+    const high = S(frame.intersect(prismOf(S, region(k, -P.LAP_LEN / 2), P.LAP_Z, Ht + 10)));
+    out.push(S(low.add(high)));
+  }
+  return out;
+}
+
+/* The model: ground, the logo underneath, and what the frame needs cut into it. */
+function modelSolid(S, data, W, z0, baseMM, mmPerM, liftMM, withFrame, t) {
+  let m = terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM);
+  const centre = isMisogi() ? [W / 2 - W / 5, W / 2 - W / 5] : [W / 2, W / 2];   // on one tile, not across the joins
+  m = S(m.subtract(backStamp(S, W, z0, centre)));
+  if (withFrame) {
+    if (isMisogi()) {
+      const R = PRINT_PARTS.RIDGE, c = PRINT_PARTS.CLR;
+      const groove = S(outlineCS(S, W, 1).subtract(outlineCS(S, W, c - R.depth - c)));
+      m = S(m.subtract(prismOf(S, groove, R.z0 - c, R.z1 + c)));
+    } else {
+      for (const p of pinPlaces(W, t)) m = S(m.subtract(pinCutter(S, p.x, p.y, p.dir)));
+    }
+  }
+  return m;
+}
+/* The four tiles, cut where the middle lines cross, with a dowel hole across each join at a third
+   and two-thirds of the way out along it. */
+function dowelPlaces(W, z0) {
+  const P = PRINT_PARTS.DOWEL, ring = outlineMM(W), c = W / 2, out = [];
+  const reach = (dx, dy) => {                       // how far the outline is from the middle that way
+    let best = Infinity;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length], ex = b[0] - a[0], ey = b[1] - a[1];
+      const den = dx * ey - dy * ex; if (Math.abs(den) < 1e-12) continue;
+      const tt = ((a[0] - c) * ey - (a[1] - c) * ex) / den, s = ((a[0] - c) * dy - (a[1] - c) * dx) / den;
+      if (tt > 0 && s >= -1e-9 && s <= 1 + 1e-9) best = Math.min(best, tt);
+    }
+    return best;
+  };
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const len = reach(dx, dy);
+    for (const f of P.at) out.push({ x: c + dx * len * f, y: c + dy * len * f, z: z0 + P.up, across: dx !== 0 ? "y" : "x" });
+  }
+  return out;
+}
+function modelTiles(S, model, W, z0) {
+  const P = PRINT_PARTS.DOWEL, { Manifold } = manifoldLib, c = W / 2, big = W;
+  let m = model;
+  for (const d of dowelPlaces(W, z0)) {
+    let hole = S(Manifold.cylinder(P.holeLen, P.holeR, P.holeR, 40, true));
+    hole = S(d.across === "x" ? hole.rotate([0, 90, 0]) : hole.rotate([90, 0, 0]));
+    m = S(m.subtract(S(hole.translate([d.x, d.y, d.z]))));
+  }
+  const box = (x0, y0) => S(Manifold.cube([big, big, 1e4], false).translate([x0, y0, z0 - 100]));
+  // south-west, south-east, north-east, north-west
+  return [box(c - big, c - big), box(c, c - big), box(c, c), box(c - big, c)].map((b) => S(m.intersect(b)));
+}
+const tileBoxes = (W) => { const c = W / 2; return [[c - W, c - W, c, c], [c, c - W, c + W, c], [c, c, c + W, c + W], [c - W, c, c, c + W]]; };
+
+/* The loose parts. The pin stands on its head; the dowel lies on its side, chamfered at both ends. */
+function pinPart(S) {
+  const { Manifold } = manifoldLib, P = PRINT_PARTS.PIN;
+  const head = S(Manifold.cylinder(P.headH, P.headR, P.headR, 64));
+  const shaft = S(S(Manifold.cylinder(P.shaftH + 0.02, P.shaftR, P.shaftR, 48)).translate([0, 0, P.headH - 0.01]));
+  const lugs = S(S(Manifold.cube([P.lugL, P.lugW, P.lugH], true)).translate([0, 0, P.headH + P.shaftH + P.lugH / 2]));
+  const slot = S(S(Manifold.cube([P.slotL, P.slotW, P.slotD * 2], true)).translate([0, 0, 0]));
+  return S(unionOf(S, [head, shaft, lugs]).subtract(slot));
+}
+function dowelPart(S) {
+  const { Manifold } = manifoldLib, P = PRINT_PARTS.DOWEL, ch = 0.6;
+  const body = S(S(Manifold.cylinder(P.len - 2 * ch, P.r, P.r, 48)).translate([0, 0, ch]));
+  const ends = [S(Manifold.cylinder(ch, P.r - ch, P.r, 48)), S(S(Manifold.cylinder(ch, P.r, P.r - ch, 48)).translate([0, 0, P.len - ch]))];
+  return S(S(unionOf(S, [body, ...ends]).rotate([0, 90, 0])).translate([0, 0, P.r]));
+}
+
+/* Raised roads, paths, the route and icons ride on the ground they sit on, so they are trimmed to
+   the outline and, on the Misogi, shared out among the tiles. Most are closed solids and are cut
+   exactly; any that aren't keep the triangles whose middles fall inside. */
+function clipBodyTo(S, body, footprint) {
+  try {
+    const m = solidOf(S, body.tris);
+    if (m.numTri() > 0) {
+      const cut = S(m.intersect(footprint.solid));
+      return cut.numTri() ? trisOf(cut) : [];
+    }
+  } catch (e) { /* not a closed solid: fall back to sorting the triangles */ }
+  const T = body.tris, out = [];
+  for (let i = 0; i < T.length; i += 9) {
+    const x = (T[i] + T[i + 3] + T[i + 6]) / 3, y = (T[i + 1] + T[i + 4] + T[i + 7]) / 3;
+    if (footprint.has(x, y)) for (let k = 0; k < 9; k++) out.push(T[i + k]);
+  }
+  return out;
+}
+
+/* Lay the parts out side by side, each standing on the bed, in rows no wider than a metre. */
+function layOut(groups) {
+  let x = 0, y = 0, rowH = 0;
+  for (const g of groups) {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const b of g.bodies) for (let i = 0; i < b.tris.length; i += 3) for (let a = 0; a < 3; a++) {
+      lo[a] = Math.min(lo[a], b.tris[i + a]); hi[a] = Math.max(hi[a], b.tris[i + a]);
+    }
+    if (!isFinite(lo[0])) continue;
+    const w = hi[0] - lo[0], h = hi[1] - lo[1];
+    if (x > 0 && x + w > 1000) { x = 0; y += rowH + 20; rowH = 0; }
+    const dx = x - lo[0], dy = y - lo[1], dz = -lo[2];
+    g.placed = [dx, dy, dz];
+    for (const b of g.bodies) {
+      const T = b.tris.slice();
+      for (let i = 0; i < T.length; i += 3) { T[i] += dx; T[i + 1] += dy; T[i + 2] += dz; }
+      b.laid = T;
+    }
+    x += w + 20; rowH = Math.max(rowH, h);
+  }
+}
+
 let lastStl = null;
 /* The print file. Customers don't download it: it is built when they order, and goes to the
    workshop with the order (see the order section below). */
@@ -8814,20 +9141,27 @@ async function buildPrintFile(opts) {
     await backArtReady();                            // the logo on the back needs its mark and lettering in
     await new Promise((r) => setTimeout(r, 30));
     const data = current, G = three.geom, W = frameVals.modelMM, k = W / WORLD;   // k = mm per model unit
-    const withFrame = $("stlFrame").checked;
+    const withFrame = $("stlFrame").checked && $("showFrame").checked;   // only a frame that was asked for
     const z0 = withFrame ? frameVals.d : 0, baseMM = Math.abs(G.baseY) * k;
     const toSTL = (x, y, z) => [(x + WORLD / 2) * k, (WORLD / 2 - z) * k, z0 + baseMM + y * k];
-    const bodies = [{ name: "terrain", tris: stlTerrain(data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k) }];
-    if (withFrame) { progress(true, "Engraving the frame…", 40); await new Promise((r) => setTimeout(r, 20)); bodies.push(...stlFrameSides(W, baseMM)); }
+    progress(true, "Fetching the cutting tools…", 18);
+    await manifoldReady();
+    const S = partsScope();
+    let bodies, groups;
+    try {
+    const t = frameVals.t, Ht = frameVals.d + baseMM + frameVals.h;
+    progress(true, "Shaping the ground…", 25); await new Promise((r) => setTimeout(r, 20));
+    const model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t);
+    const extras = [];                               // the parts that ride on the ground: roads, paths, route, icons
     if ((show.roads || show.paths) && roadOpts.on && roadsAllowed()) {   // raised roads, on their own account
-      progress(true, "Adding roads…", 62);
+      progress(true, "Adding roads…", 45);
       const roadTris = [], pathTris = [];
       for (const s of roadSweeps(await areaTiles(data.bounds), G)) {
         const into = s.path ? pathTris : roadTris;
         for (let i = 0; i < s.pos.length; i += 3) into.push(...toSTL(s.pos[i], s.pos[i + 1], s.pos[i + 2]));
       }
-      if (roadTris.length) bodies.push({ name: "road", tris: roadTris });
-      if (pathTris.length) bodies.push({ name: "path", tris: pathTris });
+      if (roadTris.length) extras.push({ name: "road", tris: roadTris });
+      if (pathTris.length) extras.push({ name: "path", tris: pathTris });
     }
     if ($("stlRoute").checked && route) {
       const rad = Math.max(0.05, routeStyle.mm * (WORLD / W) / 2);
@@ -8836,10 +9170,56 @@ async function buildPrintFile(opts) {
         if (!sw) continue;
         const tris = [];
         for (let i = 0; i < sw.pos.length; i += 3) tris.push(...toSTL(sw.pos[i], sw.pos[i + 1], sw.pos[i + 2]));
-        bodies.push({ name: "route", tris });
+        extras.push({ name: "route", tris });
       }
     }
-    if ($("stlIcons").checked) bodies.push(...stlIcons(G, toSTL));
+    if ($("stlIcons").checked) extras.push(...stlIcons(G, toSTL));
+    for (const e of extras) { orientOutward(e.tris); e.colour = bodyColour(e); }
+    progress(true, "Cutting the parts…", 60); await new Promise((r) => setTimeout(r, 20));
+    const ring = outlineMM(W);
+    const inRing = (x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i], b = ring[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+    const outlinePrism = prismOf(S, outlineCS(S, W, 0.05), z0 - 1, z0 + 1e4);
+    const terrainColour = bodyColour({ name: "terrain" }), frameColour = bodyColour({ name: "frame" });
+    groups = [];
+    if (isMisogi()) {
+      const boxes = tileBoxes(W);
+      modelTiles(S, model, W, z0).forEach((tile, i) => {
+        const [x0, y0, x1, y1] = boxes[i];
+        const foot = { solid: S(S(manifoldLib.Manifold.cube([x1 - x0, y1 - y0, 2e4], false)).translate([x0, y0, z0 - 1e4]).intersect(outlinePrism)),
+                       has: (x, y) => x >= x0 && x < x1 && y >= y0 && y < y1 && inRing(x, y) };
+        const g = { name: "tile " + (i + 1), bodies: [{ name: "terrain tile " + (i + 1), tris: trisOf(tile), colour: terrainColour }] };
+        for (const e of extras) { const tr = clipBodyTo(S, e, foot); if (tr.length) g.bodies.push({ name: e.name + " tile " + (i + 1), tris: tr, colour: e.colour }); }
+        groups.push(g);
+      });
+      const dowel = trisOf(dowelPart(S)), nd = dowelPlaces(W, z0).length;
+      groups.push({ name: "dowels", bodies: [...Array(nd).keys()].map((i) => ({ name: "dowel " + (i + 1), colour: terrainColour,
+        tris: dowel.map((v, j) => (j % 3 === 1 ? v + i * (2 * PRINT_PARTS.DOWEL.r + 4) : v)) })) });
+    } else {
+      const g = { name: "model", bodies: [{ name: "terrain", tris: trisOf(model), colour: terrainColour }] };
+      const foot = { solid: outlinePrism, has: inRing };
+      for (const e of extras) {
+        const tr = modelOutline === "square" ? e.tris : clipBodyTo(S, e, foot);
+        if (tr.length) g.bodies.push({ name: e.name, tris: tr, colour: e.colour });
+      }
+      groups.push(g);
+    }
+    if (withFrame) {
+      progress(true, "Making the frame…", 72); await new Promise((r) => setTimeout(r, 20));
+      const frame = frameSolid(S, W, t, Ht, frameVals.d);
+      if (isMisogi()) frameSections(S, frame, W, Ht).forEach((sec, i) =>
+        groups.push({ name: "frame section " + (i + 1), bodies: [{ name: "frame section " + (i + 1), tris: trisOf(sec), colour: frameColour }] }));
+      else groups.push({ name: "frame", bodies: [{ name: "frame", tris: trisOf(frame), colour: frameColour }] });
+      const pin = trisOf(pinPart(S)), np = pinPlaces(W, t).length, gap = 2 * PRINT_PARTS.PIN.headR + 4;
+      groups.push({ name: "pins", bodies: [...Array(np).keys()].map((i) => ({ name: "pin " + (i + 1), colour: frameColour,
+        tris: pin.map((v, j) => (j % 3 === 0 ? v + i * gap : v)) })) });
+    }
+    } finally { S.free(); }
+    // as they fit together, for checking; then laid out apart on the bed for printing
+    const assembled = groups.flatMap((g) => g.bodies.map((b) => ({ name: b.name, group: g.name, tris: b.tris })));
+    layOut(groups);
+    bodies = groups.flatMap((g) => g.bodies.map((b) => ({ name: b.name, group: g.name, colour: b.colour, tris: b.laid })));
+    bodies.assembled = assembled;
     progress(true, "Wrapping it up…", 85);
     let vol = 0;
     for (const b of bodies) vol += orientOutward(b.tris);
@@ -8854,7 +9234,9 @@ async function buildPrintFile(opts) {
       { name: "3D/3dmodel.model", text: modelXML(bodies) }
     ]) : writeSTL(bodies, sel.name || "terrain");
     const tri = bodies.reduce((s2, b) => s2 + b.tris.length / 9, 0);
-    lastStl = { bodies, size: Mx.map((v, a) => v - mx[a]), triangles: tri, volumeMM3: vol, bytes: blob.size };
+    lastStl = { bodies, assembled: bodies.assembled, groups: groups.map((g) => ({ name: g.name, placed: g.placed })),
+                size: Mx.map((v, a) => v - mx[a]), triangles: tri, volumeMM3: vol, bytes: blob.size,
+                pins: withFrame ? pinPlaces(W, frameVals.t).length : 0, dowels: isMisogi() ? dowelPlaces(W, z0).length : 0 };
     $("stlSize").textContent = lastStl.size.map((v) => v.toFixed(0)).join(" × ") + " mm";
     $("stlInfo").textContent = (blob.size / 1048576).toFixed(1) + " MB";
     return { blob, name: slug() + (as3mf ? ".3mf" : ".stl") };
@@ -9099,7 +9481,7 @@ async function applyState(st, origin, opts) {
   $("showContours").checked = dflt(D.contours, true); $("spin").checked = !!D.spin;
   /* The frame's shape is fixed now, so a stored design cannot bring an old one back with it:
      only the printed size and the lettering are still the design's to choose. */
-  Object.assign(frameVals, { h: 0, t: 10, d: 2, lift: 0,
+  Object.assign(frameVals, { h: 0, t: frameThicknessFor(F.modelMM ?? 200), d: 3, lift: 0,
                              modelMM: F.modelMM ?? 200, text: F.text ?? 6 });
   setPairUI("lift", "liftNum", frameVals.lift);
   $("showFrame").checked = dflt(F.show, true); syncFrameBtn();
@@ -9526,7 +9908,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
       anim = 0;
       if (leaving) {
         fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
-        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); fade = 1; return; }   // gone; the next visit draws at full strength
         anim = requestAnimationFrame(frame);
       }
       paint();
