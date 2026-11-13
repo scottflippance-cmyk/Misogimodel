@@ -113,6 +113,38 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   .item .price{font-size:15px}
   .item .body{grid-column:1 / -1}
 }
+/* What's in the box?: a fold-out under the basket, built from what's in it (see renderBox) */
+.box{margin-top:40px}
+.box summary{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;list-style:none;padding:18px 22px;border-radius:16px;background:#F5F5F7;transition:background .2s ease}
+.box summary::-webkit-details-marker{display:none}
+.box summary:hover{background:#FDF1EC}
+.box summary:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:2px}
+.box-q{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.box-chev{flex:none;width:12px;height:12px;border-right:2.5px solid #0B0E12;border-bottom:2.5px solid #0B0E12;transform:translateY(-3px) rotate(45deg);transition:transform .25s ease}
+.box[open] .box-chev{transform:translateY(3px) rotate(-135deg)}
+.box-sub{margin:22px 0 0;font-size:16px;color:#5B6470}
+.box-parts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:28px}
+.part{background:#F5F5F7;border-radius:20px;padding:20px 22px 24px;display:flex;flex-direction:column}
+.part-pic{display:block;width:100%;height:auto;aspect-ratio:712/475;border-radius:12px;margin:-4px 0 8px}
+.part h3{margin:8px 0 0;font-size:18px;letter-spacing:-.02em}
+.part p{margin:10px 0 0;font-size:14.5px;line-height:1.55;color:#3A424C}
+.part-list{margin:12px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.5;color:#3A424C;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}   /* Square on the left, Hexagon on the right */
+.part-list li{position:relative;padding-left:16px}
+.part-list li::before{content:"";position:absolute;left:1px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--accent,#E4572E)}
+.part-list:empty{display:none}
+/* just the model: one wide card, the words centred beside the picture */
+.box-parts[data-n="1"]{grid-template-columns:1fr}
+.box-parts[data-n="1"] .part{display:grid;grid-template-columns:minmax(0,300px) 1fr;grid-template-rows:1fr 1fr;column-gap:28px}
+.box-parts[data-n="1"] .part-pic{grid-row:1 / span 2;margin:0}
+.box-parts[data-n="1"] .part h3{margin-top:0;align-self:end}
+.box-parts[data-n="1"] .part-text{align-self:start}
+@media (max-width:760px){
+  .box{margin-top:28px}
+  .box-q{font-size:18px}
+  .box-parts,.box-parts[data-n="1"]{grid-template-columns:1fr}
+  .box-parts[data-n="1"] .part{display:flex}
+  .box-parts[data-n="1"] .part-pic{margin:-4px 0 8px}
+}
 </style>
 </head>
 <body>
@@ -165,6 +197,24 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
     <p class="msg" id="msg" role="status"></p>
   </aside>
 </div>
+<details id="box" class="box">
+<summary><span class="box-q">What's in the box?</span><span class="box-chev" aria-hidden="true"></span></summary>
+<p class="box-sub" id="boxSub">Printed to order for you, and put together by hand in a minute or two.</p>
+<div class="box-parts" id="boxParts">
+  <article class="part" id="boxModel">
+    <img class="part-pic" src="/images/box/model.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3></h3><p class="part-text"></p>
+  </article>
+  <article class="part" id="boxFrame">
+    <img class="part-pic" src="/images/box/frame.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3></h3><p class="part-text"></p><ul class="part-list"></ul>
+  </article>
+  <article class="part" id="boxPins">
+    <img class="part-pic" src="/images/box/pin.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3>Locking pins</h3><p class="part-text"></p>
+  </article>
+</div>
+</details>
 </section>
 <section class="empty" id="empty" hidden>
 <h1>Your basket is empty.</h1>
@@ -325,7 +375,43 @@ function render() {
   $("total").textContent = bill ? money(bill.total, bill.currency) : "—";
   $("placeholder").hidden = !PRICING.placeholder;
   $("checkout").disabled = !bill;
+  renderBox(cart.items);
   if (!bill) say("One of these models can't be priced any more. Please remove it and add it again.", true);
+}
+
+/* What's in the box?: built from what's actually in the basket. The models always; the frame card
+   and the pins only when at least one model has a frame, counted from the basket. */
+function renderBox(items) {
+  const n = items.length, framed = items.filter((x) => x.item && x.item.frame);
+  const hex = (x) => /^Hexagon\b/i.test((x.facts || [])[0] || "");
+  const big = (x) => x.item && x.item.sizeMM >= 500;
+  const set = (card, h, text) => { const c = $(card); c.querySelector("h3").textContent = h; c.querySelector(".part-text").textContent = text; };
+  // the model(s)
+  const extras = [items.some((x) => x.item && x.item.route) && "your route", items.some((x) => x.item && x.item.icons > 0) && "icons"].filter(Boolean);
+  let mt = (n === 1 ? "Your custom 3D model, printed in the colours you picked" : "Your custom 3D models, each printed in the colours you picked")
+    + (extras.length ? ", with " + extras.join(" and ") + " raised on the surface." : ".");
+  const bigs = items.filter(big).length;
+  if (bigs) mt += bigs === 1 ? " The Misogi comes as four tiles, with the 8 dowels that join them."
+                             : " Each Misogi comes as four tiles, with the 8 dowels that join them.";
+  set("boxModel", n + (n === 1 ? " custom model" : " custom models"), mt);
+  $("boxModel").querySelector("img").alt = n === 1 ? "A printed model" : "Printed models";
+  // the frame(s): only when at least one model has one
+  const f = framed.length; $("boxFrame").hidden = $("boxPins").hidden = !f;
+  if (f) {
+    let ft = (f === 1 && n === 1 ? "Printed to fit your model" : "Printed to fit your models")
+      + ", with your own words along its sides. The frame\u2019s ledge supports the model and is secured in place with locking pins.";
+    const bigF = framed.filter(big).length;
+    if (bigF) ft += bigF === 1 ? " The Misogi\u2019s frame comes in sections that lock together." : " The Misogi frames come in sections that lock together.";
+    set("boxFrame", f + (f === 1 ? " custom frame" : " custom frames"), ft);
+    $("boxFrame").querySelector("img").alt = "A square frame and a hexagon frame";
+    const list = $("boxFrame").querySelector(".part-list"); list.innerHTML = "";
+    const sq = framed.filter((x) => !hex(x)).length, hx = f - sq;     // how many of each shape
+    for (const [k, label] of [[sq, "Square"], [hx, "Hexagon"]]) { if (!k) continue; const li = document.createElement("li"); li.textContent = k + "\u00d7 " + label; list.append(li); }
+    const pins = framed.reduce((t, x) => t + (hex(x) ? 6 : 4), 0);     // one on each side of every frame
+    set("boxPins", pins + " locking pins", "One on each side of the frame. Push into the frame, give it a quarter turn to the line, and it locks the frame to the model.");
+    $("boxPins").querySelector("img").alt = "Two locking pins, one standing up and one lying on its side";
+  }
+  $("boxParts").dataset.n = 1 + (f ? 2 : 0);
 }
 
 async function checkout() {

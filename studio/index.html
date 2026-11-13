@@ -6489,8 +6489,8 @@ document.addEventListener("keydown", (e) => {
   if (!inViewMode() || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
   const tag = (e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "select" || tag === "textarea" || e.target.isContentEditable) return;   // never while typing
-  const k = e.key.toLowerCase(), fit = () => { three.ctrl.target.set(0, 0, 0); three.ctrl.radius = 190; three.place(); };
-  if (k === "r" && three) { Object.assign(three.ctrl, { theta: 0.3, phi: 1.0 }); fit(); toast("View reset."); }
+  const k = e.key.toLowerCase(), fit = () => { three.ctrl.target.set(0, 0, 0); three.ctrl.radius = SNAP_VIEW.radius; three.place(); };
+  if (k === "r" && three) { Object.assign(three.ctrl, { theta: SNAP_VIEW.theta, phi: SNAP_VIEW.phi }); fit(); toast("View reset."); }
   else if (k === "f" && three) { fit(); toast("Model fitted to the view."); }
   else if (k === "h") { document.body.classList.toggle("focus-3d"); if (three) setTimeout(() => window.dispatchEvent(new Event("resize")), 60); }
   else if (k === "s") { const b = $("spin"); b.checked = !b.checked; b.dispatchEvent(new Event("change")); toast(b.checked ? "Slow rotation on." : "Slow rotation off."); }
@@ -9363,15 +9363,23 @@ async function encodeDesign(st) {
   let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return "1." + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function snapshotModel() {                           // the model as it stands in the viewer, as a JPEG
+/* The model as a JPEG, always from the view R gives (looking north, the whole model in frame), so every
+   picture in the basket matches whatever the customer was looking at. Their own view is put back after. */
+const SNAP_VIEW = { theta: 0.3, phi: 1.0, radius: 190 };
+function snapshotModel() {
   const t = three; if (!t || !t.renderer || !t.scene || !t.camera) return "";
+  const c = t.ctrl, was = c && { theta: c.theta, phi: c.phi, radius: c.radius, target: c.target.clone() };
   try {
+    if (c && t.place) { Object.assign(c, SNAP_VIEW); c.target.set(0, 0, 0); t.place(); }
     if (t.camera.clearViewOffset) { t.camera.clearViewOffset(); t.camera.updateProjectionMatrix(); }
     t.renderer.render(t.scene, t.camera);
     const url = t.renderer.domElement.toDataURL("image/jpeg", 0.9);
     return typeof url === "string" && url.startsWith("data:image/") ? url : "";
   } catch (e) { return ""; }
-  finally { syncViewerOffset(); }
+  finally {
+    if (was && t.place) { Object.assign(c, { theta: was.theta, phi: was.phi, radius: was.radius }); c.target.copy(was.target); t.place(); }
+    syncViewerOffset();
+  }
 }
 function orderFacts(st) {
   const f = st.frame || {}, texts = (f.texts || []).map((x) => x.text).filter(Boolean);

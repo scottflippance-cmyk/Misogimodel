@@ -236,6 +236,10 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
   transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease}
 .size-card:hover{color:inherit}
 .size-tiles{margin:2px 0 0;font-size:13.5px;color:#8A93A1}   /* how it is printed: one tile, or four that join */
+/* what comes with each size, under a thin line at the card's foot */
+.size-list{margin:0;padding:14px 0 0;border-top:1px solid #E1E4E8;list-style:none;display:grid;gap:6px;font-size:14px;line-height:1.45;color:#3A424C}
+.size-list li{position:relative;padding-left:18px}
+.size-list li::before{content:"";position:absolute;left:1px;top:6px;width:8px;height:8px;border-radius:2px;background:var(--accent,#E4572E)}
 .size-photo{display:block;width:100%;height:auto;aspect-ratio:720/700;object-fit:cover;border-radius:12px;background:#ECEAE6}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
@@ -297,6 +301,9 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
   .size-card h3 + p{font-size:13px !important}
   .size-card .size-tiles{font-size:12px}
   .size-card .size-price{font-size:16px !important}
+  .size-list{padding:10px 4px 0;gap:4px;font-size:12px}
+  .size-list li{padding-left:14px}
+  .size-list li::before{top:5px;width:6px;height:6px}
   .size-card > div,.size-card .size-price{padding:0 4px}
   .cw{margin-top:24px;gap:12px}
   .cw__list{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -402,21 +409,25 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 <img class="size-photo" src="/images/sizes/desk-100.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 10 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Side Quest</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">10 cm × 10 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="100" style="margin: 0; font-size: 18px; font-weight: 600">£35.00</p>
+<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=150" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-150.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 15 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Adventure</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">15 cm × 15 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="150" style="margin: 0; font-size: 18px; font-weight: 600">£49.00</p>
+<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=250" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-250.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 25 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Expedition</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">25 cm × 25 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="250" style="margin: 0; font-size: 18px; font-weight: 600">£89.00</p>
+<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=500" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-500.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 50 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Misogi</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">50 cm × 50 cm</p><p class="size-tiles">Four interlocking tiles</p></div>
 <p class="size-price" data-size="500" style="margin: 0; font-size: 18px; font-weight: 600">£199.00</p>
+<ul class="size-list"><li>Four tiles, joined with 8 dowels</li><li>Optional sturdier 15 mm frame, in 4 sections (6 for a hexagon)</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
 </a>
 </div>
 </section>
