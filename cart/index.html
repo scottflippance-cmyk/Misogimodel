@@ -50,7 +50,6 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .sums td{padding:5px 0}
 .sums td:last-child{text-align:right;white-space:nowrap}
 .sums tr.total td{padding-top:12px;border-top:1px solid #DDE1E7;font-size:18px;font-weight:700}
-.placeholder{margin:10px 0 0;font-size:12.5px;color:#B26B00}
 /* "Send me updates": ticked to start with; unticking it keeps them off the mailing list. */
 .updates{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
 .updates input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
@@ -132,18 +131,11 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 .part-list li{position:relative;padding-left:16px}
 .part-list li::before{content:"";position:absolute;left:1px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--accent,#E4572E)}
 .part-list:empty{display:none}
-/* just the model: one wide card, the words centred beside the picture */
-.box-parts[data-n="1"]{grid-template-columns:1fr}
-.box-parts[data-n="1"] .part{display:grid;grid-template-columns:minmax(0,300px) 1fr;grid-template-rows:1fr 1fr;column-gap:28px}
-.box-parts[data-n="1"] .part-pic{grid-row:1 / span 2;margin:0}
-.box-parts[data-n="1"] .part h3{margin-top:0;align-self:end}
-.box-parts[data-n="1"] .part-text{align-self:start}
+/* the cards keep the same size however many show: three to a row, and a lone model card is one of three */
 @media (max-width:760px){
   .box{margin-top:28px}
   .box-q{font-size:18px}
-  .box-parts,.box-parts[data-n="1"]{grid-template-columns:1fr}
-  .box-parts[data-n="1"] .part{display:flex}
-  .box-parts[data-n="1"] .part-pic{margin:-4px 0 8px}
+  .box-parts{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -191,7 +183,6 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
       <tr><td id="shipLabel">Delivery</td><td id="shipping"></td></tr>
       <tr class="total"><td>Total</td><td id="total"></td></tr>
     </table>
-    <p class="placeholder" id="placeholder" hidden>Example prices: these aren't final yet.</p>
     <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases. You can unsubscribe at any time.</span></label>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
@@ -373,7 +364,6 @@ function render() {
   $("shipLabel").textContent = bill ? bill.shipping.label + " delivery" : "Delivery";
   $("shipping").textContent = bill ? money(bill.shipping.price, bill.currency) : "—";
   $("total").textContent = bill ? money(bill.total, bill.currency) : "—";
-  $("placeholder").hidden = !PRICING.placeholder;
   $("checkout").disabled = !bill;
   renderBox(cart.items);
   if (!bill) say("One of these models can't be priced any more. Please remove it and add it again.", true);
@@ -682,7 +672,8 @@ window.__cartReady = true;
     const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
                                  knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
     const mt = footer.querySelector(".site-footer__mountain");
-    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    // the lines stop at the mountain's whole silhouette, not just its white, so none show through the dark rock
+    const url = mt && (mt.dataset.silhouette ? [0, mt.dataset.silhouette] : (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/));
     if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
     window.__footerContours = bot;
   }

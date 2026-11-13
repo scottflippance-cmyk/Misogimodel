@@ -243,13 +243,25 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 .size-photo{display:block;width:100%;height:auto;aspect-ratio:720/700;object-fit:cover;border-radius:12px;background:#ECEAE6}
 .size-card:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:4px}
 @media (hover:hover) and (min-width:900px){
-  .size-card:hover{transform:scale(1.25);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
-/* With all four in one row there is room to grow further (1.40625x).
+  .size-card:hover{transform:scale(1.0625);z-index:2;box-shadow:0 24px 48px rgba(11,14,18,.16)}}
+/* With all four in one row there is room to grow further (1.1953125x: 1.40625 less another 15%).
    The end cards grow inwards so they never spill past the page's edge. */
 @media (hover:hover) and (min-width:1140px){
-  .size-card:hover{transform:scale(1.40625);box-shadow:0 30px 60px rgba(11,14,18,.18)}
+  .size-card:hover{transform:scale(1.1953125);box-shadow:0 30px 60px rgba(11,14,18,.18)}
   .size-card:first-child{transform-origin:left center}
   .size-card:last-child{transform-origin:right center}}
+/* How it works: a dark band straight under the hero, three steps joined by a dashed route */
+.how{scroll-margin-top:-26px;background:#0B0E12;color:#fff;background-image:repeating-radial-gradient(circle at 85% 120%,transparent 0 26px,rgba(228,87,46,.10) 26px 27px)}
+.how .in{max-width:1200px;margin:0 auto;padding:56px 24px 60px}
+.how h2{margin:0;font-size:36px;letter-spacing:-.03em;font-weight:700;text-align:center}
+.how ol{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;position:relative}
+.how ol::before{content:"";position:absolute;left:16.6%;right:16.6%;top:22px;border-top:2px dashed rgba(228,87,46,.7)}
+.how .st{text-align:center;position:relative}
+.how .n{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#E4572E;color:#fff;font-weight:700;font-size:15px;box-shadow:0 0 0 6px #0B0E12}
+.how h3{margin:18px 0 0;font-size:20px;letter-spacing:-.02em}
+.how .st p{margin:8px auto 0;max-width:300px;font-size:15px;line-height:1.5;color:#C3C9D1}
+@media (max-width:640px){.how{scroll-margin-top:-36px}}   /* the banner is 60 px tall on phones, 70 px above */
+@media (max-width:900px){.how .in{padding:28px 24px 44px}.how ol{grid-template-columns:1fr;margin-top:24px;gap:28px}.how ol::before{display:none}}
 /* The colour ways: stacked on the left; the picture beside them shows whichever is under the
    pointer, else the one chosen (Natural to begin with). Photos dropped in /images/colourways/
    cover the placeholder automatically. */
@@ -286,14 +298,9 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 /* Phones: tighter sections, the steps as short numbered cards, the four sizes two by two, and a
    compact colour list. (The sections carry their desktop spacing inline, hence the !important.) */
 @media (max-width:640px){
-  #how,#sizes,section[aria-labelledby="colours-h"],section[aria-labelledby="why-h"],#faq{padding-top:56px !important;padding-bottom:8px !important}
+  #sizes,section[aria-labelledby="colours-h"],section[aria-labelledby="why-h"],#faq{padding-top:56px !important;padding-bottom:8px !important}
   #faq{padding-bottom:56px !important}
-  #how > p,#sizes > p,section[aria-labelledby] > p{font-size:16px !important}
-  #how > div{gap:10px !important;margin-top:24px !important}
-  #how > div > div{padding:18px 20px !important;display:grid;grid-template-columns:34px 1fr;align-items:baseline}
-  #how > div > div > p:first-child{grid-row:span 2;font-size:16px !important}
-  #how > div > div > h3{margin:0 !important;font-size:18px !important}
-  #how > div > div > p:last-child{margin:4px 0 0 !important;font-size:15px !important;line-height:1.5 !important}
+  #sizes > p,section[aria-labelledby] > p{font-size:16px !important}
   #sizes > div{grid-template-columns:1fr 1fr !important;gap:12px !important;margin-top:24px !important}
   .size-card{padding:10px 10px 14px !important;gap:10px !important;border-radius:16px !important}
   .size-card .size-photo{border-radius:10px}
@@ -379,27 +386,8 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 </section>
 
 
-<section id="how" style="max-width: 1200px; margin: 0 auto; padding: 104px 24px 40px">
-<h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">How it works.</h2>
-<p style="margin: 12px 0 0; font-size: 19px; color: #5B6470">Three steps from a place you love to a model on your shelf.</p>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 48px">
-<div style="background: #F5F5F7; border-radius: 20px; padding: 32px">
-<p style="margin: 0; font-size: 15px; font-weight: 700; color: #E4572E">01</p>
-<h3 style="margin: 14px 0 0; font-size: 22px; letter-spacing: -0.02em">Find your place</h3>
-<p style="margin: 10px 0 0; font-size: 16px; line-height: 1.55; color: #3A424C">Pick a suggested location, search for your own, or drop in a GPX file and the map frames your route for you.</p>
-</div>
-<div style="background: #F5F5F7; border-radius: 20px; padding: 32px">
-<p style="margin: 0; font-size: 15px; font-weight: 700; color: #E4572E">02</p>
-<h3 style="margin: 14px 0 0; font-size: 22px; letter-spacing: -0.02em">Make it yours</h3>
-<p style="margin: 10px 0 0; font-size: 16px; line-height: 1.55; color: #3A424C">Adjust the shape and elevation, and add icons, a frame and custom text.</p>
-</div>
-<div style="background: #F5F5F7; border-radius: 20px; padding: 32px">
-<p style="margin: 0; font-size: 15px; font-weight: 700; color: #E4572E">03</p>
-<h3 style="margin: 14px 0 0; font-size: 22px; letter-spacing: -0.02em">We print it</h3>
-<p style="margin: 10px 0 0; font-size: 16px; line-height: 1.55; color: #3A424C">Your model is 3D-printed to order in the colours you pick, and posted to you.</p>
-</div>
-</div>
-</section>
+<section id="how" class="how" aria-labelledby="how-h"><div class="in"><h2 id="how-h">How it works.</h2>
+<ol><li class="st"><span class="n">01</span><h3>Find your place</h3><p>Pick a suggested location, search for your own, or drop in a GPX file and the map frames your route for you.</p></li><li class="st"><span class="n">02</span><h3>Make it yours</h3><p>Adjust the shape and elevation, and add icons, a frame and custom text.</p></li><li class="st"><span class="n">03</span><h3>We print it</h3><p>Your model is 3D-printed to order in the colours you pick, and posted to you.</p></li></ol></div></section>
 
 <section id="sizes" style="max-width: 1200px; margin: 0 auto; padding: 88px 24px 40px">
 <h2 style="margin: 0; font-size: clamp(32px, 4vw, 48px); letter-spacing: -0.03em; font-weight: 700">Pick your size.</h2>
@@ -409,25 +397,25 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 <img class="size-photo" src="/images/sizes/desk-100.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 10 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Side Quest</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">10 cm × 10 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="100" style="margin: 0; font-size: 18px; font-weight: 600">£35.00</p>
-<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
+<ul class="size-list"><li>Solid single piece frame</li><li>Locking pins to secure the model</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=150" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-150.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 15 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Adventure</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">15 cm × 15 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="150" style="margin: 0; font-size: 18px; font-weight: 600">£49.00</p>
-<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
+<ul class="size-list"><li>Solid single piece frame</li><li>Locking pins to secure the model</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=250" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-250.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 25 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Expedition</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">25 cm × 25 cm</p><p class="size-tiles">One tile</p></div>
 <p class="size-price" data-size="250" style="margin: 0; font-size: 18px; font-weight: 600">£89.00</p>
-<ul class="size-list"><li>Optional 10 mm frame, in one piece</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
+<ul class="size-list"><li>Solid single piece frame</li><li>Locking pins to secure the model</li></ul>
 </a>
 <a class="size-card" href="/studio/?size=500" style="background: #F5F5F7; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 18px">
 <img class="size-photo" src="/images/sizes/desk-500.webp" width="720" height="700" loading="lazy" decoding="async" alt="A 50 cm Grand Canyon model, framed, hung on a white wall above a desk, shown to scale">
 <div><h3 style="margin: 0; font-size: 21px; letter-spacing: -0.02em">The Misogi</h3><p style="margin: 4px 0 0; font-size: 15px; color: #5B6470">50 cm × 50 cm</p><p class="size-tiles">Four interlocking tiles</p></div>
 <p class="size-price" data-size="500" style="margin: 0; font-size: 18px; font-weight: 600">£199.00</p>
-<ul class="size-list"><li>Four tiles, joined with 8 dowels</li><li>Optional sturdier 15 mm frame, in 4 sections (6 for a hexagon)</li><li>4 locking pins with the frame (6 for a hexagon)</li></ul>
+<ul class="size-list"><li>Four tiles, joined with 8 dowels</li><li>Sturdier frame in 4 sections (6 for a hexagon)</li><li>Locking pins to secure the model</li></ul>
 </a>
 </div>
 </section>
@@ -521,7 +509,7 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 </section>
 </div>
 <div class="site-footer__brand" role="img" aria-label="misogimodel">
-<span class="site-footer__mountain" aria-hidden="true"></span>
+<span class="site-footer__mountain" aria-hidden="true" data-silhouette="/brand/mountain-silhouette.png"></span>
 <span class="site-footer__word" aria-hidden="true"><span>misogi</span><span>model</span></span>
 </div>
 </div>
@@ -765,7 +753,8 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
     const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
                                  knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
     const mt = footer.querySelector(".site-footer__mountain");
-    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    // the lines stop at the mountain's whole silhouette, not just its white, so none show through the dark rock
+    const url = mt && (mt.dataset.silhouette ? [0, mt.dataset.silhouette] : (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/));
     if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
     window.__footerContours = bot;
   }

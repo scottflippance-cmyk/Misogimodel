@@ -293,7 +293,8 @@ p{margin:18px 0 0;font-size:18px;line-height:1.55;color:#3A424C}
     const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
                                  knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
     const mt = footer.querySelector(".site-footer__mountain");
-    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    // the lines stop at the mountain's whole silhouette, not just its white, so none show through the dark rock
+    const url = mt && (mt.dataset.silhouette ? [0, mt.dataset.silhouette] : (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/));
     if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
     window.__footerContours = bot;
   }

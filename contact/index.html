@@ -68,7 +68,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
 <!-- /site-banner -->
 <main>
 <div id="intro"><h1>Get in touch.</h1>
-<p class="lede">A question about an order, help with a design, or an idea for something custom: send us a message and we'll reply by email.</p></div>
+<p class="lede">A question about an order, help with a design, or an idea for something custom? Contact us below and we'll reply by email.</p></div>
 <form id="contact" novalidate>
   <div class="two">
     <label>Name<input name="name" autocomplete="name" maxlength="80" required></label>
@@ -355,7 +355,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#E4572E;box-sh
     const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
                                  knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
     const mt = footer.querySelector(".site-footer__mountain");
-    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    // the lines stop at the mountain's whole silhouette, not just its white, so none show through the dark rock
+    const url = mt && (mt.dataset.silhouette ? [0, mt.dataset.silhouette] : (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/));
     if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
     window.__footerContours = bot;
   }
