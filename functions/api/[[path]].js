@@ -4,7 +4,7 @@
      Add to cart (studio), once per model:
        POST /api/items                     the design. Priced here, from order-pricing.js, never taken
                                            from the browser. Returns an item id and an upload token.
-       PUT  /api/items/:id/model?token=    the print file (a zip holding the STL), streamed into storage.
+       PUT  /api/items/:id/model?token=    the print file (a zip holding the 3MF, each colour its own part), streamed into storage.
        PUT  /api/items/:id/preview?token=  a picture of the model.
      Checkout (cart page), once for the whole cart:
        POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Gives the order its number

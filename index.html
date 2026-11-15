@@ -82,7 +82,7 @@ summary{cursor:pointer}
 /* The opening screen, "topo night": deep navy with faint glowing contour rings round the model, the
    words at the top left in white with a gold button under them, and the model on the right with
    the real 7-day Machame route (from its GPX file) printed on it, rendered in the studio. */
-.hero{position:relative;overflow:hidden;color:#FFFFFF;background:radial-gradient(1200px 700px at 72% 60%,#1B2B45,#0A1220 70%)}
+.hero{position:relative;overflow:hidden;color:#FFFFFF;background:linear-gradient(180deg,rgba(14,24,40,0) calc(100% - 140px),#0E1828),radial-gradient(1200px 700px at 72% 60%,#1B2B45,#0A1220 70%)}   /* its foot settles to the How it works band's blue */
 .hero__topo{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:#5FA8D3;stroke-width:1;opacity:.32;stroke-linejoin:round;shape-rendering:geometricPrecision}
 .hero__topo .i{stroke-width:2}
 .hero__inner{position:relative;max-width:1200px;margin:0 auto;min-height:calc(100svh - 108px);box-sizing:border-box;padding:clamp(40px,8vh,96px) 24px 48px;
@@ -251,13 +251,15 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
   .size-card:first-child{transform-origin:left center}
   .size-card:last-child{transform-origin:right center}}
 /* How it works: a dark band straight under the hero, three steps joined by a dashed route */
-.how{scroll-margin-top:-26px;background:#0B0E12;color:#fff;background-image:repeating-radial-gradient(circle at 85% 120%,transparent 0 26px,rgba(228,87,46,.10) 26px 27px)}
+.how{scroll-margin-top:-26px;color:#fff;background:linear-gradient(180deg,#0E1828 0,rgba(14,24,40,0) 90px),radial-gradient(900px 300px at 50% 46%,#17263D 0%,#0E1828 60%,#0B0E12 100%)}
+/* the hero's contour lines fade out over their last 140 px, so the hero runs on into the band with no edge; only the lines fade, never the words, button or model */
+.hero__topo{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 140px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 140px),transparent)}
 .how .in{max-width:1200px;margin:0 auto;padding:56px 24px 60px}
 .how h2{margin:0;font-size:36px;letter-spacing:-.03em;font-weight:700;text-align:center}
 .how ol{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;position:relative}
 .how ol::before{content:"";position:absolute;left:16.6%;right:16.6%;top:22px;border-top:2px dashed rgba(228,87,46,.7)}
 .how .st{text-align:center;position:relative}
-.how .n{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#E4572E;color:#fff;font-weight:700;font-size:15px;box-shadow:0 0 0 6px #0B0E12}
+.how .n{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#E4572E;color:#fff;font-weight:700;font-size:15px;box-shadow:0 0 0 6px #142339}
 .how h3{margin:18px 0 0;font-size:20px;letter-spacing:-.02em}
 .how .st p{margin:8px auto 0;max-width:300px;font-size:15px;line-height:1.5;color:#C3C9D1}
 @media (max-width:640px){.how{scroll-margin-top:-36px}}   /* the banner is 60 px tall on phones, 70 px above */

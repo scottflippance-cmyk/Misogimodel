@@ -8697,8 +8697,7 @@ function stlIcons(G, toSTL) {
     const B = BADGES[ic.badge] || BADGES.circle, S = ICON_SHAPES[ic.shape] || ICON_SHAPES.heart, off = 12 - 12 * B.s;
     const layer = (outlines, d) => {
       const zb = toSTL(0, bottom, 0)[2], zt = toSTL(0, bottom + d, 0)[2], tris = [];
-      for (const sh of outlines) {
-        const ring = (pts) => {                                   // drop repeated points: a closed ring must not restate its start
+      const ring = (pts) => {                                     // drop repeated points: a closed ring must not restate its start
           const o = [];
           for (const [px, py] of pts) {
             const q = toSTL(x + (px - 12) / 24 * size, 0, z - (12 - py) / 24 * size).slice(0, 2);
@@ -8708,6 +8707,7 @@ function stlIcons(G, toSTL) {
           while (o.length > 2 && Math.hypot(o[0][0] - o[o.length - 1][0], o[0][1] - o[o.length - 1][1]) < 1e-9) o.pop();
           return o;
         };
+      for (const sh of outlines) {
         let outer = ring(sh.outer); if (area(outer) < 0) outer.reverse();                 // outer anticlockwise from above
         const holes = sh.holes.map(ring).map((h) => (area(h) > 0 ? h.reverse() : h));     // holes clockwise
         if (outer.length < 3) continue;
@@ -8718,12 +8718,16 @@ function stlIcons(G, toSTL) {
         });
         capsFor(outer, holes, zt, zb, tris);
       }
-      if (tris.length) out.push({ name: "icon", tris });
+      if (tris.length) out.push({ name: "icon", tris, colour, role, icon: n, zb, zt,
+        rings: outlines.map((sh) => { const r = (pts) => ring(pts); let o = r(sh.outer); if (area(o) < 0) o.reverse(); return [o, ...sh.holes.map(r)]; }).flat() });
     };
+    // in the colours the 3D view shows: the badge in the icon's colour, the symbol on it in the ink that
+    // reads on that colour (cut out of the badge when the file is made, so the two never overlap)
+    let colour, role; const n = out.length;
     if (B.d) {
-      layer(outlinesFromPath(B.d), depth);
-      layer(outlinesFromPath(S.d, B.s, off, off + B.dy), depth + proud);                  // symbol stands proud of the face
-    } else layer(outlinesFromPath(S.d), depth);
+      colour = ic.colour; role = "badge"; layer(outlinesFromPath(B.d), depth);
+      colour = inkFor(ic.colour); role = "symbol"; layer(outlinesFromPath(S.d, B.s, off, off + B.dy), depth + proud);   // symbol stands proud of the face
+    } else { colour = ic.colour; role = "symbol"; layer(outlinesFromPath(S.d), depth); }
   }
   return out;
 }
@@ -8801,29 +8805,43 @@ function bodyColour(b) {
   if (b.colour) return b.colour;
   return (PART_COLOUR[b.name] || (() => "#C8C8C8"))();
 }
+/* One object for each piece that prints on its own (the model, a Misogi tile, the frame…), built of
+   its parts, one per colour, each named for what it is and the colour it wants. A slicer opens each
+   piece as a single object with its parts in place, so the top layers can't wander off the body
+   when the plate is arranged; you give each part its filament. */
 function modelXML(bodies) {
   const mats = [], matIx = new Map();
   for (const b of bodies) { const c = bodyColour(b).toUpperCase(); if (!matIx.has(c)) { matIx.set(c, mats.length); mats.push(c); } }
-  let objs = "", build = "";
-  bodies.forEach((b, i) => {
-    const T = b.tris, index = new Map(), verts = [], tris = [];
-    for (let k = 0; k < T.length; k += 3) {
-      const key = T[k].toFixed(4) + "," + T[k + 1].toFixed(4) + "," + T[k + 2].toFixed(4);
-      let id = index.get(key);
-      if (id === undefined) { id = verts.length; index.set(key, id); verts.push([T[k], T[k + 1], T[k + 2]]); }
-      tris.push(id);
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const groups = [];
+  for (const b of bodies) { const k = b.group || b.name; let g = groups.find((x) => x.name === k); if (!g) groups.push(g = { name: k, parts: [] }); g.parts.push(b); }
+  let objs = "", build = "", id = 0;
+  for (const g of groups) {
+    const ids = [];
+    for (const b of g.parts) {
+      const T = b.tris, index = new Map(), verts = [], tris = [];
+      for (let k = 0; k < T.length; k += 3) {
+        const key = T[k].toFixed(4) + "," + T[k + 1].toFixed(4) + "," + T[k + 2].toFixed(4);
+        let v = index.get(key);
+        if (v === undefined) { v = verts.length; index.set(key, v); verts.push([T[k], T[k + 1], T[k + 2]]); }
+        tris.push(v);
+      }
+      const vXML = verts.map((v) => '<vertex x="' + v[0].toFixed(4) + '" y="' + v[1].toFixed(4) + '" z="' + v[2].toFixed(4) + '"/>').join("");
+      let tXML = "";
+      for (let k = 0; k < tris.length; k += 3) tXML += '<triangle v1="' + tris[k] + '" v2="' + tris[k + 1] + '" v3="' + tris[k + 2] + '"/>';
+      const c = bodyColour(b).toUpperCase();
+      objs += '<object id="' + (++id) + '" type="model" name="' + esc(b.name + " (" + c + ")") + '" pid="1" pindex="' + matIx.get(c) + '">' +
+              "<mesh><vertices>" + vXML + "</vertices><triangles>" + tXML + "</triangles></mesh></object>";
+      ids.push(id);
     }
-    const vXML = verts.map((v) => '<vertex x="' + v[0].toFixed(4) + '" y="' + v[1].toFixed(4) + '" z="' + v[2].toFixed(4) + '"/>').join("");
-    let tXML = "";
-    for (let k = 0; k < tris.length; k += 3) tXML += '<triangle v1="' + tris[k] + '" v2="' + tris[k + 1] + '" v3="' + tris[k + 2] + '"/>';
-    objs += '<object id="' + (i + 1) + '" type="model" name="' + b.name + '" pid="1" pindex="' + matIx.get(bodyColour(b).toUpperCase()) + '">' +
-            "<mesh><vertices>" + vXML + "</vertices><triangles>" + tXML + "</triangles></mesh></object>";
-    build += '<item objectid="' + (i + 1) + '"/>';
-  });
+    objs += '<object id="' + (++id) + '" type="model" name="' + esc(g.name) + '"><components>' +
+            ids.map((i) => '<component objectid="' + i + '"/>').join("") + "</components></object>";
+    build += '<item objectid="' + id + '"/>';
+  }
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">' +
     "<resources><basematerials id=\"1\">" +
-    mats.map((c, i) => '<base name="part ' + (i + 1) + '" displaycolor="' + c + 'FF"/>').join("") +
+    mats.map((c, i) => '<base name="' + c + '" displaycolor="' + c + 'FF"/>').join("") +
     "</basematerials>" + objs + "</resources><build>" + build + "</build></model>";
 }
 
@@ -8949,11 +8967,11 @@ function heightBlock(nx, ny, X, Y, Z, zb) {
   return tris;
 }
 /* The ground as a solid: the terrain's own grid on top, flat underneath, cut to the outline. */
-function terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM) {
+function terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM, cells) {
   const n = data.n, step = W / (n - 1);
-  const tris = heightBlock(n, n, (c) => c * step, (r) => r * step,
-    (c, r) => z0 + baseMM + liftMM + (data.grid[(n - 1 - r) * n + c] - data.min) * mmPerM, z0);
-  let m = solidOf(S, tris);
+  let m = cells ? steppedTerrain(S, data, W, z0, baseMM, mmPerM, liftMM, cells)
+                : solidOf(S, heightBlock(n, n, (c) => c * step, (r) => r * step,
+                    (c, r) => z0 + baseMM + liftMM + (data.grid[(n - 1 - r) * n + c] - data.min) * mmPerM, z0));
   if (modelOutline !== "square") m = S(m.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4)));
   return m;
 }
@@ -9125,8 +9143,8 @@ function frameSections(S, frame, W, Ht) {
 }
 
 /* The model: ground, the logo underneath, and what the frame needs cut into it. */
-function modelSolid(S, data, W, z0, baseMM, mmPerM, liftMM, withFrame, t) {
-  let m = terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM);
+function modelSolid(S, data, W, z0, baseMM, mmPerM, liftMM, withFrame, t, cells) {
+  let m = terrainSolid(S, data, W, z0, baseMM, mmPerM, liftMM, cells);
   m = S(m.subtract(backStamp(S, W, z0, backArtCentre(W))));
   if (withFrame) {
     if (isMisogi()) {
@@ -9230,6 +9248,265 @@ function layOut(groups) {
   }
 }
 
+/* ---------- the colours on top: a 1 mm layer ----------
+   The model prints in the colour way's colour 1 all the way through, and only its top millimetre
+   takes the other colours: water, woods, scrub and paths in the colours the colour way gives them,
+   and a painted route and flat icons in their own, wherever the 3D view shows them. A slicer can
+   then print the body in one filament and change only for the last few layers. */
+const SKIN_MM = 1;
+const printBaseColour = () => (printCols.on ? printCols.colours[0] : PLAIN_GROUND).toUpperCase();
+/* The top of the model painted flat in print colours, north up, about 0.25 mm a pixel: what the 3D
+   view shows, without its shading, snow or shine. */
+async function printPaint(data, W) {
+  const px = Math.round(clamp(W * 4, 400, 2000)), mm = px / W;
+  const cv = document.createElement("canvas"); cv.width = cv.height = px;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.fillStyle = printBaseColour(); g.fillRect(0, 0, px, px);
+  if (printCols.on) {                               // Solid has nothing on top but its own colour
+    paintOpenSea(g, data, px);
+    if (streetFeaturesOn()) {
+      const ws = px / 1024 * 1.2;
+      await paintAreaFeatures(g, data.bounds, px, ws, UNDER_SNOW);
+      await paintAreaFeatures(g, data.bounds, px, ws, OVER_SNOW);
+    }
+  }
+  if (route && routeStyle.mode === "painted" && (!printCols.on || printedSeparately("route"))) paintRoute(g, data.bounds, px, mm);
+  if (typeof paintIcons === "function") paintIcons(g, data.bounds, px, mm, null);
+  return { g, px };
+}
+/* The colours that can be on top, each with what it is for: colour 1 first. */
+function printPalette() {
+  const pal = [], add = (hex, what) => {
+    hex = hex.toUpperCase(); const p = pal.find((q) => q.hex === hex);
+    if (p) { if (what && !p.what.includes(what)) p.what.push(what); } else pal.push({ hex, what: what ? [what] : [] });
+  };
+  add(printBaseColour(), null);
+  if (printCols.on) for (const key of printableParts()) if (printedSeparately(key)) add(PC(key), PART_LABELS[key].toLowerCase());
+  if (route && routeStyle.mode === "painted" && (!printCols.on || printedSeparately("route"))) add(routeStyle.colour, "route");
+  if (!printCols.on || printedSeparately("icons")) for (const ic of icons) if (ic.mode === "flat") {
+    add(ic.colour, "icons"); add(inkFor(ic.colour), "icons"); add("#FFFFFF", "icons");
+  }
+  return pal;
+}
+/* Each pixel to its colour: its nearest, or, for the soft edge of a thin line (a stream, a path),
+   the colour it's clearly tinted towards. Then each colour is closed up by a pixel, so a thin line
+   stays one line rather than breaking into dashes; specks under 1.5 mm² go back to colour 1, as
+   they'd only cost a filament change for nothing a printer could draw. */
+function topClasses(g, px, pal, W) {
+  const d = g.getImageData(0, 0, px, px).data, rgb = pal.map((p) => hexRGB(p.hex)), n = px * px, b0 = rgb[0];
+  let cls = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const r = d[i * 4], gg = d[i * 4 + 1], bb = d[i * 4 + 2];
+    let best = 0, bd = Infinity;
+    for (let c = 0; c < rgb.length; c++) {
+      const dr = r - rgb[c][0], dg = gg - rgb[c][1], db = bb - rgb[c][2], dd = dr * dr + dg * dg + db * db;
+      if (dd < bd) { bd = dd; best = c; }
+    }
+    if (best === 0) {                                 // a blend of colour 1 and another, a third of the way or more
+      let bt = 0.33;
+      for (let c = 1; c < rgb.length; c++) {
+        const vx = rgb[c][0] - b0[0], vy = rgb[c][1] - b0[1], vz = rgb[c][2] - b0[2], L = vx * vx + vy * vy + vz * vz;
+        if (L < 1) continue;
+        const t = ((r - b0[0]) * vx + (gg - b0[1]) * vy + (bb - b0[2]) * vz) / L;
+        const ox = r - b0[0] - t * vx, oy = gg - b0[1] - t * vy, oz = bb - b0[2] - t * vz;
+        if (t > bt && t <= 1.2 && ox * ox + oy * oy + oz * oz < 900) { bt = t; best = c; }
+      }
+    }
+    cls[i] = best;
+  }
+  // bridge gaps: a pixel of colour 1 with the same other colour on both sides of it, within two
+  // pixels across, down or on a slant, takes that colour (only ever adds, never trims)
+  const filled = cls.slice(), dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) {
+    const i = y * px + x; if (cls[i]) continue;
+    find: for (const [dx, dy] of dirs) for (let a1 = 1; a1 <= 2; a1++) for (let a2 = 1; a2 <= 2; a2++) {
+      const x1 = x - dx * a1, y1 = y - dy * a1, x2 = x + dx * a2, y2 = y + dy * a2;
+      if (x1 < 0 || y1 < 0 || x2 < 0 || y2 < 0 || x1 >= px || y1 >= px || x2 >= px || y2 >= px) continue;
+      const c = cls[y1 * px + x1];
+      if (c && c === cls[y2 * px + x2]) { filled[i] = c; break find; }
+    }
+  }
+  cls = filled;
+  const minPx = 1.5 * (px / W) ** 2, seen = new Uint8Array(n), stack = new Int32Array(n);
+  for (let s = 0; s < n; s++) {
+    if (seen[s] || !cls[s]) continue;
+    const c = cls[s], comp = []; let top = 0; stack[top++] = s; seen[s] = 1;
+    while (top) {
+      const p = stack[--top]; comp.push(p); const x = p % px, y = (p - x) / px;
+      for (const q of [x > 0 ? p - 1 : -1, x < px - 1 ? p + 1 : -1, y > 0 ? p - px : -1, y < px - 1 ? p + px : -1])
+        if (q >= 0 && !seen[q] && cls[q] === c) { seen[q] = 1; stack[top++] = q; }
+    }
+    if (comp.length < minPx) for (const p of comp) cls[p] = 0;
+  }
+  return cls;
+}
+/* One colour's pixels as a flat shape in millimetres (x east, y north): runs along each row, stacked
+   while the next row has the same run, then joined up. */
+function classShape(S, cls, px, c, W) {
+  const k = W / px, rects = [], open = new Map();
+  const close = (key, r, y) => { rects.push([[r.x0 * k, W - y * k], [r.x1 * k, W - y * k], [r.x1 * k, W - r.y0 * k], [r.x0 * k, W - r.y0 * k]]); open.delete(key); };
+  for (let y = 0; y <= px; y++) {
+    const runs = new Set();
+    if (y < px) for (let x = 0; x < px;) {
+      if (cls[y * px + x] !== c) { x++; continue; }
+      const x0 = x; while (x < px && cls[y * px + x] === c) x++;
+      const key = x0 + ":" + x; runs.add(key); if (!open.has(key)) open.set(key, { x0, x1: x, y0: y });
+    }
+    for (const [key, r] of [...open]) if (!runs.has(key)) close(key, r, y);
+  }
+  if (!rects.length) return null;
+  return S(new manifoldLib.CrossSection(rects, "Positive"));
+}
+/* What's on top, worked out once per print file: the colours and which pixel takes which. */
+async function topPlan(data, W) {
+  const pal = printPalette();
+  if (pal.length < 2) return null;
+  const { g, px } = await printPaint(data, W);
+  return { pal, px, cls: topClasses(g, px, pal, W) };
+}
+/* The colour of each cell of the terrain's grid (the square between four of its points): the colour
+   at its middle. The outermost ring of cells stays colour 1, so the coloured top never reaches the
+   model's sides. Two cells of a colour may not meet only at a corner (nor coloured and colour-1 cells
+   cross like a chessboard): a solid can't pinch to a point, so the gap is filled in. */
+function cellColours(plan, data) {
+  const m = data.n - 1, cc = new Uint8Array(m * m), P = plan.px;
+  const cnt = new Uint8Array(plan.pal.length);
+  for (let j = 1; j < m - 1; j++) for (let i = 1; i < m - 1; i++) {
+    cnt.fill(0);                                     // nine looks across the cell: a thin line between its middles still counts
+    for (let b = 0; b < 3; b++) for (let a = 0; a < 3; a++) {
+      const X = Math.min(P - 1, Math.floor((i + (a + 0.5) / 3) / m * P)), Y = Math.min(P - 1, Math.floor((1 - (j + (b + 0.5) / 3) / m) * P));
+      cnt[plan.cls[Y * P + X]]++;
+    }
+    let best = 0; for (let c = 1; c < cnt.length; c++) if (cnt[c] > cnt[best] || (cnt[c] >= 3 && !best)) best = c;
+    cc[j * m + i] = cnt[best] >= 3 || best === 0 ? best : 0;
+  }
+  const inner = (i, j) => i > 0 && j > 0 && i < m - 1 && j < m - 1;
+  for (let pass = 0; pass < 12; pass++) {
+    let changed = 0;
+    for (let j = 0; j < m - 1; j++) for (let i = 0; i < m - 1; i++) {
+      const A = j * m + i, B = A + 1, C = A + m, D = A + m + 1;   // A B along the row, C D on the next
+      const a = cc[A], b = cc[B], c = cc[C], d = cc[D];
+      const diag = (p, q, r, t) => p && p === q && r !== p && t !== p;                 // p, q of one colour, corner to corner
+      const cross = (p, q, r, t) => p && q && !r && !t;                                // coloured corner to corner, colour 1 across
+      let fill = -1, to = 0;
+      if (diag(a, d, b, c) || cross(a, d, b, c)) { to = a; fill = !b && inner(i + 1, j) ? B : !c && inner(i, j + 1) ? C : inner(i + 1, j) ? B : -1; }
+      else if (diag(b, c, a, d) || cross(b, c, a, d)) { to = b; fill = !a && inner(i, j) ? A : !d && inner(i + 1, j + 1) ? D : inner(i, j) ? A : -1; }
+      if (fill >= 0) { cc[fill] = to; changed++; }
+      else if (to) { cc[A] = cc[B] = cc[C] = cc[D] = 0; changed++; }             // at the edge: give it back to colour 1
+    }
+    if (!changed) break;
+  }
+  return cc;
+}
+/* A closed solid from shared corners and triangles, without a lookup by position: big, and quick. */
+function meshSolid(S, verts, tris) {
+  const used = new Int32Array(verts.length / 3).fill(-1), out = [];
+  const tv = new Uint32Array(tris.length);
+  for (let k = 0; k < tris.length; k++) {
+    const v = tris[k]; if (used[v] < 0) { used[v] = out.length / 3; out.push(verts[v * 3], verts[v * 3 + 1], verts[v * 3 + 2]); }
+    tv[k] = used[v];
+  }
+  const mesh = new manifoldLib.Mesh({ numProp: 3, vertProperties: new Float32Array(out), triVerts: tv });
+  mesh.merge();
+  return S(new manifoldLib.Manifold(mesh));
+}
+/* The terrain's grid twice over (its surface, and 1 mm under it), with a helper that lays a four-
+   cornered face facing the way asked. */
+function gridFaces(data, W, z0, baseMM, mmPerM, liftMM) {
+  const n = data.n, step = W / (n - 1), N = n * n, verts = new Float64Array(N * 6);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const h = z0 + baseMM + liftMM + (data.grid[(n - 1 - j) * n + i] - data.min) * mmPerM, t = j * n + i;
+    verts[t * 3] = verts[(N + t) * 3] = i * step; verts[t * 3 + 1] = verts[(N + t) * 3 + 1] = j * step;
+    verts[t * 3 + 2] = h; verts[(N + t) * 3 + 2] = h - SKIN_MM;
+  }
+  const T = (i, j) => j * n + i, L = (i, j) => N + j * n + i, tris = [];
+  const quad = (p, q, r, t, want) => {               // p q r t round the face; flipped if it faces the wrong way
+    const V = (k) => [verts[k * 3], verts[k * 3 + 1], verts[k * 3 + 2]], A = V(p), B = V(q), C = V(r);
+    const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (nx * want[0] + ny * want[1] + nz * want[2] >= 0) tris.push(p, q, r, p, r, t); else tris.push(p, r, q, p, t, r);
+  };
+  return { n, step, verts, T, L, tris, quad };
+}
+/* The ground as a solid with its top stepped down 1 mm wherever a cell is coloured: the coloured top
+   parts sit in those steps exactly. Without colours it is the plain terrain block. */
+function steppedTerrain(S, data, W, z0, baseMM, mmPerM, liftMM, cells) {
+  const G = gridFaces(data, W, z0, baseMM, mmPerM, liftMM), { n, T, L, tris, quad } = G, m = n - 1;
+  const low = (i, j) => cells[j * m + i] !== 0;
+  for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
+    const P = low(i, j) ? L : T;                     // the top, in the same two triangles as the plain block
+    tris.push(P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j), P(i + 1, j + 1), P(i, j + 1));
+    if (i < m - 1 && low(i, j) !== low(i + 1, j)) quad(L(i + 1, j), L(i + 1, j + 1), T(i + 1, j + 1), T(i + 1, j), [low(i + 1, j) ? 1 : -1, 0, 0]);
+    if (j < m - 1 && low(i, j) !== low(i, j + 1)) quad(L(i, j + 1), L(i + 1, j + 1), T(i + 1, j + 1), T(i, j + 1), [0, low(i, j + 1) ? 1 : -1, 0]);
+  }
+  // the sides and the bottom (the outer ring of cells is never coloured, so the sides start at the surface)
+  const verts = Array.from(G.verts), base = verts.length / 3, per = [];
+  for (let i = 0; i < n; i++) per.push([i, 0]);
+  for (let j = 1; j < n; j++) per.push([n - 1, j]);
+  for (let i = n - 2; i >= 0; i--) per.push([i, n - 1]);
+  for (let j = n - 2; j >= 1; j--) per.push([0, j]);
+  per.forEach(([i, j]) => verts.push(i * G.step, j * G.step, z0));
+  const mid = verts.length / 3; verts.push(W / 2, W / 2, z0);
+  const tri = (a, b, c) => tris.push(a, b, c);
+  per.forEach((p, k) => {
+    const q = per[(k + 1) % per.length], bp = base + k, bq = base + (k + 1) % per.length;
+    const out = [(p[0] + q[0]) / 2 - (n - 1) / 2, (p[1] + q[1]) / 2 - (n - 1) / 2, 0];
+    G.verts = verts; quadFrom(verts, tris, T(...p), bp, bq, T(...q), out);
+    tri(mid, bq, bp);                                // the bottom, a fan from its middle (facing down)
+  });
+  return meshSolid(S, verts, tris);
+}
+function quadFrom(verts, tris, p, q, r, t, want) {
+  const V = (k) => [verts[k * 3], verts[k * 3 + 1], verts[k * 3 + 2]], A = V(p), B = V(q), C = V(r);
+  const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  if (nx * want[0] + ny * want[1] + nz * want[2] >= 0) tris.push(p, q, r, p, r, t); else tris.push(p, r, q, p, t, r);
+}
+/* Each colour's top: its cells as columns 1 mm deep from the surface down, joined into one solid. */
+function topParts(S, data, W, z0, baseMM, mmPerM, liftMM, cells, plan) {
+  const G = gridFaces(data, W, z0, baseMM, mmPerM, liftMM), { n, T, L, quad } = G, m = n - 1, out = [];
+  for (let c = 1; c < plan.pal.length; c++) {
+    G.tris = []; const tris = G.tris, is = (i, j) => i >= 0 && j >= 0 && i < m && j < m && cells[j * m + i] === c;
+    const q = (p, r, s2, t, w) => { const keep = G.tris; quad(p, r, s2, t, w); };
+    let any = false;
+    for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
+      if (!is(i, j)) continue; any = true;
+      tris.push(T(i, j), T(i + 1, j), T(i + 1, j + 1), T(i, j), T(i + 1, j + 1), T(i, j + 1));      // its top: the ground itself
+      tris.push(L(i, j), L(i + 1, j + 1), L(i + 1, j), L(i, j), L(i, j + 1), L(i + 1, j + 1));      // its bottom, facing down
+      if (!is(i + 1, j)) quadFrom(G.verts, tris, L(i + 1, j), L(i + 1, j + 1), T(i + 1, j + 1), T(i + 1, j), [1, 0, 0]);
+      if (!is(i - 1, j)) quadFrom(G.verts, tris, L(i, j), L(i, j + 1), T(i, j + 1), T(i, j), [-1, 0, 0]);
+      if (!is(i, j + 1)) quadFrom(G.verts, tris, L(i, j + 1), L(i + 1, j + 1), T(i + 1, j + 1), T(i, j + 1), [0, 1, 0]);
+      if (!is(i, j - 1)) quadFrom(G.verts, tris, L(i, j), L(i + 1, j), T(i + 1, j), T(i, j), [0, -1, 0]);
+    }
+    if (!any) continue;
+    let solid = meshSolid(S, G.verts, tris);
+    if (modelOutline !== "square") solid = S(solid.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4)));
+    if (solid.volume() < 0.05) continue;
+    out.push({ name: "top " + (plan.pal[c].what.join(", ") || "colour " + (c + 1)), colour: plan.pal[c].hex, solid });
+  }
+  return out;
+}
+/* The raised bits on top in their own colours: roads in colour 1, paths in theirs, the route and
+   icons in the colours chosen for them. */
+function extraColour(e) {
+  if (e.name === "road") return (PC("roads") || printBaseColour()).toUpperCase();
+  if (e.name === "path") return (PC("paths") || printBaseColour()).toUpperCase();
+  if (e.name === "route") return routeStyle.colour.toUpperCase();
+  if (e.colour) return e.colour.toUpperCase();
+  return bodyColour(e);
+}
+/* Raised icons as proper solids, built from their outlines (the stacked triangles they're drawn with
+   don't always close up), and each symbol cut out of its badge, so every bit of plastic is in one
+   part only. */
+function cutSymbols(S, extras) {
+  const solidFor = (e) => S(S(new manifoldLib.CrossSection(e.rings.filter((r) => r.length >= 3), "EvenOdd")).extrude(e.zt - e.zb).translate([0, 0, e.zb]));
+  for (const e of extras) if (e.rings) { try { const m = solidFor(e); if (m.numTri()) { e.solid = m; e.tris = trisOf(m); } } catch (err) { /* keep the drawn triangles */ } }
+  for (const b of extras.filter((e) => e.role === "badge" && e.solid)) {
+    const sym = extras.find((e) => e.role === "symbol" && e.icon === b.icon && e.solid);
+    if (sym) { const m = S(b.solid.subtract(sym.solid)); if (m.numTri()) b.tris = trisOf(m); }
+  }
+}
+
 let lastStl = null;
 /* The print file. Customers don't download it: it is built when they order, and goes to the
    workshop with the order (see the order section below). */
@@ -9250,8 +9527,11 @@ async function buildPrintFile(opts) {
     let bodies, groups;
     try {
     const t = frameVals.t, Ht = frameVals.d + baseMM + frameVals.h;
-    progress(true, "Shaping the ground…", 25); await new Promise((r) => setTimeout(r, 20));
-    const model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t);
+    progress(true, "Colouring the top…", 22); await new Promise((r) => setTimeout(r, 20));
+    const plan = await topPlan(data, W), cells = plan && cellColours(plan, data);   // colour 1 throughout, the others on the top 1 mm
+    progress(true, "Shaping the ground…", 30); await new Promise((r) => setTimeout(r, 20));
+    const model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t, cells);
+    const tops = cells ? topParts(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, cells, plan) : [];
     const extras = [];                               // the parts that ride on the ground: roads, paths, route, icons
     if ((show.roads || show.paths) && roadOpts.on && roadsAllowed()) {   // raised roads, on their own account
       progress(true, "Adding roads…", 45);
@@ -9274,13 +9554,15 @@ async function buildPrintFile(opts) {
       }
     }
     if ($("stlIcons").checked) extras.push(...stlIcons(G, toSTL));
-    for (const e of extras) { orientOutward(e.tris); e.colour = bodyColour(e); }
+    for (const e of extras) { orientOutward(e.tris); e.colour = extraColour(e); }
+    cutSymbols(S, extras);
+
     progress(true, "Cutting the parts…", 60); await new Promise((r) => setTimeout(r, 20));
     const ring = outlineMM(W);
     const inRing = (x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
       const a = ring[i], b = ring[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
     const outlinePrism = prismOf(S, outlineCS(S, W, 0.05), z0 - 1, z0 + 1e4);
-    const terrainColour = bodyColour({ name: "terrain" }), frameColour = bodyColour({ name: "frame" });
+    const terrainColour = printBaseColour(), frameColour = bodyColour({ name: "frame" });
     groups = [];
     if (isMisogi()) {
       const boxes = tileBoxes(W);
@@ -9289,6 +9571,7 @@ async function buildPrintFile(opts) {
         const foot = { solid: S(S(manifoldLib.Manifold.cube([x1 - x0, y1 - y0, 2e4], false)).translate([x0, y0, z0 - 1e4]).intersect(outlinePrism)),
                        has: (x, y) => x >= x0 && x < x1 && y >= y0 && y < y1 && inRing(x, y) };
         const g = { name: "tile " + (i + 1), bodies: [{ name: "terrain tile " + (i + 1), tris: trisOf(tile), colour: terrainColour }] };
+        for (const tp of tops) { const cut = S(tp.solid.intersect(foot.solid)); if (cut.volume() > 0.01) g.bodies.push({ name: tp.name + " tile " + (i + 1), tris: trisOf(cut), colour: tp.colour }); }
         for (const e of extras) { const tr = clipBodyTo(S, e, foot); if (tr.length) g.bodies.push({ name: e.name + " tile " + (i + 1), tris: tr, colour: e.colour }); }
         groups.push(g);
       });
@@ -9296,7 +9579,8 @@ async function buildPrintFile(opts) {
       groups.push({ name: "dowels", bodies: [...Array(nd).keys()].map((i) => ({ name: "dowel " + (i + 1), colour: terrainColour,
         tris: dowel.map((v, j) => (j % 3 === 1 ? v + i * (2 * PRINT_PARTS.DOWEL.r + 4) : v)) })) });
     } else {
-      const g = { name: "model", bodies: [{ name: "terrain", tris: trisOf(model), colour: terrainColour }] };
+      const g = { name: "model", bodies: [{ name: "terrain", tris: trisOf(model), colour: terrainColour },
+                                          ...tops.map((tp) => ({ name: tp.name, tris: trisOf(tp.solid), colour: tp.colour }))] };
       const foot = { solid: outlinePrism, has: inRing };
       for (const e of extras) {
         const tr = modelOutline === "square" ? e.tris : clipBodyTo(S, e, foot);
@@ -9452,7 +9736,7 @@ async function addToCart() {
     if (cart.items.length >= P.PRICING.maxItems) throw new Error("your basket is full (" + P.PRICING.maxItems + " models at most)");
     say("Packing up your mountain…");
     const st = collectState();
-    const file = await buildPrintFile();
+    const file = await buildPrintFile({ format: "3mf" });   // a 3MF: each colour its own part (an STL can't carry colour)
     if (!file) throw new Error("there's no model to print yet");
     const zip = await zipFile([{ name: file.name, data: new Uint8Array(await file.blob.arrayBuffer()) }]);
     const big = $("odImg").src && $("odImg").src.startsWith("data:") ? $("odImg").src : "";
