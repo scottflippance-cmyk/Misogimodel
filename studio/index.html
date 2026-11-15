@@ -7672,7 +7672,7 @@ function sweepRoute(run, profileKey, r, groundY) {
     cap(rings[0], d0.map((x) => x / (Math.hypot(...d0) || 1)), true);
     cap(rings[N - 1], d1.map((x) => x / (Math.hypot(...d1) || 1)), false);
   }
-  return { pos, nrm, rings: rings.length, perRing: m, closed, bottom: Math.min(...prof.pts.map((p) => p[1])) + prof.lift };
+  return { pos, nrm, rings: rings.length, perRing: m, closed, path: P, bottom: Math.min(...prof.pts.map((p) => p[1])) + prof.lift };
 }
 
 /* Is (x, z) within `extra` + the gap + half the route's width of the route? Segments are
@@ -8809,15 +8809,15 @@ function bodyColour(b) {
    its parts, one per colour, each named for what it is and the colour it wants. A slicer opens each
    piece as a single object with its parts in place, so the top layers can't wander off the body
    when the plate is arranged; you give each part its filament. */
-function modelXML(bodies) {
-  const mats = [], matIx = new Map();
+function modelXML(bodies, fil = filamentNumbers(bodies)) {
+  const mats = [], matIx = new Map(), cfg = [];
   for (const b of bodies) { const c = bodyColour(b).toUpperCase(); if (!matIx.has(c)) { matIx.set(c, mats.length); mats.push(c); } }
   const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   const groups = [];
   for (const b of bodies) { const k = b.group || b.name; let g = groups.find((x) => x.name === k); if (!g) groups.push(g = { name: k, parts: [] }); g.parts.push(b); }
   let objs = "", build = "", id = 0;
   for (const g of groups) {
-    const ids = [];
+    const ids = [], parts = [];
     for (const b of g.parts) {
       const T = b.tris, index = new Map(), verts = [], tris = [];
       for (let k = 0; k < T.length; k += 3) {
@@ -8829,15 +8829,17 @@ function modelXML(bodies) {
       const vXML = verts.map((v) => '<vertex x="' + v[0].toFixed(4) + '" y="' + v[1].toFixed(4) + '" z="' + v[2].toFixed(4) + '"/>').join("");
       let tXML = "";
       for (let k = 0; k < tris.length; k += 3) tXML += '<triangle v1="' + tris[k] + '" v2="' + tris[k + 1] + '" v3="' + tris[k + 2] + '"/>';
-      const c = bodyColour(b).toUpperCase();
-      objs += '<object id="' + (++id) + '" type="model" name="' + esc(b.name + " (" + c + ")") + '" pid="1" pindex="' + matIx.get(c) + '">' +
+      const c = bodyColour(b).toUpperCase(), nm = b.name + " (" + c + ", filament " + fil.get(c) + ")";
+      objs += '<object id="' + (++id) + '" type="model" name="' + esc(nm) + '" pid="1" pindex="' + matIx.get(c) + '">' +
               "<mesh><vertices>" + vXML + "</vertices><triangles>" + tXML + "</triangles></mesh></object>";
-      ids.push(id);
+      ids.push(id); parts.push('<part id="' + id + '" subtype="normal_part"><metadata key="name" value="' + esc(nm) + '"/><metadata key="extruder" value="' + fil.get(c) + '"/></part>');
     }
     objs += '<object id="' + (++id) + '" type="model" name="' + esc(g.name) + '"><components>' +
             ids.map((i) => '<component objectid="' + i + '"/>').join("") + "</components></object>";
+    cfg.push('<object id="' + id + '"><metadata key="name" value="' + esc(g.name) + '"/><metadata key="extruder" value="' + fil.get(bodyColour(g.parts[0]).toUpperCase()) + '"/>' + parts.join("") + "</object>");
     build += '<item objectid="' + id + '"/>';
   }
+  modelXML.config = '<?xml version="1.0" encoding="UTF-8"?>\n<config>' + cfg.join("") + "</config>";   // Bambu Studio: which filament each part takes
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">' +
     "<resources><basematerials id=\"1\">" +
@@ -9507,6 +9509,54 @@ function cutSymbols(S, extras) {
   }
 }
 
+/* ---------- the route as a piece of its own ----------
+   The route prints separately and clicks into a groove in the model: the piece is the route as it
+   shows, plus a keel 2 mm deep below the ground; the groove is a touch wider and deeper, so it seats. */
+const ROUTE_CLIP = { depth: 2, clr: 0.15, seat: 0.1 };
+/* The route's footprint, `hw` either side of its centre lines (print millimetres), round at the
+   bends; at the ends round too, or square to finish where the route does. */
+function routeFoot(S, paths, hw, roundEnds) {
+  const polys = [], ccw = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return a < 0 ? pts.reverse() : pts; };
+  const disc = (c) => ccw([...Array(20).keys()].map((k) => [c[0] + hw * Math.cos(k * Math.PI / 10), c[1] + hw * Math.sin(k * Math.PI / 10)]));
+  for (const { P, closed } of paths) {
+    const N = P.length, segs = closed ? N : N - 1;
+    for (let i = 0; i < segs; i++) {
+      const a = P[i], b = P[(i + 1) % N], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+      if (L < 1e-6) continue;
+      const nx = -dy / L * hw, ny = dx / L * hw;
+      polys.push(ccw([[a[0] + nx, a[1] + ny], [a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny]]));
+    }
+    P.forEach((c, i) => { if (closed || roundEnds || (i > 0 && i < N - 1)) polys.push(disc(c)); });
+  }
+  return polys.length ? S(new manifoldLib.CrossSection(polys, "Positive")) : null;
+}
+/* The route piece and the groove it clicks into. `ground` is the model and its coloured top as they
+   stand; returns the groove to take out of them and the piece (or nulls if there's no route). */
+function routeClip(S, ground, sweeps, z0) {
+  const paths = sweeps.map((sw) => ({ P: sw.pathMM, closed: sw.closed })), hw = sweeps[0].hwMM;
+  const gFoot = routeFoot(S, paths, hw + ROUTE_CLIP.clr, true), kFoot = routeFoot(S, paths, hw, false);
+  if (!gFoot || !kFoot) return { groove: null, piece: null };
+  const under = (foot) => unionOf(S, ground.map((g) => S(g.intersect(prismOf(S, foot, z0 - 1, z0 + 1e4)))));
+  // the top d mm of the ground over a footprint, straight down: the ground there, less itself lowered by d
+  // (taken over a footprint a touch wider, so no wall of the one lies on a wall of the other)
+  const topBand = (narrow, wide, d) => S(narrow.subtract(S(wide.translate([0, 0, -d]))));
+  const A = under(gFoot), Ak = under(kFoot);
+  const groove = topBand(A, under(routeFoot(S, paths, hw + ROUTE_CLIP.clr + 0.05, true)), ROUTE_CLIP.depth + ROUTE_CLIP.seat);
+  const keel = topBand(Ak, under(routeFoot(S, paths, hw + 0.05, true)), ROUTE_CLIP.depth);
+  const solidBits = (m) => m && unionOf(S, m.decompose().map(S).filter((c) => c.volume() > 0.01));
+  let shown = null;
+  try { shown = S(unionOf(S, sweeps.map((sw) => solidOf(S, sw.tris))).subtract(A)); }   // the route as it shows, above the ground
+  catch (e) { shown = S(S(Ak.translate([0, 0, hw])).subtract(Ak)); }            // or a band following the ground, as tall as half its width
+  return { groove, piece: solidBits(unionOf(S, [keel, shown])) };
+}
+/* Filament numbers for the slicer: one per colour, in the order they first come up, so the model's
+   colour 1 is always filament 1. */
+function filamentNumbers(bodies) {
+  const map = new Map();
+  for (const b of bodies) { const c = bodyColour(b).toUpperCase(); if (!map.has(c)) map.set(c, map.size + 1); }
+  return map;
+}
+
 let lastStl = null;
 /* The print file. Customers don't download it: it is built when they order, and goes to the
    workshop with the order (see the order section below). */
@@ -9530,8 +9580,26 @@ async function buildPrintFile(opts) {
     progress(true, "Colouring the top…", 22); await new Promise((r) => setTimeout(r, 20));
     const plan = await topPlan(data, W), cells = plan && cellColours(plan, data);   // colour 1 throughout, the others on the top 1 mm
     progress(true, "Shaping the ground…", 30); await new Promise((r) => setTimeout(r, 20));
-    const model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t, cells);
+    let model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t, cells);
     const tops = cells ? topParts(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, cells, plan) : [];
+    let routePiece = null;
+    if ($("stlRoute").checked && route) {             // the route prints on its own and clicks into a groove
+      progress(true, "Cutting the route's groove…", 40); await new Promise((r) => setTimeout(r, 20));
+      const rad = Math.max(0.05, routeStyle.mm * (WORLD / W) / 2), sweeps = [];
+      for (const run of routeRuns(data.bounds)) {
+        const sw = sweepRoute(run, routeStyle.profile, rad, G.groundY);
+        if (!sw) continue;
+        const tris = [];
+        for (let i = 0; i < sw.pos.length; i += 3) tris.push(...toSTL(sw.pos[i], sw.pos[i + 1], sw.pos[i + 2]));
+        orientOutward(tris);
+        sweeps.push({ tris, closed: sw.closed, hwMM: routeStyle.mm / 2, pathMM: sw.path.map((q) => toSTL(q[0], 0, q[1]).slice(0, 2)) });
+      }
+      if (sweeps.length) {
+        const { groove, piece } = routeClip(S, [model, ...tops.map((tp) => tp.solid)], sweeps, z0);
+        if (groove) { model = S(model.subtract(groove)); for (const tp of tops) tp.solid = S(tp.solid.subtract(groove)); }
+        routePiece = piece && (modelOutline === "square" ? piece : S(piece.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4))));
+      }
+    }
     const extras = [];                               // the parts that ride on the ground: roads, paths, route, icons
     if ((show.roads || show.paths) && roadOpts.on && roadsAllowed()) {   // raised roads, on their own account
       progress(true, "Adding roads…", 45);
@@ -9543,16 +9611,6 @@ async function buildPrintFile(opts) {
       if (roadTris.length) extras.push({ name: "road", tris: roadTris });
       if (pathTris.length) extras.push({ name: "path", tris: pathTris });
     }
-    if ($("stlRoute").checked && route) {
-      const rad = Math.max(0.05, routeStyle.mm * (WORLD / W) / 2);
-      for (const run of routeRuns(data.bounds)) {
-        const sw = sweepRoute(run, routeStyle.profile, rad, G.groundY);
-        if (!sw) continue;
-        const tris = [];
-        for (let i = 0; i < sw.pos.length; i += 3) tris.push(...toSTL(sw.pos[i], sw.pos[i + 1], sw.pos[i + 2]));
-        extras.push({ name: "route", tris });
-      }
-    }
     if ($("stlIcons").checked) extras.push(...stlIcons(G, toSTL));
     for (const e of extras) { orientOutward(e.tris); e.colour = extraColour(e); }
     cutSymbols(S, extras);
@@ -9562,8 +9620,8 @@ async function buildPrintFile(opts) {
     const inRing = (x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
       const a = ring[i], b = ring[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
     const outlinePrism = prismOf(S, outlineCS(S, W, 0.05), z0 - 1, z0 + 1e4);
-    const terrainColour = printBaseColour(), frameColour = bodyColour({ name: "frame" });
-    groups = [];
+    const terrainColour = printBaseColour(), frameColour = bodyColour({ name: "frame" }), routeColour = routeStyle.colour.toUpperCase();
+    groups = []; const routeGroups = [];
     if (isMisogi()) {
       const boxes = tileBoxes(W);
       modelTiles(S, model, W, z0).forEach((tile, i) => {
@@ -9574,6 +9632,7 @@ async function buildPrintFile(opts) {
         for (const tp of tops) { const cut = S(tp.solid.intersect(foot.solid)); if (cut.volume() > 0.01) g.bodies.push({ name: tp.name + " tile " + (i + 1), tris: trisOf(cut), colour: tp.colour }); }
         for (const e of extras) { const tr = clipBodyTo(S, e, foot); if (tr.length) g.bodies.push({ name: e.name + " tile " + (i + 1), tris: tr, colour: e.colour }); }
         groups.push(g);
+        if (routePiece) { const rp = S(routePiece.intersect(foot.solid)); if (rp.volume() > 0.05) routeGroups.push({ name: "route tile " + (i + 1), bodies: [{ name: "route tile " + (i + 1), tris: trisOf(rp), colour: routeColour }] }); }
       });
       const dowel = trisOf(dowelPart(S)), nd = dowelPlaces(W, z0).length;
       groups.push({ name: "dowels", bodies: [...Array(nd).keys()].map((i) => ({ name: "dowel " + (i + 1), colour: terrainColour,
@@ -9587,13 +9646,21 @@ async function buildPrintFile(opts) {
         if (tr.length) g.bodies.push({ name: e.name, tris: tr, colour: e.colour });
       }
       groups.push(g);
+      if (routePiece) routeGroups.push({ name: "route", bodies: [{ name: "route", tris: trisOf(routePiece), colour: routeColour }] });
     }
+    groups.push(...routeGroups);
     if (withFrame) {
       progress(true, "Making the frame…", 72); await new Promise((r) => setTimeout(r, 20));
-      const frame = frameSolid(S, W, t, Ht, frameVals.d);
-      if (isMisogi()) frameSections(S, frame, W, Ht).forEach((sec, i) =>
-        groups.push({ name: "frame section " + (i + 1), bodies: [{ name: "frame section " + (i + 1), tris: trisOf(sec), colour: frameColour }] }));
-      else groups.push({ name: "frame", bodies: [{ name: "frame", tris: trisOf(frame), colour: frameColour }] });
+      const frame = frameSolid(S, W, t, Ht, frameVals.d), ink = FINISH[$("frameColour").value][1].toUpperCase();
+      // the lettering stands above the frame's top: that part prints in the lettering's own colour
+      const above = S(S(manifoldLib.Manifold.cube([W + 400, W + 400, 1e4], false)).translate([-200, -200, Ht]));
+      const piece = (name, sol, letters) => {
+        const lt = S(sol.intersect(above)), g = { name, bodies: [{ name, tris: trisOf(S(sol.subtract(above))), colour: frameColour }] };
+        if (lt.volume() > 0.01) g.bodies.push({ name: letters, tris: trisOf(lt), colour: ink });
+        return g;
+      };
+      if (isMisogi()) frameSections(S, frame, W, Ht).forEach((sec, i) => groups.push(piece("frame section " + (i + 1), sec, "lettering section " + (i + 1))));
+      else groups.push(piece("frame", frame, "lettering"));
       const pin = trisOf(pinPart(S)), np = pinPlaces(W, t).length, gap = 2 * PRINT_PARTS.PIN.headR + 4;
       groups.push({ name: "pins", bodies: [...Array(np).keys()].map((i) => ({ name: "pin " + (i + 1), colour: frameColour,
         tris: pin.map((v, j) => (j % 3 === 0 ? v + i * gap : v)) })) });
@@ -9612,10 +9679,11 @@ async function buildPrintFile(opts) {
     const blob = as3mf ? await zipFile([
       { name: "[Content_Types].xml", text: '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-        '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>' },
+        '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="text/xml"/></Types>' },
       { name: "_rels/.rels", text: '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         '<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>' },
-      { name: "3D/3dmodel.model", text: modelXML(bodies) }
+      { name: "3D/3dmodel.model", text: modelXML(bodies) },
+      { name: "Metadata/model_settings.config", text: modelXML.config }
     ]) : writeSTL(bodies, sel.name || "terrain");
     const tri = bodies.reduce((s2, b) => s2 + b.tris.length / 9, 0);
     lastStl = { bodies, assembled: bodies.assembled, groups: groups.map((g) => ({ name: g.name, placed: g.placed })),
