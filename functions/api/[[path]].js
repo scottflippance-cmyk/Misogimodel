@@ -46,7 +46,7 @@
                             ORDER_EMAIL_TO), each from a Resend template you can edit there
      NEWS_WELCOME_TEMPLATE  optional; the welcome's template, default newsletter-welcome
      NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note */
-import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
+import { PRICING, itemFromDesign, priceItem, priceCart, money, magnetsFor } from "../../order-pricing.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
 const EMAIL_ATTACH_BUDGET = 28 * 1024 * 1024;           // Resend takes 40 MB per email after base64 (×4/3)
@@ -336,6 +336,16 @@ export function looseParts(f) {
   return out.length ? out.join(", ") : "None";
 }
 
+/* The magnets the frame takes, if any, and how to put them in: the pockets are sealed over by the
+   print, so it has to be paused at their top (12.1 mm) to drop them in, each the right way round. */
+export function magnetLine(f) {
+  const m = magnetsFor(f);
+  if (!m.count) return "No";
+  return m.count + " × 10 × 2 mm (" + m.perWall + " a wall). Pause the frame's print at 12.1 mm to drop them in. "
+    + (m.perWall === 2 ? "Seen from outside, on each wall the left magnet faces north out and the right one south out."
+                       : "Seen from outside, on each wall the left two magnets face north out and the right two south out.");
+}
+
 /* ---- paid: one email, every model, each with its print file ---- */
 function itemBlock(rec, p, origin, modelUrl, attached) {
   const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
@@ -347,6 +357,7 @@ function itemBlock(rec, p, origin, modelUrl, attached) {
     ["Colours", (d.print && d.print.scheme) || "plain"],
     ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
     ["Loose parts", looseParts(f)],
+    ["Magnets", magnetLine(f)],
     ["Route", d.route ? (d.route.name || "Yes") : "No"],
     ["Icons", String((d.icons || []).length)],
     ["Price", money(p.subtotal, PRICING.currency)],

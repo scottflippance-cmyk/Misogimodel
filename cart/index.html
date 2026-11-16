@@ -392,6 +392,11 @@ function renderBox(items) {
       + ", with your own words along its sides. The frame\u2019s ledge supports the model and is secured in place with locking pins.";
     const bigF = framed.filter(big).length;
     if (bigF) ft += bigF === 1 ? " The Misogi\u2019s frame comes in sections that lock together." : " The Misogi frames come in sections that lock together.";
+    // magnets, counted from the basket: built into the walls, so they are part of the frame, not loose
+    const mags = framed.reduce((t, x) => t + ((x.item && x.item.magnets) | 0), 0), magF = framed.filter((x) => x.item && x.item.magnets > 0).length;
+    if (mags) ft += " " + (magF === 1 && f === 1 ? "Its walls hold " + mags + " hidden magnets" : magF === f ? "Their walls hold " + mags + " hidden magnets"
+                                                   : magF === 1 ? "One of them has " + mags + " hidden magnets in its walls" : magF + " of them have " + mags + " hidden magnets between them")
+                  + ", so models of the same size and shape snap together side by side.";
     set("boxFrame", f + (f === 1 ? " custom frame" : " custom frames"), ft);
     $("boxFrame").querySelector("img").alt = "A square frame and a hexagon frame";
     const list = $("boxFrame").querySelector(".part-list"); list.innerHTML = "";
