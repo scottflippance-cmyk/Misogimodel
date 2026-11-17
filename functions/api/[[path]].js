@@ -346,6 +346,47 @@ export function magnetLine(f) {
                        : "Seen from outside, on each wall the left two magnets face north out and the right two south out.");
 }
 
+/* ---- the order sheet: a Google Sheet, through a small script on it (order-sheet.gs). One row a model,
+   so each has its own status as it is printed. Every add-on is a column of its own. ---- */
+export const SHEET_COLUMNS = ["Order", "Model", "Date", "Site", "Payment", "Customer", "Email", "Phone",
+  "Model name", "Size", "Shape", "Frame", "Frame text", "Route", "Magnets", "Icons", "Colours",
+  "Model price", "Delivery", "Order total", "Address", "Updates", "Print file", "Studio link", "Status", "Tracking no.", "Notes"];
+// the preview branch (preview.misogimodel.pages.dev) and Cloudflare's per-upload addresses are a
+// label in front of the site's own pages.dev name; misogimodel.com and misogimodel.pages.dev are live
+export const siteOf = (origin) => { let h = ""; try { h = new URL(origin).hostname; } catch (e) {}
+  return /^[^.]+\.[^.]+\.pages\.dev$/.test(h) || /^(localhost|127\.)/.test(h) ? "Preview" : "Live"; };
+export function sheetRow(rec, p, { short, i, n, modelUrl }) {
+  const d = rec.design || {}, f = d.frame || {}, m = magnetsFor(f);
+  const texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text);
+  return {
+    "Order": short, "Model": (i + 1) + " of " + n, "Model name": rec.name || "",
+    "Size": p.size.name + " (" + p.size.dims + ")", "Shape": f.outline === "hex" ? "Hexagon" : "Square",
+    "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join(" · ") : "",
+    "Route": d.route ? "Yes" : "No", "Magnets": m.count ? "Yes (" + m.count + ")" : "No",
+    "Icons": String((d.icons || []).length), "Colours": (d.print && d.print.on && d.print.scheme) || "plain",
+    "Model price": money(p.subtotal, PRICING.currency), "Print file": modelUrl, "Studio link": rec.link || "", "Status": "To print",
+  };
+}
+/* Sends the rows to the sheet's script: its web address and shared password are Cloudflare secrets
+   (ORDER_SHEET_URL, ORDER_SHEET_SECRET). Answers what happened, for the order's record. */
+export async function addToOrderSheet(env, rows) {
+  if (!rows.length) return "nothing to add";
+  if (!env.ORDER_SHEET_URL || !env.ORDER_SHEET_SECRET)
+    return "not set up on this deployment: " + [!env.ORDER_SHEET_URL && "ORDER_SHEET_URL", !env.ORDER_SHEET_SECRET && "ORDER_SHEET_SECRET"].filter(Boolean).join(" and ")
+         + " missing (add it in Cloudflare, then redeploy)";
+  try {
+    const r = await fetch(env.ORDER_SHEET_URL, { method: "POST", redirect: "follow", headers: { "content-type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ secret: env.ORDER_SHEET_SECRET, columns: SHEET_COLUMNS, rows }) });
+    const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
+    if (r.ok && j && j.ok) return "added " + j.added + (j.added === 1 ? " row" : " rows");
+    const why = j && j.error ? "the sheet said: " + j.error
+      : /accounts\.google\.com|ServiceLogin|sign in/i.test(t) || r.status === 401 || r.status === 403
+        ? "Google asked for a sign-in (deploy the web app with Execute as: Me and Who has access: Anyone)"
+        : "HTTP " + r.status + (r.status === 404 ? " (is ORDER_SHEET_URL the web app's /exec address?)" : "");
+    console.log("order sheet: " + why); return "failed: " + why;
+  } catch (e) { console.log("order sheet: " + e.message); return "failed: " + e.message; }
+}
+
 /* ---- paid: one email, every model, each with its print file ---- */
 function itemBlock(rec, p, origin, modelUrl, attached) {
   const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
@@ -386,7 +427,7 @@ async function webhook(request, env) {
   const sd = (session.collected_information && session.collected_information.shipping_details) || session.shipping_details || {};
   const a = sd.address || cd.address || {};
   const addr = [sd.name || cd.name, a.line1, a.line2, a.city, a.state, a.postal_code, a.country].filter(Boolean).map(esc).join("<br>");
-  let budget = EMAIL_ATTACH_BUDGET; const attachments = [], blocks = [];
+  let budget = EMAIL_ATTACH_BUDGET; const attachments = [], blocks = [], sheetRows = [];
   for (let i = 0; i < order.items.length; i++) {
     const itemId = order.items[i], rec = await readJSON(env, itemKey(itemId)) || { id: itemId };
     const modelUrl = origin + "/api/items/" + itemId + "/model?key=" + await modelKey(env, itemId);
@@ -397,7 +438,17 @@ async function webhook(request, env) {
     let attached = "";
     if (head && head.size <= budget) { attachments.push({ filename, path: modelUrl }); budget -= head.size; attached = filename; }
     blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached));
+    sheetRows.push(sheetRow(rec, p.items[i], { short, i, n: order.items.length, modelUrl }));
   }
+  // a row for each model on the order sheet, first, so the email can say how that went; it never holds up the order
+  // (if the email then fails, Stripe tries again, and the sheet's script skips rows it already has)
+  const total = money(session.amount_total != null ? session.amount_total : p.total, p.currency);
+  for (const r of sheetRows) Object.assign(r, {
+    "Date": new Date().toISOString().replace("T", " ").slice(0, 16), "Site": siteOf(origin), "Payment": event.livemode ? "Live" : "Test",
+    "Customer": sd.name || cd.name || "", "Email": cd.email || "", "Phone": cd.phone || "",
+    "Delivery": p.shipping.label + " " + money(p.shipping.price, p.currency), "Order total": total,
+    "Address": [a.line1, a.line2, a.city, a.state, a.postal_code, a.country].filter(Boolean).join(", "), "Updates": order.updates ? "Yes" : "No" });
+  const sheetNote = await addToOrderSheet(env, sheetRows);
   const n = order.items.length;
   const html = `<div style="font-family:Inter,Arial,sans-serif;color:#0B0E12;max-width:640px">
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
@@ -409,6 +460,7 @@ ${p.items.map((it, i) => `<tr><td>${i + 1}. ${esc(it.size.name)}${it.extras.leng
 <tr><td>${esc(p.shipping.label + " delivery")}</td><td align="right">${money(p.shipping.price, p.currency)}</td></tr>
 <tr><td><b>Paid</b></td><td align="right"><b>${money(session.amount_total != null ? session.amount_total : p.total, p.currency)}</b></td></tr></table>
 ${blocks.join("\n")}
+<p style="margin:22px 0 0;color:#5B6470;font-size:12px">Order sheet: ${esc(sheetNote)}</p>
 </div>`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -427,7 +479,7 @@ ${blocks.join("\n")}
     if (rec) { rec.status = "paid"; rec.order = id; await writeJSON(env, itemKey(itemId), rec); }
   }
   Object.assign(order, { status: "emailed", paid: new Date().toISOString(), stripeSession: session.id,
-                         customer: cd, amountPaid: session.amount_total });
+                         customer: cd, amountPaid: session.amount_total, sheet: sheetNote });
   await writeJSON(env, orderKey(id), order);
   // They left "send me updates" ticked: put their address on the mailing list and, if they're new to
   // it, send the same welcome (with its Unsubscribe button) and note to you as the footer's box does.
