@@ -9747,6 +9747,34 @@ function routeClip(S, ground, sweeps, z0) {
   catch (e) { shown = S(S(Ak.translate([0, 0, hw])).subtract(Ak)); }            // or a band following the ground, as tall as half its width
   return { groove, piece: solidBits(unionOf(S, [keel, shown])) };
 }
+/* ---------- raised icons as pieces of their own ----------
+   Like the route: each raised icon prints separately and clicks into a pocket in the model. An icon is
+   a flat badge, so its pocket is flat-bottomed and straight-sided: it goes down 2 mm below the lowest
+   ground under the icon, 0.15 mm wider than the icon all round, and the icon's piece reaches 0.1 mm
+   short of its floor, so it drops straight in and seats on its own. The piece is the icon as it shows,
+   badge and symbol in their colours, with its outline carried down to there in the badge's colour.
+   Returns the pocket to take out of the ground and the piece's parts. */
+const ICON_CLIP = ROUTE_CLIP;                        // the same depth, room and seat as the route
+function iconClip(S, parts, z0) {
+  const { CrossSection } = manifoldLib;
+  const area = (r) => { let a = 0; for (let i = 0; i < r.length; i++) { const p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; };
+  const outers = parts.flatMap((e) => (e.rings || []).filter((r) => r.length >= 3 && area(r) > 0));
+  const sym = parts.find((e) => e.role === "symbol" && e.solid), badge = parts.find((e) => e.role === "badge" && e.solid);
+  if (!outers.length || !(sym || badge)) return { groove: null, bodies: [] };
+  const foot = S(CrossSection.union(outers.map((r) => S(new CrossSection([r], "Positive")))));   // the outline, holes filled
+  const zb = Math.min(...parts.map((e) => e.zb));    // just under the lowest ground beneath the icon (0.05 mm)
+  const zK = zb + 0.05 - ICON_CLIP.depth;            // the piece's foot: 2 mm under that ground
+  const groove = prismOf(S, S(foot.offset(ICON_CLIP.clr, "Round", 2, 48)), zK - ICON_CLIP.seat, z0 + 1e4);
+  const keel = prismOf(S, foot, zK, zb + 0.02);
+  const bodies = [];
+  if (badge) {
+    let m = unionOf(S, [badge.solid, keel]); if (sym) m = S(m.subtract(sym.solid));
+    bodies.push({ role: "badge", solid: m, colour: badge.colour });
+    if (sym) bodies.push({ role: "symbol", solid: sym.solid, colour: sym.colour });
+  } else bodies.push({ role: "symbol", solid: unionOf(S, [sym.solid, keel]), colour: sym.colour });
+  return { groove, bodies };
+}
+
 /* Filament numbers for the slicer: one per colour, in the order they first come up, so the model's
    colour 1 is always filament 1. */
 function filamentNumbers(bodies) {
@@ -9809,9 +9837,19 @@ async function buildPrintFile(opts) {
       if (roadTris.length) extras.push({ name: "road", tris: roadTris });
       if (pathTris.length) extras.push({ name: "path", tris: pathTris });
     }
-    if ($("stlIcons").checked) extras.push(...stlIcons(G, toSTL));
-    for (const e of extras) { orientOutward(e.tris); e.colour = extraColour(e); }
-    cutSymbols(S, extras);
+    const iconParts = $("stlIcons").checked ? stlIcons(G, toSTL) : [];
+    for (const e of [...extras, ...iconParts]) { orientOutward(e.tris); e.colour = extraColour(e); }
+    cutSymbols(S, iconParts);
+    // the raised icons print on their own and click into pockets, as the route does
+    const iconPieces = [];
+    for (const n of [...new Set(iconParts.map((e) => e.icon))]) {
+      progress(true, "Cutting the icons' pockets…", 50); await new Promise((r) => setTimeout(r, 0));
+      const { groove, bodies: ib } = iconClip(S, iconParts.filter((e) => e.icon === n), z0);
+      if (groove) { model = S(model.subtract(groove)); for (const tp of tops) tp.solid = S(tp.solid.subtract(groove)); }
+      const fit = (m) => (modelOutline === "square" ? m : S(m.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4))));
+      const kept = ib.map((b) => ({ ...b, solid: fit(b.solid) })).filter((b) => b.solid.volume() > 0.05);
+      if (kept.length) iconPieces.push({ n: iconPieces.length + 1, bodies: kept });
+    }
 
     progress(true, "Cutting the parts…", 60); await new Promise((r) => setTimeout(r, 20));
     const ring = outlineMM(W);
@@ -9831,6 +9869,10 @@ async function buildPrintFile(opts) {
         for (const e of extras) { const tr = clipBodyTo(S, e, foot); if (tr.length) g.bodies.push({ name: e.name + " tile " + (i + 1), tris: tr, colour: e.colour }); }
         groups.push(g);
         if (routePiece) { const rp = S(routePiece.intersect(foot.solid)); if (rp.volume() > 0.05) routeGroups.push({ name: "route tile " + (i + 1), bodies: [{ name: "route tile " + (i + 1), tris: trisOf(rp), colour: routeColour }] }); }
+        for (const ip of iconPieces) {                // an icon across a join is split with the tiles
+          const bs = ip.bodies.map((b) => ({ ...b, solid: S(b.solid.intersect(foot.solid)) })).filter((b) => b.solid.volume() > 0.05);
+          if (bs.length) routeGroups.push({ name: "icon " + ip.n + " tile " + (i + 1), bodies: bs.map((b) => ({ name: "icon " + ip.n + " " + b.role + " tile " + (i + 1), tris: trisOf(b.solid), colour: b.colour })) });
+        }
       });
       const dowel = trisOf(dowelPart(S)), nd = dowelPlaces(W, z0).length;
       groups.push({ name: "dowels", bodies: [...Array(nd).keys()].map((i) => ({ name: "dowel " + (i + 1), colour: terrainColour,
@@ -9845,6 +9887,7 @@ async function buildPrintFile(opts) {
       }
       groups.push(g);
       if (routePiece) routeGroups.push({ name: "route", bodies: [{ name: "route", tris: trisOf(routePiece), colour: routeColour }] });
+      for (const ip of iconPieces) routeGroups.push({ name: "icon " + ip.n, bodies: ip.bodies.map((b) => ({ name: "icon " + ip.n + " " + b.role, tris: trisOf(b.solid), colour: b.colour })) });
     }
     groups.push(...routeGroups);
     if (withFrame) {
@@ -10112,6 +10155,10 @@ async function applyState(st, origin, opts) {
   const mayBuild = !opts || opts.build !== false;    // opening a design builds; a quick style just restyles
   if (!st || st.v !== 1 || !st.sel) throw new Error("this isn't a design this version can read");
   const D = st.display || {}, F = st.frame || {}, T = st.trees || {};
+  // a design with a route was allowed a smaller square (down to ROUTE_MIN) when it was made, so it gets
+  // the same limits back before its size is read: clamping it to a landscape's 2.5 km first blew a short
+  // walk's area up to 2.5 km and then held it there
+  smallestAllowed = st.route ? ROUTE_MIN : SCENES.land.min;
   setScene("land", true);
   Object.assign(sel, { lat: st.sel.lat, lng: st.sel.lng, size: clamp(st.sel.size, MIN_SIZE, MAX_SIZE), rot: clamp(st.sel.rot || 0, -180, 180), name: st.sel.name || "" });
   updateRotReadout();
