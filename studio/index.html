@@ -5084,6 +5084,13 @@ const textAnchorX = (align, W, inset) => (align === "left" ? inset : align === "
 /* "Flipped" text: the same letters turned round 180° about their own middle, so they keep exactly
    the place and the room they had and read the right way up from the other side of the frame.
    Used for the screen and the print file alike, so the two always agree. */
+/* Where the baseline goes for the capitals to sit centred on y: half their height below it. Setting
+   text by its "middle" centres the font's whole em box instead, room for descenders and accents
+   included, which left capitals about 0.4 mm nearer the outside edge of a 10 mm frame than the inside. */
+function capsCentred(g, y) {
+  const capH = g.measureText("H").actualBoundingBoxAscent || parseFloat(g.font) * 0.7;
+  return y + capH / 2;
+}
 function turnRound(g, text, align, x, y) {
   const w = g.measureText(text).width;
   const cx = align === "left" ? x + w / 2 : align === "right" ? x - w / 2 : x;
@@ -5119,10 +5126,11 @@ function reliefMask(it, lenU, hU, ink, inset) {
   const g = c.getContext("2d", { willReadFrequently: true });
   const x = textAnchorX(it.align, lenU * d, (inset || 0) * d) - (box.ox + lenU / 2 - box.bw / 2) * d;
   g.font = fontCSS(it.font, it.fontU * d);
-  g.textAlign = it.align; g.textBaseline = "middle";
+  g.textAlign = it.align; g.textBaseline = "alphabetic";
   g.fillStyle = ink;
+  const base = capsCentred(g, H / 2);               // the capitals centred across the frame, as in the print
   if (it.flip) turnRound(g, it.text, it.align, x, H / 2);
-  g.fillText(it.text, x, H / 2);                     // the exact letters: this decides their shape
+  g.fillText(it.text, x, base);                      // the exact letters: this decides their shape
 
   /* A second, slightly fatter copy of the same letters, used only to colour them. The walls of a
      letter stand directly under its edge, where the exact picture is already half transparent, so
@@ -5131,11 +5139,11 @@ function reliefMask(it, lenU, hU, ink, inset) {
   const grow = Math.max(2, Math.round(d * it.fontU * 0.02));
   const sc = document.createElement("canvas"); sc.width = W; sc.height = H;
   const sg = sc.getContext("2d");
-  sg.font = g.font; sg.textAlign = it.align; sg.textBaseline = "middle";
+  sg.font = g.font; sg.textAlign = it.align; sg.textBaseline = "alphabetic";
   if (it.flip) turnRound(sg, it.text, it.align, x, H / 2);
   sg.strokeStyle = ink; sg.lineWidth = grow * 2; sg.lineJoin = "round"; sg.miterLimit = 2;
-  sg.strokeText(it.text, x, H / 2);
-  sg.fillStyle = ink; sg.fillText(it.text, x, H / 2);
+  sg.strokeText(it.text, x, base);
+  sg.fillStyle = ink; sg.fillText(it.text, x, base);
 
   const tex = new THREE.CanvasTexture(sc);
   tex.encoding = THREE.sRGBEncoding;
@@ -8649,10 +8657,10 @@ function textMask(text, lenMM, hMM, fontMM, fontKey, align, inset, flip) {
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d", { willReadFrequently: true });
   g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
-  g.font = fontCSS(fontKey, fontMM * (W / lenMM)); g.textAlign = align; g.textBaseline = "middle"; g.fillStyle = "#fff";
+  g.font = fontCSS(fontKey, fontMM * (W / lenMM)); g.textAlign = align; g.textBaseline = "alphabetic"; g.fillStyle = "#fff";
   const ax = textAnchorX(align, W, (inset || 0) * (W / lenMM));
   if (flip) turnRound(g, text, align, ax, H / 2);
-  g.fillText(text, ax, H / 2);
+  g.fillText(text, ax, capsCentred(g, H / 2));
   const d = g.getImageData(0, 0, W, H).data;
   return (u, v) => {                                  // bilinear: soft letter walls rather than stair-steps
     const x = u * (W - 1), y = (1 - v) * (H - 1), x0 = Math.floor(x), y0 = Math.floor(y);
@@ -8989,10 +8997,10 @@ function modelXML(bodies, fil = filamentNumbers(bodies)) {
    site the first time a print file is made. Every size takes the same pin. */
 const PRINT_PARTS = {
   CLR: 0.3,                                          // the gap between the model's sides and the frame
-  PIN: { headR: 5, headH: 1.6, shaftR: 2.5, shaftH: 6, lugL: 9, lugW: 2.6, lugH: 2, lift: 0.4,
+  PIN: { headR: 5, headH: 1.6, shaftR: 2.5, shaftH: 4.5, lugL: 9, lugW: 2.6, lugH: 2, lift: 0.4,
          slotL: 8, slotW: 1.4, slotD: 0.9 },
-  HOLE: { recessR: 5.3, recessTop: 2.0, shaftR: 2.8, slotL: 9.6, slotW: 3.2, passTop: 7.8, chamberTop: 10.1,
-          roofRise: 1.1, mouth: 0.4 },              // the 45° pocket roof and the chamfer at the recess mouth
+  HOLE: { recessR: 5.3, recessTop: 2.0, shaftR: 2.8, slotL: 9.6, slotW: 3.2, passTop: 6.3, chamberTop: 8.6,
+          roofRise: 2.8, mouth: 0.4 },              // the 45° pocket roof and the chamfer at the recess mouth
   STOP: { w: 0.8, depth: 0.4, from: 5.7, len: 2.2 },
   MISOGI_MM: 500, MISOGI_T: 15, T: 10,
   LAP_Z: 5.5, LAP_LEN: 24, WRAP: 0.10,
@@ -9010,9 +9018,10 @@ const frameThicknessFor = (mm) => (mm >= PRINT_PARTS.MISOGI_MM ? PRINT_PARTS.MIS
 let manifoldLib = null;
 async function manifoldReady() {
   if (manifoldLib) return manifoldLib;
-  // served from the site, beside the page; a page opened from a file (as the checks do) can't fetch
-  // its engine from there, so it can be pointed somewhere else
-  const base = new URL(window.MANIFOLD_FROM || "vendor/", document.baseURI);
+  // served from the site, at /studio/vendor/. Always from there, not "beside the page": the studio is
+  // also reached as /studio, without its slash, and a relative path then looked in /vendor/, where there
+  // is nothing. A page opened from a file (as the checks do) can be pointed somewhere else.
+  const base = new URL(window.MANIFOLD_FROM || (location.protocol === "file:" ? "vendor/" : "/studio/vendor/"), document.baseURI);
   const mod = await import(new URL("manifold.js", base).href);
   const wasm = await mod.default({ locateFile: (f) => new URL(f, base).href });
   wasm.setup();
@@ -9135,17 +9144,32 @@ function pinCutter(S, cx, cy, dir) {
   const P = PRINT_PARTS.PIN, parts = [prismOf(S, round(H.recessR), -1, H.recessTop), prismOf(S, round(H.recessR + H.mouth), -1, 0.01),
                                       prismOf(S, key, -0.9, H.chamberTop - 0.05)];
   // the pocket the lugs turn in, one block for each 5° of the turn. Underneath, the ledge the locked lugs
-  // rest on climbs at 45° from the shaft, the slope of their undersides, so they bear on it all along;
-  // overhead the roof rises at 45° from every edge, so it prints without a flat bridge. The lugs' top
-  // corners meet that slope 0.4 mm above them, so the model has no more play than with a flat roof.
+  // rest on climbs at 45° from the shaft, the slope of their undersides, so they bear on it all along.
+  // Overhead (below) the roof rises at 45° from every edge of the whole pocket; the lugs' top corners
+  // meet that slope 0.4 mm above them, so the model has no more play than with a flat roof.
   const hx = H.slotL / 2, hy = H.slotW / 2, x0 = P.shaftR + 0.1, r = H.roofRise;
   const rect = (x, y, z) => [[x, y, z], [-x, y, z], [-x, -y, z], [x, -y, z]];
-  const block = S(Manifold.hull([...rect(x0, hy, H.passTop), ...rect(hx, hy, H.passTop + hx - x0), ...rect(hx, hy, H.chamberTop),
-                                 ...rect(hx - r, hy - r, H.chamberTop + r)]));
+  const block = S(Manifold.hull([...rect(x0, hy, H.passTop), ...rect(hx, hy, H.passTop + hx - x0), ...rect(hx, hy, H.chamberTop)]));
   for (let a = 0; a <= 90; a += 5) parts.push(S(block.rotate([0, 0, deg + a])));
+  // the roof over the whole pocket, 45° from every edge to a point or a thin ridge, with no flat bridge
+  // anywhere. The pocket seen from above is the shaft's circle and two fans, each the lug's half swept
+  // a quarter turn, and each of those is convex, so its roof is exactly the hull of its outline at the
+  // pocket's top and that outline drawn in by the height risen. Their union is the roof.
+  const half = (a) => S(S(S(CrossSection.square([hx, H.slotW], false)).translate([0, -hy])).rotate(deg + a));
+  const fan = (turn) => { const hs = []; for (let a = 0; a <= 90; a += 5) hs.push(half(a + turn)); return S(CrossSection.hull(hs)); };
+  for (const piece of [S(CrossSection.circle(H.shaftR, 48)), fan(0), fan(180)]) parts.push(tentOver(S, piece, H.chamberTop, r));
   // a 45° chamfer round the mouth of the head's recess, where the first layers spread on the bed
   for (let z = 0; z < H.mouth - 1e-6; z += 0.05) parts.push(prismOf(S, round(H.recessR + H.mouth - z), z - 0.02, z + 0.06));
   return S(unionOf(S, parts).translate([cx, cy, 0]));
+}
+/* A 45° roof over a convex outline: the hull of the outline just under z0 and the outline drawn in by
+   h at z0 + h, h as much as `rise` allows before the outline closes up. */
+function tentOver(S, cs, z0, rise) {
+  const { Manifold } = manifoldLib;
+  let h = rise;
+  for (let k = 0; k < 40; k++) { const o = S(cs.offset(-h, "Miter")); if (!o.isEmpty() && o.area() > 1e-4) break; h -= 0.05; }
+  const at = (c, z) => c.toPolygons().flat().map(([x, y]) => [x, y, z]);
+  return S(Manifold.hull([...at(cs, z0 - 0.05), ...at(S(cs.offset(-h, "Miter")), z0 + h)]));
 }
 /* The line beside a pin, moulded 0.4 mm into the underside: the slot points along it once locked. */
 function stopLines(S, cx, cy, dir, inLen, outLen) {

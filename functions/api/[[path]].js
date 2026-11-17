@@ -391,7 +391,9 @@ async function webhook(request, env) {
     const itemId = order.items[i], rec = await readJSON(env, itemKey(itemId)) || { id: itemId };
     const modelUrl = origin + "/api/items/" + itemId + "/model?key=" + await modelKey(env, itemId);
     const head = await env.ORDERS.head("items/" + itemId + "/model.zip");
-    const filename = "misogimodel-" + short + "-" + (i + 1) + ".zip";
+    // the print file goes by the order number: MM-AB12C-1.zip, holding MM-AB12C-1.3mf (see serve)
+    const fileName = short + "-" + (i + 1), filename = fileName + ".zip";
+    if (rec.fileName !== fileName && rec.id) { rec.fileName = fileName; await writeJSON(env, itemKey(itemId), rec); }
     let attached = "";
     if (head && head.size <= budget) { attachments.push({ filename, path: modelUrl }); budget -= head.size; attached = filename; }
     blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached));
@@ -450,8 +452,45 @@ async function serve(env, id, file, request) {
   const obj = await env.ORDERS.get("items/" + id + "/" + (file === "model" ? "model.zip" : "preview.jpg"));
   if (!obj) return fail(404, "Not found.");
   const headers = { "content-type": file === "model" ? "application/zip" : "image/jpeg", "cache-control": "private, max-age=3600" };
-  if (file === "model") headers["content-disposition"] = 'attachment; filename="misogimodel-' + id.slice(0, 8) + '.zip"';
-  return new Response(obj.body, { headers });
+  if (file !== "model") return new Response(obj.body, { headers });
+  // once ordered, the file and the print file in it carry the order number, MM-AB12C-1; before that, the model's own number
+  const rec = await readJSON(env, itemKey(id)), name = rec && /^[A-Za-z0-9-]{1,40}$/.test(rec.fileName || "") ? rec.fileName : null;
+  headers["content-disposition"] = 'attachment; filename="' + (name || "misogimodel-" + id.slice(0, 8)) + '.zip"';
+  if (!name) return new Response(obj.body, { headers });
+  return new Response(renameInZip(new Uint8Array(await obj.arrayBuffer()), name), { headers });
+}
+
+/* The zip with each file in it renamed to `base` (keeping its extension; a second file gets -2 and so on).
+   The studio's zips are plain: no comments, extras or trailing descriptors. Anything else, or anything
+   that doesn't add up, comes back untouched, so a download never breaks over a name. */
+export function renameInZip(bytes, base) {
+  try {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), n = bytes.length, enc = new TextEncoder(), dec = new TextDecoder();
+    if (n < 22 || v.getUint32(n - 22, true) !== 0x06054b50) return bytes;
+    const count = v.getUint16(n - 12, true), cenOff = v.getUint32(n - 6, true);
+    const parts = [], central = []; let p = cenOff, offset = 0;
+    for (let k = 0; k < count; k++) {
+      if (v.getUint32(p, true) !== 0x02014b50) return bytes;
+      const nameLen = v.getUint16(p + 28, true), extra = v.getUint16(p + 30, true), comment = v.getUint16(p + 32, true);
+      const flags = v.getUint16(p + 8, true), size = v.getUint32(p + 20, true), local = v.getUint32(p + 42, true);
+      if (extra || comment || (flags & 8) || v.getUint32(local, true) !== 0x04034b50) return bytes;
+      const oldName = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen)), ext = (oldName.match(/\.[A-Za-z0-9]{1,5}$/) || [""])[0];
+      const name = enc.encode(base + (k ? "-" + (k + 1) : "") + ext);
+      const lName = v.getUint16(local + 26, true), lExtra = v.getUint16(local + 28, true);
+      const head = bytes.slice(local, local + 30), hv = new DataView(head.buffer); hv.setUint16(26, name.length, true); hv.setUint16(28, 0, true);
+      const data = bytes.subarray(local + 30 + lName + lExtra, local + 30 + lName + lExtra + size);
+      if (data.length !== size) return bytes;
+      parts.push(head, name, data);
+      const cen = bytes.slice(p, p + 46), cv = new DataView(cen.buffer); cv.setUint16(28, name.length, true); cv.setUint32(42, offset, true);
+      central.push(cen, name);
+      offset += 30 + name.length + size; p += 46 + nameLen + extra + comment;
+    }
+    const cenSize = central.reduce((t, c) => t + c.length, 0), end = bytes.slice(n - 22), ev = new DataView(end.buffer);
+    ev.setUint32(12, cenSize, true); ev.setUint32(16, offset, true);
+    const out = new Uint8Array(offset + cenSize + 22); let at = 0;
+    for (const c of [...parts, ...central, end]) { out.set(c, at); at += c.length; }
+    return out;
+  } catch (e) { return bytes; }
 }
 
 /* How many people are on the list and still subscribed, for the note to you: "12", or "1,000+" past
