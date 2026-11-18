@@ -4512,8 +4512,11 @@ function buildSummit(data) {
 const TREE_BASE = 1.35;    // bigger than life, so a wood reads as a canopy; the sliders scale from here
 /* Trees are a set size on the print, whatever the area: the smallest is TREE_MIN_MM across, so a
    bigger print shows more, smaller-looking trees over the same ground and a smaller one fewer,
-   chunkier ones, each still big enough to print. */
-const TREE_MIN_MM = 1;
+   chunkier ones, each still big enough to print. No tree stands taller than TREE_MAX_H_MM, and each
+   has a real trunk TREE_TRUNK_MM thick, so it prints as a tree on a stalk, not a crumb. */
+const TREE_MIN_MM = 2;
+const TREE_MAX_H_MM = 5;
+const TREE_TRUNK_MM = 0.7;
 const treeBaseMul = 1;     // Tree scale, fixed
 const treePackMul = 0.3;   // Amount of trees, fixed
 const treeScale = 1;  // tree height, fixed
@@ -4687,24 +4690,29 @@ const leafPart = (g, o) => {
   aoColours(g, o.ao == null ? 0.58 : o.ao);
   return { geo: g, role: "leaf" };
 };
-const TREE_STYLES = {
-  conifer:   { hr: 2.4, parts: () => [trunkPart(0.09, 0.16),
-               leafPart(new THREE.ConeGeometry(1, 0.62, 10), { y: 0.43 }),
-               leafPart(new THREE.ConeGeometry(0.72, 0.5, 10), { y: 0.75 })] },
-  pine:      { hr: 2.6, parts: () => [trunkPart(0.08, 0.16),
-               leafPart(new THREE.ConeGeometry(1, 0.42, 10), { y: 0.33 }),
-               leafPart(new THREE.ConeGeometry(0.8, 0.36, 10), { y: 0.55 }),
-               leafPart(new THREE.ConeGeometry(0.6, 0.3, 10), { y: 0.74 }),
-               leafPart(new THREE.ConeGeometry(0.38, 0.24, 10), { y: 0.9 })] },
-  broadleaf: { hr: 1.7, parts: () => [trunkPart(0.12, 0.4),
-               leafPart(new THREE.IcosahedronGeometry(1, 1), { lump: 0.12, s: [0.82, 0.3, 0.82], y: 0.7 }),
-               leafPart(new THREE.IcosahedronGeometry(1, 0), { lump: 0.1, s: [0.5, 0.22, 0.5], x: 0.42, y: 0.55, z: 0.1 }),
-               leafPart(new THREE.IcosahedronGeometry(1, 0), { lump: 0.1, s: [0.46, 0.2, 0.46], x: -0.38, y: 0.58, z: -0.16 })] },
-  poplar:    { hr: 3.2, parts: () => [trunkPart(0.07, 0.16),
-               leafPart(new THREE.IcosahedronGeometry(1, 1), { lump: 0.1, s: [0.45, 0.425, 0.45], y: 0.575 })] },
-  round:     { hr: 2.2, parts: () => [trunkPart(0.07, 0.4),
-               leafPart(new THREE.SphereGeometry(1, 16, 12), { s: [0.75, 0.34, 0.75], y: 0.66, ao: 0.7 })] }
+/* Each tree, as plain numbers in a unit box (1 across, 1 tall before its height ratio hr), so the
+   screen and the print are made from the same shapes. "trunk" is how high the bare trunk shows
+   before the crown starts; the trunk itself is TREE_TRUNK_MM thick on the print whatever the tree's size. */
+const TREE_SHAPES = {
+  conifer:   { hr: 2.4, trunk: 0.07, crowns: [{ cone: [1, 0.62], y: 0.34 }, { cone: [0.72, 0.5], y: 0.66 }] },
+  pine:      { hr: 2.6, trunk: 0.07, crowns: [{ cone: [1, 0.42], y: 0.24 }, { cone: [0.8, 0.36], y: 0.46 },
+                                              { cone: [0.6, 0.3], y: 0.65 }, { cone: [0.38, 0.24], y: 0.81 }] },
+  broadleaf: { hr: 1.7, trunk: 0.15, crowns: [{ ico: 1, lump: 0.12, s: [0.82, 0.3, 0.82], y: 0.45 },
+                                              { ico: 0, lump: 0.1, s: [0.5, 0.22, 0.5], x: 0.42, y: 0.3, z: 0.1 },
+                                              { ico: 0, lump: 0.1, s: [0.46, 0.2, 0.46], x: -0.38, y: 0.33, z: -0.16 }] },
+  poplar:    { hr: 3.2, trunk: 0.07, crowns: [{ ico: 1, lump: 0.1, s: [0.45, 0.425, 0.45], y: 0.485 }] },
+  round:     { hr: 2.2, trunk: 0.15, crowns: [{ sphere: true, s: [0.75, 0.34, 0.75], y: 0.41, ao: 0.7 }] }
 };
+/* how high each shape reaches in its unit box: its crown's top */
+const treeTop = (sh) => Math.max(...sh.crowns.map((c) => c.cone ? c.y + c.cone[1] / 2 : c.y + c.s[1]));
+/* the trunk runs from just under the ground up into the crown, so the two print as one piece */
+const trunkReach = (sh) => sh.trunk + 0.1;
+/* the trunk on screen: a unit cylinder, scaled to TREE_TRUNK_MM across with a matrix of its own */
+const stemPart = (sh) => { const g = new THREE.CylinderGeometry(1, 1, trunkReach(sh), 7); g.translate(0, trunkReach(sh) / 2, 0); return { geo: g, role: "trunk", stem: true }; };
+const crownGeo = (c) => c.cone ? new THREE.ConeGeometry(c.cone[0], c.cone[1], 10)
+  : c.sphere ? new THREE.SphereGeometry(1, 16, 12) : new THREE.IcosahedronGeometry(1, c.ico);
+const TREE_STYLES = Object.fromEntries(Object.entries(TREE_SHAPES).map(([key, sh]) => [key, { hr: sh.hr, shape: sh,
+  parts: () => [stemPart(sh), ...sh.crowns.map((c) => leafPart(crownGeo(c), c))] }]));
 /* Winter: deciduous styles lose their leaves. Branches are small tapered cylinders,
    tilted out from the trunk and spun round it. */
 const DEG = Math.PI / 180;
@@ -4762,26 +4770,33 @@ function plantTrees(pts, s, styleKey, data, vS) {
     for (let i = 0; i < pos.count; i++) reach = Math.max(reach, Math.hypot(pos.getX(i), pos.getZ(i)));
   }
   reach = reach || 1;
+  const mStem = new THREE.Matrix4(), trunkU = (TREE_TRUNK_MM / 2) * WORLD / frameVals.modelMM;
+  const topU = M.shape ? treeTop(M.shape) : 1, hCap = TREE_MAX_H_MM * WORLD / frameVals.modelMM / topU;
   pts.forEach(([x, z, rnd], i) => {
     const base = TREE_BASE * treeBaseMul;
     // Sizes vary from 0.78 to 1.48 of the norm: enough of a mix to break up any pattern, while the
     // smallest tree is still wide enough to cover its own patch of ground.
     const k = 0.78 + 0.7 * rnd, r0 = s * 0.55 * k * base, h0 = r0 * M.hr * k * base;   // height in proportion to its width
     const h = h0 * treeScale, r = r0 * Math.sqrt(treeScale) / reach;   // taller trees get a little wider, in proportion
+    const hT = Math.min(h, hCap);                     // none taller than TREE_MAX_H_MM: the tallest are squatter
     if (three.featureStats) {                         // its printed width, for the readout and the checks
       const w = 2 * r * reach * frameVals.modelMM / WORLD, st = three.featureStats;
       st.treeMM = st.treeMM || { min: Infinity, max: 0, sum: 0, n: 0 };
       st.treeMM.min = Math.min(st.treeMM.min, w); st.treeMM.max = Math.max(st.treeMM.max, w); st.treeMM.sum += w; st.treeMM.n++;
+      st.treeMM.tallest = Math.max(st.treeMM.tallest || 0, hT * topU * frameVals.modelMM / WORLD);
     }
     p.set(x, three.geom.groundY(x, z) - 0.03, z);
     q.setFromAxisAngle(up, rnd * 6.283);
-    sc.set(r, h, r);
+    sc.set(r, hT, r);
     m.compose(p, q, sc);
+    sc.set(trunkU, hT, trunkU);
+    mStem.compose(p, q, sc);
+    if (three.treeList) three.treeList.push({ style: styleKey, x, z, y: p.y, r, h: hT, a: rnd * 6.283 });
     const u = (x + WORLD / 2) / WORLD, v = (z + WORLD / 2) / WORLD;
     const frost = snowAt(data, u, v, gridAt(data.grid, data.n, u, v)) * 0.88;   // snow-laden: mostly white, a little green in the shadows
     leaf.copy(pal[Math.floor(hash01(Math.floor(rnd * 1e6), 11, 5) * pal.length)]).multiplyScalar(0.85 + 0.3 * rnd).lerp(white, frost);
     bark.copy(trunkC).lerp(white, bare ? frost * 0.4 : 0);   // snow lies along bare branches
-    parts.forEach((pt, j) => { meshes[j].setMatrixAt(i, m); meshes[j].setColorAt(i, pt.role === "trunk" ? bark : leaf); });
+    parts.forEach((pt, j) => { meshes[j].setMatrixAt(i, pt.stem ? mStem : m); meshes[j].setColorAt(i, pt.role === "trunk" ? bark : leaf); });
   });
   meshes.forEach((mesh) => { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; });
   return meshes;
@@ -4795,6 +4810,7 @@ async function buildFeatures3D(data) {
   const token = ++featToken;
   disposeGroup(t.featureGroup);
   t.featureStats = { trees: 0 };
+  t.treeList = [];                                  // every tree planted, for the print file
   const wantTrees = $("show3dTrees").checked && show.woodland;     // each tick box minds its own group
   const wantRoads = roadOpts.on && roadsAllowed() && (show.roads || show.paths);   // large prints only
   if (three) three.featureStats.roads = 0;                        // nothing raised until proven otherwise
@@ -9786,6 +9802,25 @@ function filamentNumbers(bodies) {
 let lastStl = null;
 /* The print file. Customers don't download it: it is built when they order, and goes to the
    workshop with the order (see the order section below). */
+/* The trees on the print: the same shapes as on screen, built as solids. Each is its crown on a
+   TREE_TRUNK_MM trunk that starts 0.4 mm under the ground, so it stands in the model rather than on it. */
+function treesSolid(S, toSTL, k) {
+  const list = (three && three.treeList) || [];
+  if (!list.length) return null;
+  const M = manifoldLib.Manifold, unit = {};
+  const crownOf = (key) => unit[key] || (unit[key] = unionOf(S, TREE_SHAPES[key].crowns.map((c) => c.cone
+    ? S(S(M.cylinder(c.cone[1], c.cone[0], 0, 12)).translate([0, 0, c.y - c.cone[1] / 2]))
+    : S(S(S(M.sphere(1, c.sphere ? 16 : 12)).scale([c.s[0], c.s[2], c.s[1]])).translate([c.x || 0, -(c.z || 0), c.y])))));
+  const pieces = [], rT = TREE_TRUNK_MM / 2, sink = 0.4;
+  for (const tr of list) {
+    const sh = TREE_SHAPES[tr.style] || TREE_SHAPES.broadleaf, [X, Y, Z] = toSTL(tr.x, three.geom.groundY(tr.x, tr.z) - 0.03, tr.z);   // the ground as it is now
+    const rMM = tr.r * k, hMM = tr.h * k;
+    pieces.push(S(S(S(crownOf(TREE_SHAPES[tr.style] ? tr.style : "broadleaf").scale([rMM, rMM, hMM])).rotate([0, 0, tr.a * 180 / Math.PI])).translate([X, Y, Z])));
+    pieces.push(S(S(M.cylinder(trunkReach(sh) * hMM + sink, rT, rT, 12)).translate([X, Y, Z - sink])));
+  }
+  return unionOf(S, pieces);
+}
+
 async function buildPrintFile(opts) {
   const as3mf = opts && opts.format === "3mf";
   if (!current || !three || !three.geom) return null;
@@ -9839,6 +9874,14 @@ async function buildPrintFile(opts) {
     }
     const iconParts = $("stlIcons").checked ? stlIcons(G, toSTL) : [];
     for (const e of [...extras, ...iconParts]) { orientOutward(e.tris); e.colour = extraColour(e); }
+    if ($("show3dTrees").checked && show.woodland && three.treeList && three.treeList.length) {   // trees print when they're shown
+      progress(true, "Planting the trees…", 48); await new Promise((r) => setTimeout(r, 0));
+      let trees = treesSolid(S, toSTL, k);
+      if (trees) {                                    // they fill only the air: the ground keeps its own plastic
+        trees = S(trees.subtract(model)); for (const tp of [...tops, { solid: routePiece }]) if (tp.solid) trees = S(trees.subtract(tp.solid));
+        if (trees.volume() > 0.01) extras.push({ name: "trees", tris: trisOf(trees), colour: (printCols.on ? PC("trees") : printBaseColour()).toUpperCase() });
+      }
+    }
     cutSymbols(S, iconParts);
     // the raised icons print on their own and click into pockets, as the route does
     const iconPieces = [];
