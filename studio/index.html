@@ -6003,8 +6003,7 @@ $("addFrameText").addEventListener("click", () => {
   const free = freeSide();
   if (free === undefined) { toast("Every side already carries a text."); return; }
   const ft = Object.assign({ id: ++frameTextSeq }, textStyle,
-                           { text: frameTexts.length ? "Custom Text " + (frameTexts.length + 1)
-                                                     : (autoNS || sel.name || ""), side: free });
+                           { text: "Custom Text " + (frameTexts.length + 1), side: free });   // every new text, the first included, starts as "Custom Text n"
   frameTexts.push(ft); selectText(ft.id); queueFrame(); noteSoon();
   openTextPopup(ft.id);
   toast("Text added.");
@@ -9013,9 +9012,10 @@ function modelXML(bodies, fil = filamentNumbers(bodies)) {
    site the first time a print file is made. Every size takes the same pin. */
 const PRINT_PARTS = {
   CLR: 0.3,                                          // the gap between the model's sides and the frame
-  PIN: { headR: 5, headH: 1.6, shaftR: 2.5, shaftH: 4.5, lugL: 9, lugW: 2.6, lugH: 2, lift: 0.4,
+  PIN: { headR: 5, headH: 1.2, headSlope: 35, shaftR: 2.5, shaftH: 4.9, lugL: 9, lugW: 2.6, lugH: 2, lift: 0.4,   // the head's top rises at headSlope° to the shaft
          slotL: 8, slotW: 1.4, slotD: 0.9 },
-  HOLE: { recessR: 5.3, recessTop: 2.0, shaftR: 2.8, slotL: 9.6, slotW: 3.2, passTop: 6.3, chamberTop: 8.6,
+  HOLE: { recessR: 5.3, recessTop: 1.6, capZ: 2.95,   // capZ: the recess stops just under the model's floor, 3 mm up
+          shaftR: 2.8, slotL: 9.6, slotW: 3.2, passTop: 6.3, chamberTop: 8.6,
           roofRise: 2.8, mouth: 0.4 },              // the 45° pocket roof and the chamfer at the recess mouth
   STOP: { w: 0.8, depth: 0.4, from: 5.7, len: 2.2 },
   MISOGI_MM: 500, MISOGI_T: 15, T: 10,
@@ -9024,6 +9024,11 @@ const PRINT_PARTS = {
   DOWEL: { r: 3, len: 20, holeR: 3.2, holeLen: 20.8, up: 5, at: [0.35, 0.7] }
 };
 const isMisogi = () => frameVals.modelMM >= PRINT_PARTS.MISOGI_MM;
+/* The head's sloped top: how high it rises from the head's edge to the shaft, at headSlope° from flat.
+   The recess in the frame has the same slope over it, so its ceiling prints without a bridge. It
+   stops where the recess has to (HOLE.capZ, just under the model's floor), leaving a 0.3 mm ring flat. */
+const headRise = () => { const P = PRINT_PARTS.PIN, H = PRINT_PARTS.HOLE;
+  return Math.min((P.headR - P.shaftR) * Math.tan(P.headSlope * Math.PI / 180), H.capZ - 0.05 - P.lift - P.headH); };
 /* Where the logo goes underneath, in print millimetres: in the middle, or on the Misogi in the middle
    of its south-west tile, so it is never cut across the joins. The screen and the print both ask here. */
 // (the hexagon Misogi's tile is cut short by its slanted sides, so there the name sits where it has room to
@@ -9157,8 +9162,15 @@ function pinCutter(S, cx, cy, dir) {
   // the keyhole runs right up through the pocket, and the pocket is the slot swept on from 5° to 90°:
   // no face of one lies exactly on a face of the other, which leaves the cut clean
   const key = S(CrossSection.union([round(H.shaftR), slot(deg)]));
-  const P = PRINT_PARTS.PIN, parts = [prismOf(S, round(H.recessR), -1, H.recessTop), prismOf(S, round(H.recessR + H.mouth), -1, 0.01),
-                                      prismOf(S, key, -0.9, H.chamberTop - 0.05)];
+  const P = PRINT_PARTS.PIN;
+  // the head's recess: straight up the side, then a ceiling sloping in at the head's own angle to the
+  // shaft's hole. It is the locked head's slope (the head lifted to recessTop) raised 0.05 mm, so the
+  // two meet all round with a hair to spare, and nothing in it is flat.
+  const run = 1 / Math.tan(P.headSlope * Math.PI / 180), zEdge = H.recessTop + 0.05;   // run: mm in per mm up
+  const zc0 = zEdge - (H.recessR - P.headR) / run, zc1 = Math.min(H.capZ, zEdge + (P.headR - H.shaftR) / run);
+  const parts = [prismOf(S, round(H.recessR), -1, zc0 + 0.01), prismOf(S, round(H.recessR + H.mouth), -1, 0.01),
+                 S(S(Manifold.cylinder(zc1 - zc0, H.recessR, H.recessR - (zc1 - zc0) * run, 48)).translate([0, 0, zc0])),
+                 prismOf(S, key, -0.9, H.chamberTop - 0.05)];
   // the pocket the lugs turn in, one block for each 5° of the turn. Underneath, the ledge the locked lugs
   // rest on climbs at 45° from the shaft, the slope of their undersides, so they bear on it all along.
   // Overhead (below) the roof rises at 45° from every edge of the whole pocket; the lugs' top corners
@@ -9407,14 +9419,17 @@ const tileBoxes = (W) => { const c = W / 2; return [[c - W, c - W, c, c], [c, c 
 /* The loose parts. The pin stands on its head; the dowel lies on its side, chamfered at both ends. */
 function pinPart(S) {
   const { Manifold, CrossSection } = manifoldLib, P = PRINT_PARTS.PIN;
-  const head = S(Manifold.cylinder(P.headH, P.headR, P.headR, 64));
+  const head = S(Manifold.cylinder(P.headH, P.headR, P.headR, 48));
+  // its top slopes up at headSlope° to the shaft, so the recess over it in the frame needs no bridge
+  const run = 1 / Math.tan(P.headSlope * Math.PI / 180);
+  const cone = S(S(Manifold.cylinder(headRise(), P.headR, P.headR - headRise() * run, 48)).translate([0, 0, P.headH - 0.01]));
   const shaft = S(S(Manifold.cylinder(P.shaftH + 0.02, P.shaftR, P.shaftR, 48)).translate([0, 0, P.headH - 0.01]));
   // the lugs seen side-on: their undersides slope up at 45° from the shaft, so they print without drooping
   const a = P.lugL / 2, r = P.shaftR, h = P.lugH, b = Math.min(h, a - r);
   const side = S(new CrossSection([[[-r, 0], [r, 0], [a, b], [a, h], [-a, h], [-a, b]]], "Positive"));
   const lugs = S(S(S(S(side.extrude(P.lugW)).translate([0, 0, -P.lugW / 2])).rotate([90, 0, 0])).translate([0, 0, P.headH + P.shaftH]));
   const slot = S(S(Manifold.cube([P.slotL, P.slotW, P.slotD * 2], true)).translate([0, 0, 0]));
-  return S(unionOf(S, [head, shaft, lugs]).subtract(slot));
+  return S(unionOf(S, [head, cone, shaft, lugs]).subtract(slot));
 }
 function dowelPart(S) {
   const { Manifold } = manifoldLib, P = PRINT_PARTS.DOWEL, ch = 0.6;
