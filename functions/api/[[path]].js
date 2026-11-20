@@ -700,9 +700,18 @@ let certCache = { team: null, at: 0, keys: [] };
 export async function verifyAccess(request, env, now = Date.now()) {
   const team = String(env.ACCESS_TEAM_DOMAIN || "").replace(/^https?:\/\//, "").replace(/\/+$/, ""), aud = String(env.ACCESS_AUD || "");
   const owner = String(env.ADMIN_EMAIL || env.ORDER_EMAIL_TO || "").trim().toLowerCase();
-  if (!team || !aud || !owner) return { ok: false, why: "The admin lock isn't set up on this site yet." };
   let tok = request.headers.get("cf-access-jwt-assertion") || "";
   if (!tok) { const m = /(?:^|;\s*)CF_Authorization=([^;]+)/.exec(request.headers.get("cookie") || ""); if (m) tok = m[1]; }
+  if (!team || !aud || !owner) {
+    // Setting up: if Cloudflare has already let you in, say which values its pass carries, so they can be
+    // copied into ACCESS_AUD and ACCESS_TEAM_DOMAIN (neither is secret). Nothing is let through.
+    let hint = "";
+    try { const c = JSON.parse(new TextDecoder().decode(b64u(tok.split(".")[1] || "")));
+      const a = (Array.isArray(c.aud) ? c.aud : [c.aud]).filter(Boolean), t = String(c.iss || "").replace(/^https:\/\//, "");
+      if (a.length && t) hint = " Your Cloudflare sign-in says: ACCESS_AUD = " + a.join(" or ") + ", ACCESS_TEAM_DOMAIN = " + t + "."; } catch (e) {}
+    const missing = [!aud && "ACCESS_AUD", !team && "ACCESS_TEAM_DOMAIN", !owner && "ORDER_EMAIL_TO"].filter(Boolean).join(", ");
+    return { ok: false, why: "The admin lock isn't set up on this site yet (missing: " + missing + ")." + hint };
+  }
   const bits = tok.split(".");
   if (bits.length !== 3) return { ok: false, why: "Please sign in." };
   let head, body;
