@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin · misogimodel</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+/* The admin page. Only you can open it: Cloudflare Access stands in front of /admin and /api/admin,
+   and the server checks Access's signed pass again on every save. Preview and Live each keep their
+   own settings; the live page is red so it can't be mistaken for the test one. */
+:root{--ink:#1B1D20;--muted:#6B7280;--line:#E5E2DC;--bg:#F6F4F0;--card:#fff;--acc:#E4572E;--ok:#1E7A3A;--bad:#B3261E}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select{font:inherit;color:inherit}
+header{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header b{font-size:16px}
+.pill{padding:3px 10px;border-radius:99px;font-size:12px;background:#EEF6EF;color:var(--ok)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.seg a{padding:5px 12px;font-size:12px;color:inherit;text-decoration:none}.seg a.on{background:var(--ink);color:#fff}
+.sp{flex:1}
+.saved{color:var(--muted);font-size:12.5px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.livebar{display:none}
+body.live{--bg:#FBE9E5}
+body.live .livebar{display:block;background:#8E1C16;color:#fff;text-align:center;padding:7px;font-weight:600;letter-spacing:.02em}
+body.live header{background:#B3261E;border-color:#8E1C16;color:#fff}
+body.live .pill{background:rgba(255,255,255,.18);color:#fff}
+body.live .seg{border-color:rgba(255,255,255,.4)}body.live .seg a.on{background:#fff;color:#B3261E}
+body.live .saved{color:rgba(255,255,255,.8)}
+body.live header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+body.live header .btn.p{background:#fff;color:#B3261E;border-color:#fff}
+main{display:grid;grid-template-columns:190px minmax(0,1fr);gap:28px;padding:24px 28px;max-width:1280px}
+nav{position:sticky;top:90px;align-self:start}
+nav a{display:block;padding:8px 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:500}
+nav a:hover{background:#fff}
+nav small{display:block;color:var(--muted);margin:14px 12px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px;scroll-margin-top:90px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:2px}.hd h2{flex:1;margin:0;font-size:17px}
+.sub{color:var(--muted);margin:2px 0 14px;font-size:13px}
+.st i{font-style:normal;width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
+.st.ok i{background:var(--ok)}.st.no i{background:var(--bad)}
+.cp{border:1px solid var(--line);background:#fff;border-radius:9px;width:32px;height:30px;display:inline-grid;place-items:center;padding:0;cursor:pointer}
+.cp:disabled{opacity:.4;cursor:default}
+.sw{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.15);display:inline-block;position:relative;overflow:hidden;flex:none}
+.sw input[type=color]{position:absolute;inset:-6px;width:40px;height:40px;border:0;padding:0;opacity:0;cursor:pointer}
+.row{display:grid;grid-template-columns:22px 34px minmax(0,1fr) 104px 44px 30px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row.dragging{opacity:.4}.row.over{box-shadow:0 -2px 0 var(--acc) inset}
+.drag{color:#B8B4AC;cursor:grab;user-select:none;text-align:center}
+.x{border:0;background:none;color:#A8A39A;cursor:pointer;font-size:15px}.x:disabled{visibility:hidden}
+.t{border:1px solid transparent;border-radius:7px;padding:4px 7px;width:100%;background:transparent;font-weight:600}
+.t:hover,.t:focus{border-color:var(--line);background:#FBFAF8;outline:none}
+.hex{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);font-weight:400;text-transform:uppercase}
+.tog{width:36px;height:21px;border-radius:99px;background:#D6D2CA;position:relative;border:0;cursor:pointer;padding:0;flex:none}
+.tog:after{content:"";position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .12s}
+.tog[aria-checked=true]{background:var(--ok)}.tog[aria-checked=true]:after{left:17.5px}
+.tog:disabled{opacity:.5;cursor:default}
+.add{margin-top:10px;color:var(--acc);font-weight:600;background:none;border:0;padding:0;cursor:pointer}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.scheme{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.scheme .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.tag{font-size:11.5px;padding:2px 8px;border-radius:99px;background:#F1EEE8;color:#57534E;white-space:nowrap}
+.parts{display:flex;flex-wrap:wrap;gap:8px}
+.part{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:5px 8px 5px 6px;font-size:13px}
+.part .sw{width:22px;height:22px}
+.part select{border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+td,th{padding:7px 6px;border-top:1px solid var(--line);text-align:left;font-weight:normal;vertical-align:middle}
+th{color:var(--muted);font-size:12px;border-top:0}
+.money{border:1px solid var(--line);border-radius:8px;padding:5px 9px;width:92px;background:#FBFAF8}
+.num{border:1px solid var(--line);border-radius:8px;padding:4px 6px;width:46px;background:#FBFAF8;text-align:center}
+.money.bad{border-color:var(--bad)}
+.note{background:#FFF6E8;border:1px solid #F2D9AE;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.rule{margin-top:14px;border:1px dashed #C9C4BA;border-radius:12px;padding:12px 14px;background:#FBFAF8}
+.rule .top{display:flex;align-items:center;gap:10px}
+.rule select{border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+#gate{max-width:520px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 28px;text-align:center}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@media (max-width:860px){main{grid-template-columns:1fr}nav{display:none}.two{grid-template-columns:1fr}.row{grid-template-columns:18px 30px minmax(0,1fr) 84px 40px 24px}}
+</style>
+</head>
+<body>
+<div class="livebar">LIVE SITE: changes here reach real customers straight away</div>
+<header>
+  <b>misogimodel · Admin</b><span class="pill" id="who">Checking your sign-in…</span>
+  <span class="seg" id="sites"><a id="toPreview" href="https://preview.misogimodel.pages.dev/admin/">Preview site</a><a id="toLive" href="https://misogimodel.com/admin/">Live site</a></span>
+  <span class="sp"></span>
+  <span class="saved" id="savedAt"></span>
+  <button class="btn" id="discard" disabled>Discard changes</button>
+  <button class="btn" id="copyAll" hidden title="Copy all from Preview"></button>
+  <button class="btn p" id="save" disabled>Save and publish</button>
+</header>
+<div id="gate" hidden></div>
+<main id="app" hidden>
+  <nav aria-label="Sections">
+    <small>Colours</small>
+    <a href="#filaments">Filaments</a><a href="#colourWays">Colour ways</a><a href="#routeColours">Route colours</a><a href="#iconColours">Icon colours</a><a href="#frameFinishes">Frame finishes</a>
+    <small>Shop</small>
+    <a href="#prices">Prices</a><a href="#delivery">Delivery</a>
+  </nav>
+  <div>
+    <section id="filaments"></section>
+    <section id="colourWays"></section>
+    <div class="two"><section id="routeColours"></section><section id="iconColours"></section></div>
+    <section id="frameFinishes"></section>
+    <section id="prices"></section>
+  </div>
+</main>
+<div id="toast" role="status"></div>
+<script type="module">
+const local = location.protocol === "file:";
+const S = await import("/site-settings.js");
+const $ = (id) => document.getElementById(id);
+const COPY_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="7" width="11" height="14" rx="2" transform="rotate(8 14.5 14)"/><rect x="4" y="3" width="11" height="14" rx="2" transform="rotate(-8 9.5 10)" fill="#fff"/></svg>';
+const SHIP_NAMES = { "uk-standard": "UK standard", "uk-express": "UK express" };
+const SHIP_DAYS = { "uk-standard": "3–5 working days", "uk-express": "1–2 working days" };
+const SIZE_NAMES = { 100: ["10 cm", "The Side Quest"], 150: ["15 cm", "The Adventure"], 250: ["25 cm", "The Expedition"], 500: ["50 cm", "The Misogi"] };
+const FINISH_INK = { black: ["#1B1D20", "#E8E4DC"], charcoal: ["#2C3034", "#E8E4DC"], walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"], white: ["#ECE8E1", "#3A3A3A"] };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); }
+  for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k))); return e; };
+const pounds = (p) => "£" + (p / 100).toFixed(2);
+const toPence = (txt) => { const m = /^\s*£?\s*(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(String(txt)); return m ? (+m[1]) * 100 + +((m[2] || "0").padEnd(2, "0")) : null; };
+let toastT = null;
+const toast = (t) => { $("toast").textContent = t; $("toast").classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => $("toast").classList.remove("show"), 2600); };
+
+/* ---- the state: what's saved here, what's being edited, and the other site's, to compare with ---- */
+let site = "Preview", saved = null, work = null, other = null, savedAt = null;
+const api = (path, opts) => fetch(path, Object.assign({ cache: "no-store", credentials: "same-origin" }, opts));
+async function load() {
+  let data;
+  if (window.MISOGI_ADMIN) data = await window.MISOGI_ADMIN("GET");           // the checks stand in for the server
+  else { const r = await api("/api/admin/settings"); data = await r.json().catch(() => ({})); if (!r.ok) return gate(data.error || "This page can't be opened here.", r.status); }
+  take(data);
+}
+function take(data) {
+  site = data.site; saved = S.sanitise(data.settings); work = clone(saved); other = S.sanitise(data.otherSettings); savedAt = data.saved;
+  document.body.classList.toggle("live", site === "Live");
+  $("toPreview").classList.toggle("on", site !== "Live"); $("toLive").classList.toggle("on", site === "Live");
+  $("who").textContent = "Signed in through Cloudflare Access";
+  $("save").textContent = site === "Live" ? "Publish to live…" : "Save and publish";
+  $("copyAll").hidden = site !== "Live"; $("copyAll").innerHTML = COPY_SVG + " All";
+  $("gate").hidden = true; $("app").hidden = false;
+  renderAll();
+}
+function gate(message, status) {
+  $("app").hidden = true; $("gate").hidden = false;
+  $("gate").replaceChildren(el("h2", {}, status === 403 ? "You can't change these settings" : "The admin page isn't available"), el("p", { class: "sub" }, message));
+  $("who").textContent = status === 403 ? "Not signed in" : "Not available";
+}
+
+/* ---- the header: unsaved changes, ticks and crosses ---- */
+const dirty = () => JSON.stringify(S.sanitise(work)) !== JSON.stringify(saved);
+function refresh() {
+  const d = dirty();
+  $("save").disabled = !d; $("discard").disabled = !d;
+  $("savedAt").textContent = d ? "Unsaved changes" : savedAt ? "Last saved " + new Date(savedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Not saved yet: using the built-in settings";
+  const same = S.sameSections(work, other), allSame = Object.values(same).every(Boolean);
+  for (const k of S.SECTIONS) {
+    const st = document.querySelector("#" + k + " .st"); if (!st) continue;
+    st.className = "st " + (same[k] ? "ok" : "no");
+    st.title = same[k] ? (site === "Live" ? "Same as Preview" : "Same as Live") : (site === "Live" ? "Differs from Preview" : "Not on Live yet");
+    st.firstChild.textContent = same[k] ? "✓" : "✕";
+    const cp = document.querySelector("#" + k + " .cp"); if (cp) cp.disabled = same[k];
+  }
+  $("copyAll").disabled = allSame;
+}
+function head(sec, title, sub) {
+  const h = el("div", { class: "hd" }, el("h2", {}, title), el("span", { class: "st ok", role: "img" }, el("i", {}, "✓")));
+  if (site === "Live") h.append(el("button", { class: "cp", title: "Copy " + title + " from Preview", "aria-label": "Copy " + title + " from Preview", onclick: () => copy(sec) }));
+  if (site === "Live") h.lastChild.innerHTML = COPY_SVG;
+  return [h, el("p", { class: "sub" }, sub)];
+}
+const tog = (on, change, disabled) => el("button", { class: "tog", role: "switch", "aria-checked": String(!!on), disabled: !!disabled,
+  onclick: (e) => { const v = e.currentTarget.getAttribute("aria-checked") !== "true"; e.currentTarget.setAttribute("aria-checked", String(v)); change(v); } });
+function swatch(hex, change) {
+  const s = el("span", { class: "sw", style: "background:" + hex });
+  const inp = el("input", { type: "color", value: hex.toLowerCase(), "aria-label": "Colour",
+    oninput: (e) => { s.style.background = e.target.value; change(e.target.value.toUpperCase()); } });
+  s.append(inp); return s;
+}
+
+/* A list you can reorder by dragging its handle. */
+function sortable(host, list, rerender) {
+  let from = null;
+  host.querySelectorAll(".row").forEach((r, i) => {
+    const h = r.querySelector(".drag");
+    h.addEventListener("mousedown", () => { r.draggable = true; });
+    r.addEventListener("dragstart", (e) => { from = i; r.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+    r.addEventListener("dragend", () => { r.draggable = false; r.classList.remove("dragging"); });
+    r.addEventListener("dragover", (e) => { e.preventDefault(); r.classList.add("over"); });
+    r.addEventListener("dragleave", () => r.classList.remove("over"));
+    r.addEventListener("drop", (e) => { e.preventDefault(); r.classList.remove("over"); if (from == null || from === i) return;
+      const [x] = list.splice(from, 1); list.splice(i, 0, x); rerender(); });
+  });
+}
+function colourRows(host, list, { canDelete = () => true, canToggle = () => true, label = (c) => null, rerender }) {
+  const box = el("div");
+  list.forEach((c, i) => {
+    const hexEl = el("span", { class: "hex" }, c.hex);
+    box.append(el("div", { class: "row" },
+      el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"),
+      swatch(c.hex, (v) => { c.hex = v; hexEl.textContent = v; refresh(); }),
+      el("span", {}, el("input", { class: "t", value: c.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { c.name = e.target.value; refresh(); } }), label(c)),
+      hexEl,
+      tog(c.on, (v) => { c.on = v; refresh(); }, !canToggle(c)),
+      el("button", { class: "x", title: "Remove", "aria-label": "Remove " + c.name, disabled: !canDelete(c), onclick: () => { list.splice(i, 1); rerender(); } }, "✕")));
+  });
+  host.append(box); sortable(box, list, rerender);
+}
+
+/* ---- the sections ---- */
+function renderFilaments() {
+  const sec = $("filaments"); sec.replaceChildren(...head("filaments", "Filaments", "The colours you can print, used by the colour ways. Switch one off if you've run out: any colour way that needs it is hidden in the studio until it's back."));
+  colourRows(sec, work.filaments, { canDelete: (f) => !f.base && !work.colourWays.some((c) => c.slots.includes(f.id)), canToggle: (f) => !f.base,
+    label: (f) => f.base ? el("small", { class: "sub", style: "margin:0 0 0 8px" }, "the model's own colour") : null, rerender: () => { renderFilaments(); renderColourWays(); refresh(); } });
+  sec.append(el("button", { class: "add", onclick: () => { let n = 1; while (work.filaments.some((f) => f.id === "new-" + n)) n++;
+    work.filaments.push({ id: "new-" + n, name: "New colour " + n, hex: "#888888", on: false }); renderFilaments(); renderColourWays(); refresh(); } }, "+ Add a filament"));
+}
+function renderColourWays() {
+  const sec = $("colourWays"); sec.replaceChildren(...head("colourWays", "Colour ways", "The choices in the studio's colour section. Each puts a filament on every part of the model; the price comes from how many colours it uses (see Prices)."));
+  const grid = el("div", { class: "two" }), cols = [el("div"), el("div")];
+  work.colourWays.forEach((cw, i) => {
+    const n = cw.slots.length, price = work.prices.colours[n];
+    const card = el("div", { class: "scheme" }, el("div", { class: "top" },
+      el("input", { class: "t", value: cw.label, "aria-label": "Name", maxlength: 40, oninput: (e) => { cw.label = e.target.value; refresh(); } }),
+      el("span", { class: "tag" }, n + (n === 1 ? " colour" : " colours") + " · " + (price ? pounds(price) : "free")),
+      tog(cw.on, (v) => { cw.on = v; refresh(); }, cw.key === "solid")));
+    const parts = el("div", { class: "parts" });
+    cw.slots.forEach((id, si) => {
+      const names = si === 0 ? ["Ground"] : Object.entries(cw.assign).filter(([, k]) => k === si + 1).map(([p]) => S.PARTS[p] || p);
+      const f = work.filaments.find((x) => x.id === id) || work.filaments[0];
+      const sel = el("select", { "aria-label": names.join(", ") + " colour", onchange: (e) => { cw.slots[si] = e.target.value; renderColourWays(); refresh(); } },
+        work.filaments.map((x) => el("option", { value: x.id, selected: x.id === id }, x.name + (x.on ? "" : " (off)"))));
+      parts.append(el("span", { class: "part" }, el("span", { class: "sw", style: "background:" + f.hex }), names.join(", "), sel));
+    });
+    card.append(parts);
+    if (cw.slots.some((id) => { const f = work.filaments.find((x) => x.id === id); return !f || !f.on; }))
+      card.append(el("p", { class: "sub", style: "margin:8px 0 0;color:var(--bad)" }, "Hidden in the studio: one of its filaments is switched off."));
+    cols[i < 3 ? 0 : 1].append(card);
+  });
+  grid.append(...cols); sec.append(grid);
+}
+function renderSwatchList(key, title, sub) {
+  const sec = $(key); sec.replaceChildren(...head(key, title, sub));
+  colourRows(sec, work[key], { canDelete: () => work[key].length > 1, rerender: () => { renderSwatchList(key, title, sub); refresh(); } });
+  sec.append(el("button", { class: "add", onclick: () => { work[key].push({ name: "New colour", hex: "#888888", on: false }); renderSwatchList(key, title, sub); refresh(); } }, "+ Add a colour"));
+}
+function renderFinishes() {
+  const sec = $("frameFinishes"); sec.replaceChildren(...head("frameFinishes", "Frame finishes", "The frame's colour and its lettering. At least one is always on."));
+  const chips = el("div", { class: "chips" });
+  for (const f of work.frameFinishes) {
+    const [wood, ink] = FINISH_INK[f.key];
+    chips.append(el("span", { class: "part" }, el("span", { class: "sw", style: "background:" + wood }), el("span", { class: "sw", style: "background:" + ink + ";width:16px;height:16px" }), f.name,
+      tog(f.on, (v) => { f.on = v; if (!work.frameFinishes.some((x) => x.on)) { f.on = true; toast("One frame finish has to stay on."); renderFinishes(); } refresh(); })));
+  }
+  sec.append(chips);
+}
+function moneyInput(get, set) {
+  const i = el("input", { class: "money", inputmode: "decimal", value: pounds(get()), "aria-label": "Price",
+    oninput: (e) => { const p = toPence(e.target.value); e.target.classList.toggle("bad", p == null); if (p != null) { set(p); refresh(); } },
+    onblur: (e) => { if (e.target.classList.contains("bad")) toast("Prices are pounds and pence, like 35.00: put back to " + pounds(get()) + ".");
+                     e.target.value = pounds(get()); e.target.classList.remove("bad"); } });   // what isn't a price goes back to the last one that was
+  return i;
+}
+function renderPrices() {
+  const sec = $("prices"), P = work.prices;
+  sec.replaceChildren(...head("prices", "Prices", "What the studio, the basket and Stripe charge. The server always prices from here, never from the browser."));
+  sec.append(el("div", { class: "note" }, el("span", { style: "flex:1" }, "Example prices: the basket shows a small \"example prices\" note while this is on. Turn it off once the prices are final."),
+    tog(P.placeholder, (v) => { P.placeholder = v; refresh(); })));
+  const sizes = el("table", {}, el("tr", {}, el("th", {}, "Size"), el("th", {}, "Shown as"), el("th", {}, "Price"), el("th", {}, "Offered")));
+  for (const k of Object.keys(P.sizes)) sizes.append(el("tr", {}, el("td", {}, SIZE_NAMES[k][0]), el("td", {}, SIZE_NAMES[k][1]),
+    el("td", {}, moneyInput(() => P.sizes[k].price, (v) => { P.sizes[k].price = v; })),
+    el("td", {}, tog(P.sizes[k].on, (v) => { P.sizes[k].on = v; if (!Object.values(P.sizes).some((z) => z.on)) { P.sizes[k].on = true; toast("One size has to stay on."); renderPrices(); } refresh(); }))));
+  const cols = el("table", { style: "margin-top:14px" }, el("tr", {}, el("th", {}, "Colours"), el("th", {}, "Price")));
+  for (const [k, label] of [[1, "One colour"], [2, "Two-colour print"], [4, "Four-colour print"]])
+    cols.append(el("tr", {}, el("td", {}, label), el("td", {}, moneyInput(() => P.colours[k], (v) => { P.colours[k] = v; renderColourWays(); }))));
+  const extras = el("table", {}, el("tr", {}, el("th", {}, "Add-on"), el("th", {}, "Charged"), el("th", {}, "Price")));
+  const icons = el("input", { class: "num", inputmode: "numeric", value: P.maxIcons, "aria-label": "Most icons on one model",
+    oninput: (e) => { const n = Math.round(+e.target.value); if (Number.isFinite(n) && n >= 0 && n <= 10) { P.maxIcons = n; refresh(); } } });
+  for (const [k, label, how] of [["route", "Route", "per model"], ["frame", "Frame with engraved text", "per model"], ["icon", "Icon", el("span", {}, "each (up to ", icons, ")")], ["magnets", "Magnets", "a side (twice that on the 25 cm)"]])
+    extras.append(el("tr", {}, el("td", {}, label), el("td", {}, how), el("td", {}, moneyInput(() => P.extras[k], (v) => { P.extras[k] = v; }))));
+  const del = el("table", { style: "margin-top:14px", id: "delivery" }, el("tr", {}, el("th", {}, "Delivery"), el("th", {}, "Days"), el("th", {}, "Price"), el("th", {}, "Offered")));
+  for (const s of P.shipping) del.append(el("tr", {}, el("td", {}, SHIP_NAMES[s.id] || s.id), el("td", {}, SHIP_DAYS[s.id] || ""),
+    el("td", {}, moneyInput(() => s.price, (v) => { s.price = v; })),
+    el("td", {}, tog(s.on, (v) => { s.on = v; if (!P.shipping.some((x) => x.on)) { s.on = true; toast("One delivery option has to stay on."); renderPrices(); } refresh(); }))));
+  const fd = P.freeDelivery;
+  const rule = el("div", { class: "rule" }, el("div", { class: "top" }, el("b", { style: "flex:1" }, "Free delivery over a set spend"), tog(fd.on, (v) => { fd.on = v; refresh(); })),
+    el("div", { style: "margin-top:8px;line-height:2.2" }, "When the models in the basket come to ", moneyInput(() => fd.threshold, (v) => { fd.threshold = v; }), " or more, ",
+      el("select", { "aria-label": "Which delivery is free", onchange: (e) => { fd.shippingId = e.target.value; refresh(); } },
+        P.shipping.map((s) => el("option", { value: s.id, selected: s.id === fd.shippingId }, SHIP_NAMES[s.id] || s.id))), " is free."),
+    el("p", { class: "sub", style: "margin:6px 0 0" }, "Counted before delivery. The basket shows how much more is needed until it's reached, and Stripe then charges nothing for that delivery."));
+  sec.append(el("div", { class: "two" }, el("div", {}, sizes, cols), el("div", {}, extras, del, rule)));
+}
+function renderAll() {
+  renderFilaments(); renderColourWays();
+  renderSwatchList("routeColours", "Route colours", "Offered under Route in the studio.");
+  renderSwatchList("iconColours", "Icon colours", "Offered under Icons in the studio.");
+  renderFinishes(); renderPrices(); refresh();
+}
+
+/* ---- saving and copying ---- */
+async function send(method, path, body) {
+  if (window.MISOGI_ADMIN) return window.MISOGI_ADMIN(method, path, body);
+  const r = await api(path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || "That didn't save (" + r.status + ").");
+  return data;
+}
+$("save").addEventListener("click", async () => {
+  const clean = S.sanitise(work);
+  const bad = document.querySelector(".money.bad");
+  if (bad) { bad.focus(); toast("One of the prices isn't a number of pounds and pence."); return; }
+  if (site === "Live" && !confirm("Publish these settings to the live site? Customers will see them straight away.")) return;
+  $("save").disabled = true;
+  try { take(await send("PUT", "/api/admin/settings", { settings: clean })); toast(site === "Live" ? "Published to the live site" : "Saved"); }
+  catch (e) { toast(e.message); refresh(); }
+});
+$("discard").addEventListener("click", () => { work = clone(saved); renderAll(); });
+async function copy(section) {
+  if (dirty()) { toast("Save or discard your changes first."); return; }
+  const name = section === "all" ? "everything" : S.SECTION_NAMES[section];
+  if (!confirm("Copy " + name + " from Preview to the live site? Customers will see it straight away.")) return;
+  try { take(await send("POST", "/api/admin/copy", { section })); toast("Copied " + name + " from Preview"); }
+  catch (e) { toast(e.message); }
+}
+$("copyAll").addEventListener("click", () => copy("all"));
+window.addEventListener("beforeunload", (e) => { if (work && dirty()) { e.preventDefault(); e.returnValue = ""; } });
+load().catch((e) => gate("The settings couldn't be loaded: " + e.message));
+</script>
+</body>
+</html>

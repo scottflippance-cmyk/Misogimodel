@@ -10,6 +10,7 @@
 | `/studio/` | `studio/index.html` | The studio: pick a place, shape it, export it |
 | `/studio/vendor/` | `studio/vendor/manifold.js`, `manifold.wasm` | Manifold 3.0.1, the geometry library the studio cuts the print parts with (frame, pins, tiles). Loaded only when a print file is made. Keep the two files together and at the same version |
 | `/images/box/` | `model.webp`, `frame.webp`, `pin.webp` | The pictures in the basket's "What's in the box?" fold-out, rendered from the studio and the real print parts. Replace with photos of real prints whenever you like, at the same names |
+| `/admin/` | `admin/index.html` | The admin page: colours, colour ways, frame finishes, prices and delivery, for this site. Locked to you by Cloudflare Access (see below). Its settings live in `site-settings.js` (rules and defaults) and in storage as `settings/preview.json` and `settings/live.json` |
 | anything missing | `404.html` | The "Off the map" page |
 | `/brand/` | `brand/*` | Logo files: the mark, the stone, lockups (SVG + PNG) |
 | `/favicon.svg` etc. | root icons | Browser tab and phone home-screen icons |
@@ -80,3 +81,31 @@ The homepage's questions live in `faq.txt`. To change them, open `faq.txt` on Gi
 pencil, edit, and commit. Each question starts with `Q:` and its answer with `A:`; a blank line
 inside an answer starts a new paragraph; web and email addresses become links. The homepage reads
 the file every time it loads, so nothing else needs uploading.
+
+## The admin page and its lock
+
+`/admin` edits what the studio and basket offer and charge: filaments, colour ways, route and icon
+colours, frame finishes, prices, delivery and free delivery over a set spend. Preview and Live each keep
+their own settings; the live page is red. On Live, each section shows a tick when it matches Preview and
+a cross when it doesn't, with a copy button to bring Preview's across (copying only ever goes that way).
+Nothing is saved in the code, so changes take effect straight away; if the settings can't be read, the
+site falls back to what it was built with.
+
+The lock is Cloudflare Access (Zero Trust, free for one person), with the server checking Access's signed
+pass again on every admin request:
+
+1. Cloudflare dashboard → Zero Trust (choose the Free plan) → Settings → Authentication: One-time PIN on.
+2. Access → Applications → Add → Self-hosted, **misogimodel preview**: domain `preview.misogimodel.pages.dev`
+   (the whole site), policy Allow → Emails → your address. Session 24 hours.
+3. Add → Self-hosted, **misogimodel preview webhook**: `preview.misogimodel.pages.dev/api/stripe-webhook`,
+   policy action **Bypass**, Include → Everyone (Stripe has to reach it; it checks Stripe's signature itself).
+4. Add → Self-hosted, **misogimodel admin**: `misogimodel.com/admin`, `misogimodel.com/api/admin`
+   (and the same on `misogimodel.pages.dev`), policy Allow → Emails → your address.
+5. From the admin application's page, copy the **Application Audience (AUD) tag**; your team domain is
+   under Settings → Custom Pages (`something.cloudflareaccess.com`). Add both to Workers & Pages →
+   misogimodel → Settings → Variables (Production and Preview) as `ACCESS_AUD` and `ACCESS_TEAM_DOMAIN`.
+   Plain text: neither is secret. Each Access application has its own AUD tag; give Preview's variable
+   the preview application's tag, and Production's the admin one's.
+
+Until both are set, every admin request is refused, so nothing can be changed. Only `ADMIN_EMAIL`
+(or, if that's not set, `ORDER_EMAIL_TO`) is let in, even if the Access rule were wider.

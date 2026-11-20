@@ -45,6 +45,7 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .ship label:has(input:checked){outline:2px solid #E4572E}
 .ship label > span:nth-of-type(1){white-space:nowrap}
 .ship small{color:#5B6470}
+.free-note{margin:10px 2px 0;font-size:13.5px;color:#5B6470}.free-note.got{color:#1E7A3A;font-weight:600}
 .ship .p{margin-left:auto;font-weight:600}
 .sums{width:100%;border-collapse:collapse;margin-top:18px;font-size:15px}
 .sums td{padding:5px 0}
@@ -178,6 +179,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   <aside class="summary" aria-label="Order summary">
     <h2>Delivery</h2>
     <div class="ship" id="ship" role="radiogroup" aria-label="Delivery"></div>
+    <p class="free-note" id="freeNote" role="status" hidden></p>
     <table class="sums">
       <tr><td id="subLabel">Models</td><td id="subtotal"></td></tr>
       <tr><td id="shipLabel">Delivery</td><td id="shipping"></td></tr>
@@ -228,6 +230,13 @@ const local = location.protocol === "file:";
 const origin = local ? "https://misogimodel.com" : location.origin;
 const P = await import(local ? "/order-pricing.js" : "/order-pricing.js");
 const { PRICING, priceItem, priceCart, money, readCart, writeCart } = P;
+/* The prices and delivery rules set on the admin page, folded into the price list before anything is
+   shown. If they can't be fetched, the built-in list stands (the server would say so at checkout). */
+try {
+  let view = window.MISOGI_SETTINGS || null;
+  if (!view && !local) { const r = await fetch(origin + "/api/settings", { cache: "no-store" }); if (r.ok) view = await r.json(); }
+  if (view) (await import("/site-settings.js")).applyToPricing(PRICING, view);
+} catch (e) { /* keep the built-in prices */ }
 const $ = (id) => document.getElementById(id);
 const studioLink = (link) => {                       // the saved design, opened in this site's own studio
   const i = (link || "").indexOf("#design=");
@@ -355,14 +364,23 @@ function render() {
     lab.innerHTML = `<input type="radio" name="ship"><span></span><small></small><span class="p"></span>`;
     const r = lab.firstChild; r.value = opt.id; r.checked = opt.id === cart.shipping;
     lab.children[1].textContent = opt.label; lab.children[2].textContent = opt.note;
-    lab.children[3].textContent = money(opt.price, PRICING.currency);
+    const freeHere = bill && bill.freeDelivery.applies && bill.freeDelivery.shippingId === opt.id;
+    lab.children[3].textContent = freeHere ? "Free" : money(opt.price, PRICING.currency);
     r.addEventListener("change", () => { const c = readCart(); c.shipping = opt.id; writeCart(c); render(); });
     ship.append(lab);
+  }
+  // free delivery over a set spend: how far off it is, or that it's been reached
+  const fd = bill && bill.freeDelivery, fdOpt = fd && fd.on && PRICING.shipping.find((s) => s.id === fd.shippingId);
+  $("freeNote").hidden = !fdOpt;
+  if (fdOpt) {
+    $("freeNote").classList.toggle("got", fd.applies);
+    $("freeNote").textContent = fd.applies ? "You've got free " + fdOpt.label + " delivery."
+      : "Spend " + money(fd.remaining, PRICING.currency) + " more for free " + fdOpt.label + " delivery.";
   }
   $("subLabel").textContent = n === 1 ? "1 model" : n + " models";
   $("subtotal").textContent = bill ? money(bill.subtotal, bill.currency) : "—";
   $("shipLabel").textContent = bill ? bill.shipping.label + " delivery" : "Delivery";
-  $("shipping").textContent = bill ? money(bill.shipping.price, bill.currency) : "—";
+  $("shipping").textContent = bill ? (bill.shipping.free ? "Free" : money(bill.shipping.price, bill.currency)) : "—";
   $("total").textContent = bill ? money(bill.total, bill.currency) : "—";
   $("checkout").disabled = !bill;
   renderBox(cart.items);

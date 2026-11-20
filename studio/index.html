@@ -1671,7 +1671,7 @@ const map = L.map("map", { zoomControl: true, attributionControl: true })
 const MB_ATTR = '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 /* The map is always the plain one, drawn here from the map data so it carries no names or
    symbols. There is nothing to choose between any more. */
-const PLAIN_GROUND = "#8A949E";                     // slate: the model's own colour, before anything is painted on
+let PLAIN_GROUND = "#8A949E";                     // slate: the model's own colour, before anything is painted on
 function setBase() {
   document.body.classList.add("base-plain");
   document.body.dataset.base = "plain";
@@ -5832,7 +5832,8 @@ $("frameBtn").addEventListener("click", () => {
    the price and the order email all count them from the same rule (magnetsFor in the price list). */
 var frameMagnets = false;
 var magnetInfoShape = null;                          // the picture's shape; null follows the model's
-const MAGNET = { d: 10, h: 2, clr: 0.1, skin: 0.6, zc: 7 };   // a 10 × 2 mm disc, standing on edge, 0.6 mm in from the face
+const MAGNET = { d: 10, h: 2, clr: 0.1, skin: 1.2, zc: 7 };   // a 10 × 2 mm disc, standing on edge, 1.2 mm in from the face:
+                                                               // three wall lines, so the slicer's outer walls never meet the pocket and it can't show through
 function magnetPerWall(mm = frameVals.modelMM) { return mm >= PRINT_PARTS.MISOGI_MM ? 0 : mm >= 250 ? 4 : 2; }
 function magnetsOn() { return frameMagnets && $("showFrame").checked && magnetPerWall() > 0; }
 /* Where along a wall they go, as fractions of its outside length from its middle: halfway to each
@@ -8515,7 +8516,7 @@ function iconsChanged() {
   iconTimer = setTimeout(() => { if (current && three) { paintSurface(current); buildIcons3D(); buildFeatures3D(current); } }, 120);   // clears features under icons
 }
 /* Up to three icons on a model (the price list holds the same limit). */
-const MAX_ICONS = 3;
+let MAX_ICONS = 3;                                   // the admin page can change it (applySiteSettings)
 function syncAddIcon() {
   const b = $("addIcon"); if (!b) return;
   const full = icons.length >= MAX_ICONS;
@@ -8723,9 +8724,10 @@ function backTextLayout(Wmm) {
            lenMM: artMM + 2 * margin, hMM: logoH + between + emMM + 2 * margin };
 }
 /* Which way the artwork runs on the plan, in radians anticlockwise: west to east on a square, and on a
-   hexagon along side 1 (the screen's side 0, as the frame's lettering counts them), its top toward it. */
+   hexagon along side 1 (the screen's side 0, as the frame's lettering counts them), its top toward it.
+   The hexagon Misogi is the exception: it sits on one tile, so it runs west to east, along the tile joins. */
 function backArtAngle(Wmm) {
-  if (modelOutline === "square") return 0;
+  if (modelOutline === "square" || Wmm >= PRINT_PARTS.MISOGI_MM) return 0;
   const k = Wmm / WORLD, src = outlineRing().map(([x, z]) => [(x + WORLD / 2) * k, (WORLD / 2 - z) * k]);
   const a = src[0], b = src[1], C = Wmm / 2, m = [(a[0] + b[0]) / 2 - C, (a[1] + b[1]) / 2 - C], r = Math.hypot(...m);
   const n = [m[0] / r, m[1] / r];                    // out through the middle of side 1
@@ -9031,9 +9033,9 @@ const headRise = () => { const P = PRINT_PARTS.PIN, H = PRINT_PARTS.HOLE;
   return Math.min((P.headR - P.shaftR) * Math.tan(P.headSlope * Math.PI / 180), H.capZ - 0.05 - P.lift - P.headH); };
 /* Where the logo goes underneath, in print millimetres: in the middle, or on the Misogi in the middle
    of its south-west tile, so it is never cut across the joins. The screen and the print both ask here. */
-// (the hexagon Misogi's tile is cut short by its slanted sides, so there the name sits where it has room to
-// spare all round, turned along side 1)
-const backArtCentre = (W) => (W < PRINT_PARTS.MISOGI_MM ? [W / 2, W / 2] : modelOutline === "hex" ? [W * 0.308, W * 0.329] : [W / 2 - W / 5, W / 2 - W / 5]);
+// (the hexagon Misogi's tile is cut short by its slanted side, so there the name runs west to east, square
+// to the tile joins, nudged up and in to where it has about 22 mm to spare from the ledge line and the joins)
+const backArtCentre = (W) => (W < PRINT_PARTS.MISOGI_MM ? [W / 2, W / 2] : modelOutline === "hex" ? [W * 0.2846, W * 0.357] : [W / 2 - W / 5, W / 2 - W / 5]);
 const frameThicknessFor = (mm) => (mm >= PRINT_PARTS.MISOGI_MM ? PRINT_PARTS.MISOGI_T : PRINT_PARTS.T);
 
 let manifoldLib = null;
@@ -9325,7 +9327,7 @@ function magnetPlaces(W, t) {
 }
 /* The pocket a magnet drops into, standing on edge: round at the bottom, 0.1 mm bigger than the magnet so
    it settles centred, straight up the sides to a flat roof printed over it after a pause, 0.2 mm wider
-   than it is thick, and 0.6 mm in from the outside face. Nothing in it overhangs but that 2.2 mm bridge. */
+   than it is thick, and MAGNET.skin (1.2 mm) in from the outside face. Nothing in it overhangs but that 2.2 mm bridge. */
 function magnetCutter(S, q) {
   const { CrossSection } = manifoldLib, r = MAGNET.d / 2 + MAGNET.clr, w = MAGNET.h + 2 * MAGNET.clr;
   const U = S(CrossSection.union([S(S(CrossSection.circle(r, 64)).translate([0, MAGNET.zc])), S(CrossSection.square([2 * r, magnetPauseZ() - MAGNET.zc], false).translate([-r, MAGNET.zc]))]));
@@ -10007,7 +10009,69 @@ async function buildPrintFile(opts) {
 let orderPricing = null;
 /* The site's own address. Opened as a file (as the tests do) there is none, so orders go to the live one. */
 const siteOrigin = () => (location.protocol === "file:" ? "https://misogimodel.com" : location.origin);
-async function pricingModule() { return orderPricing || (orderPricing = await import(location.protocol === "file:" ? "/order-pricing.js" : siteOrigin() + "/order-pricing.js")); }
+async function pricingModule() {
+  if (orderPricing) return orderPricing;
+  const mod = await import(location.protocol === "file:" ? "/order-pricing.js" : siteOrigin() + "/order-pricing.js");
+  const view = await siteSettings();                 // the admin page's prices, folded in before anything is shown
+  if (view) { try { (await import(location.protocol === "file:" ? "/site-settings.js" : siteOrigin() + "/site-settings.js")).applyToPricing(mod.PRICING, view); }
+              catch (e) { console.error(e); } }
+  return (orderPricing = mod);
+}
+/* ============================================================
+   The admin page's settings (/admin): which colours, colour ways and frame finishes are on offer,
+   and the prices. Read once, from /api/settings (only what's on offer comes back). If they can't be
+   read, the studio carries on with what it was built with, so it never breaks.
+   ============================================================ */
+let siteSettingsP = null;
+function siteSettings() {
+  return siteSettingsP || (siteSettingsP = (async () => {
+    try {
+      if (window.MISOGI_SETTINGS) return window.MISOGI_SETTINGS;      // the checks hand one straight in
+      if (location.protocol === "file:") return null;
+      const r = await fetch(siteOrigin() + "/api/settings", { cache: "no-store" });
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  })());
+}
+const SWATCH_HTML = (c) => { const b = document.createElement("button"); b.type = "button"; b.dataset.c = c.hex; b.style.background = c.hex;
+  b.setAttribute("aria-label", c.name); b.title = c.name; b.setAttribute("aria-pressed", "false"); return b; };
+const FINISH_NAMES = { black: "Black", charcoal: "Charcoal", walnut: "Walnut", oak: "Oak", white: "White" };
+function applySiteSettings(v) {
+  if (!v || typeof v !== "object") return;
+  try {
+    if (/^#[0-9A-F]{6}$/i.test(v.ground || "")) PLAIN_GROUND = v.ground.toUpperCase();
+    // the colour ways on offer, in the admin page's order; trees and shrubs always share a colour
+    if (Array.isArray(v.colourWays) && v.colourWays.length) {
+      const list = v.colourWays.map((c) => ({ key: c.key, label: c.label, colours: c.colours.slice(),
+        assign: Object.assign({}, c.assign, c.assign && c.assign.trees ? { shrubs: c.assign.trees } : {}) }));
+      COLOUR_SCHEMES.splice(0, COLOUR_SCHEMES.length, ...list);
+      if (printCols.on) schemeState(schemeBy(printCols.scheme) ? printCols.scheme : null);   // a colour way that's gone: back to plain
+      renderPrintSlots(); applyPrintColours();
+    }
+    // route colours
+    if (Array.isArray(v.routeColours) && v.routeColours.length) {
+      const host = $("routeSwatches"); host.innerHTML = "";
+      for (const c of v.routeColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => setRouteColour(c.hex)); host.append(b); }
+      const keep = v.routeColours.find((c) => c.hex.toLowerCase() === String(routeStyle.colour).toLowerCase());
+      setRouteColour(keep ? keep.hex : v.routeColours[0].hex);
+    }
+    // icon colours (a new icon takes the chosen one; icons already placed keep theirs)
+    if (Array.isArray(v.iconColours) && v.iconColours.length) {
+      const host = $("iconSwatches"); host.innerHTML = "";
+      for (const c of v.iconColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => { iconStyle.colour = c.hex; iconControlChanged(); }); host.append(b); }
+      if (!v.iconColours.some((c) => c.hex.toLowerCase() === iconStyle.colour.toLowerCase())) iconStyle.colour = v.iconColours[0].hex;
+      host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c.toLowerCase() === iconStyle.colour.toLowerCase())));
+    }
+    // frame finishes
+    if (Array.isArray(v.frameFinishes) && v.frameFinishes.length) {
+      const sel = $("frameColour"), was = sel.value; sel.innerHTML = "";
+      for (const k of v.frameFinishes) if (FINISH[k]) { const o = document.createElement("option"); o.value = k; o.textContent = FINISH_NAMES[k] || k; sel.append(o); }
+      sel.value = v.frameFinishes.includes(was) ? was : sel.options[0].value;
+      if (sel.value !== was) queueFrame();
+    }
+    if (v.prices && v.prices.maxIcons >= 0) MAX_ICONS = v.prices.maxIcons;
+  } catch (e) { console.error("settings", e); }
+}
 /* links: JSON → deflate → base64url, the form openFromHash reads back */
 async function encodeDesign(st) {
   const bytes = new Uint8Array(await new Response(new Blob([JSON.stringify(st)]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
@@ -10273,6 +10337,7 @@ async function applyState(st, origin, opts) {
   setPairUI("frameH", "frameHNum", frameVals.h); setPairUI("frameT", "frameTNum", frameVals.t); setPairUI("frameD", "frameDNum", frameVals.d);
   setModelSize(frameVals.modelMM);                   // the one place the width is set, so it says so too
   $("frameColour").value = "black";               // every frame is black now, older saved designs included
+  if (!$("frameColour").value) $("frameColour").value = $("frameColour").options[0].value;   // unless black isn't offered
   restoreFrameTexts(F);
   $("interval").value = st.interval || "auto";
   route = st.route ? decodeRoute(st.route) : null;
@@ -10455,6 +10520,7 @@ openFromHash();
 /* Each printed size shows what it costs, read from the same price list the cart and checkout use, and so
    do the extras: a route, a frame, and each colour scheme (one colour is included). */
 var EXTRA_PRICE = null;                              // filled once the price list is in (var: read before then)
+siteSettings().then(applySiteSettings);
 pricingModule().then(({ PRICING, money, schemePrice }) => {
   const plus = (p) => (p > 0 ? "+ " + money(p, PRICING.currency) : "Included");
   EXTRA_PRICE = { route: plus(PRICING.extras.route.price), frame: plus(PRICING.extras.frame.price), schemes: {},
@@ -10463,7 +10529,8 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
   $("routePrice").textContent = EXTRA_PRICE.route;
   syncFrameBtn(); syncMagnets(); renderPrintSlots();
   document.querySelectorAll("#sizeSeg button").forEach((b) => {
-    const sz = PRICING.sizes[+b.dataset.mm]; if (!sz) return;
+    const sz = PRICING.sizes[+b.dataset.mm];
+    if (!sz) { b.disabled = true; b.title = "Not available just now"; return; }   // switched off on the admin page
     let p = b.querySelector(".price");
     if (!p) { p = document.createElement("span"); p.className = "price"; b.append(p); }
     p.textContent = money(sz.price, PRICING.currency);

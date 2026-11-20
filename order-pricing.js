@@ -31,6 +31,7 @@ export const PRICING = {
     { id: "uk-standard", label: "UK standard", note: "3–5 working days", price: 395, days: [3, 5] },
     { id: "uk-express",  label: "UK express",  note: "1–2 working days", price: 795, days: [1, 2] },
   ],
+  freeDelivery: null,                                   // { threshold, shippingId } once switched on (admin page)
   countries: ["GB"],                                    // where Stripe will accept a delivery address
   maxItems: 20,                                         // models in one order
   maxIcons: 3,                                          // icons on one model
@@ -103,7 +104,18 @@ export function priceCart(items, shipping, pricing = PRICING) {
   if (!ship) throw new Error("That delivery option isn't on the price list.");
   const priced = items.map((it) => priceItem(it, pricing));
   const subtotal = priced.reduce((t, p) => t + p.subtotal, 0);
-  return { currency: pricing.currency, items: priced, shipping: ship, subtotal, total: subtotal + ship.price };
+  const free = freeDeliveryFor(subtotal, pricing);
+  const sh = free.applies && free.shippingId === ship.id ? { ...ship, price: 0, free: true } : ship;
+  return { currency: pricing.currency, items: priced, shipping: sh, subtotal, total: subtotal + sh.price, freeDelivery: free };
+}
+
+/* Free delivery over a set spend (set on the admin page): whether the models alone reach it, and if
+   not, how much more would. Off unless the price list carries a freeDelivery rule. */
+export function freeDeliveryFor(subtotal, pricing = PRICING) {
+  const f = pricing.freeDelivery;
+  if (!f || !(f.threshold >= 0)) return { on: false, applies: false, remaining: null, shippingId: null, threshold: null };
+  const applies = subtotal >= f.threshold;
+  return { on: true, applies, remaining: applies ? 0 : f.threshold - subtotal, shippingId: f.shippingId, threshold: f.threshold };
 }
 
 export const money = (pence, currency = "gbp") =>

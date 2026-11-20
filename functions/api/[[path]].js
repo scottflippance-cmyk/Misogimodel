@@ -45,8 +45,21 @@
                             sign-up gets a welcome from it, and you a note (with RESEND_API_KEY and
                             ORDER_EMAIL_TO), each from a Resend template you can edit there
      NEWS_WELCOME_TEMPLATE  optional; the welcome's template, default newsletter-welcome
-     NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note */
+     NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note
+     ACCESS_TEAM_DOMAIN     the admin page's lock: your Cloudflare Zero Trust team domain, e.g. you.cloudflareaccess.com
+     ACCESS_AUD             and the Access application's Audience (AUD) tag. Without both, every admin
+                            request is refused. Neither is secret.
+     ADMIN_EMAIL            optional; who may use the admin page (defaults to ORDER_EMAIL_TO)
+
+   Settings (the admin page, /admin):
+       GET  /api/settings                  what's on offer, for the studio and basket: only colours and options
+                                           switched on, and the prices. Anyone can read it.
+       GET  /api/admin/settings            everything, this site's and the other's, and which sections match.
+       PUT  /api/admin/settings            { settings } saves this site's.
+       POST /api/admin/copy                { section } (or "all"): Live only, copies that section from Preview.
+     The admin ones need Cloudflare Access's signed pass for ADMIN_EMAIL, checked here as well as at the door. */
 import { PRICING, itemFromDesign, priceItem, priceCart, money, magnetsFor } from "../../order-pricing.js";
+import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections } from "../../site-settings.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
 const EMAIL_ATTACH_BUDGET = 28 * 1024 * 1024;           // Resend takes 40 MB per email after base64 (×4/3)
@@ -251,8 +264,9 @@ async function createItem(request, env) {
   const design = body && body.design;
   if (!design || typeof design !== "object") return fail(400, "There was no design.");
   const item = itemFromDesign(design);
+  const P = await pricingFor(env, request);
   let price;
-  try { price = priceItem(item, PRICING); } catch (e) { return fail(400, e.message); }
+  try { price = priceItem(item, P); } catch (e) { return fail(400, e.message); }
   const id = crypto.randomUUID();
   const link = typeof body.link === "string" && body.link.length < 20000 ? body.link : "";
   await writeJSON(env, itemKey(id), { id, created: new Date().toISOString(), status: "open", item, price, design, link,
@@ -278,7 +292,8 @@ async function checkout(request, env) {
   try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
   const list = Array.isArray(body && body.items) ? body.items : [];
   if (!list.length) return fail(400, "The basket is empty.");
-  if (list.length > PRICING.maxItems) return fail(400, "That's more models than one order can hold.");
+  const P = await pricingFor(env, request);
+  if (list.length > P.maxItems) return fail(400, "That's more models than one order can hold.");
   const items = [];
   for (const it of list) {
     const id = String((it && it.id) || "");
@@ -289,7 +304,7 @@ async function checkout(request, env) {
     items.push(rec);
   }
   let price;
-  try { price = priceCart(items.map((r) => r.item), body.shipping, PRICING); } catch (e) { return fail(400, e.message); }
+  try { price = priceCart(items.map((r) => r.item), body.shipping, P); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
   const updates = body.updates === true;       // the "send me updates" box on the basket page (ticked unless they untick it)
   let number;
@@ -666,6 +681,85 @@ ${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
   return fail(502, "Your message couldn't be sent just now. Please try again in a little while.");
 }
 
+/* ---- settings (the admin page) ---- */
+const settingsKey = (site) => "settings/" + (site === "Live" ? "live" : "preview") + ".json";
+export async function loadSettings(env, site) {
+  try { const s = env.ORDERS ? await readJSON(env, settingsKey(site)) : null; return sanitise(s || DEFAULT_SETTINGS); }
+  catch (e) { return sanitise(DEFAULT_SETTINGS); }       // a spoilt file never breaks the shop
+}
+/* The price list for this site: the built-in one with the admin page's prices folded in. */
+export async function pricingFor(env, request) {
+  const P = JSON.parse(JSON.stringify(PRICING));
+  return applyToPricing(P, publicView(await loadSettings(env, siteOf(new URL(request.url).origin))));
+}
+
+/* Cloudflare Access's pass: a token it signs and adds to every request it lets through. Checked here
+   too, so a mistyped rule at the door, or a request sent straight here, still can't change anything. */
+const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+let certCache = { team: null, at: 0, keys: [] };
+export async function verifyAccess(request, env, now = Date.now()) {
+  const team = String(env.ACCESS_TEAM_DOMAIN || "").replace(/^https?:\/\//, "").replace(/\/+$/, ""), aud = String(env.ACCESS_AUD || "");
+  const owner = String(env.ADMIN_EMAIL || env.ORDER_EMAIL_TO || "").trim().toLowerCase();
+  if (!team || !aud || !owner) return { ok: false, why: "The admin lock isn't set up on this site yet." };
+  let tok = request.headers.get("cf-access-jwt-assertion") || "";
+  if (!tok) { const m = /(?:^|;\s*)CF_Authorization=([^;]+)/.exec(request.headers.get("cookie") || ""); if (m) tok = m[1]; }
+  const bits = tok.split(".");
+  if (bits.length !== 3) return { ok: false, why: "Please sign in." };
+  let head, body;
+  try { head = JSON.parse(new TextDecoder().decode(b64u(bits[0]))); body = JSON.parse(new TextDecoder().decode(b64u(bits[1]))); }
+  catch (e) { return { ok: false, why: "Please sign in." }; }
+  if (head.alg !== "RS256") return { ok: false, why: "Please sign in." };
+  if (certCache.team !== team || now - certCache.at > 3600e3 || !certCache.keys.some((k) => k.kid === head.kid)) {
+    const r = await fetch("https://" + team + "/cdn-cgi/access/certs");
+    if (!r.ok) return { ok: false, why: "Couldn't check your sign-in just now." };
+    certCache = { team, at: now, keys: ((await r.json()).keys) || [] };
+  }
+  const jwk = certCache.keys.find((k) => k.kid === head.kid);
+  if (!jwk) return { ok: false, why: "Please sign in." };
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const good = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64u(bits[2]), new TextEncoder().encode(bits[0] + "." + bits[1]));
+  if (!good) return { ok: false, why: "Please sign in." };
+  const auds = Array.isArray(body.aud) ? body.aud : [body.aud];
+  if (!auds.includes(aud) || body.iss !== "https://" + team) return { ok: false, why: "Please sign in." };
+  if (!(body.exp * 1000 > now) || (body.nbf && body.nbf * 1000 > now + 60e3)) return { ok: false, why: "Your sign-in has run out. Please sign in again." };
+  if (String(body.email || "").trim().toLowerCase() !== owner) return { ok: false, why: "That account can't change these settings." };
+  return { ok: true, email: body.email };
+}
+
+async function adminView(env, site) {
+  const other = site === "Live" ? "Preview" : "Live";
+  const mine = await loadSettings(env, site), theirs = await loadSettings(env, other);
+  const savedObj = env.ORDERS ? await env.ORDERS.head(settingsKey(site)) : null;
+  return json({ site, other, settings: mine, otherSettings: theirs, same: sameSections(mine, theirs), sections: SECTIONS,
+                saved: savedObj && savedObj.uploaded ? new Date(savedObj.uploaded).toISOString() : null });
+}
+async function adminRoute(request, env, parts, m) {
+  const who = await verifyAccess(request, env);
+  if (!who.ok) return fail(403, who.why);
+  if (!env.ORDERS) return fail(503, "The settings storage (ORDERS) isn't connected on this site.");
+  const site = siteOf(new URL(request.url).origin);
+  if (parts[1] === "settings" && parts.length === 2) {
+    if (m === "GET") return adminView(env, site);
+    if (m === "PUT") {
+      let body; try { body = await request.json(); } catch (e) { return fail(400, "Those settings didn't come through properly."); }
+      if (!body || typeof body.settings !== "object") return fail(400, "There were no settings.");
+      await writeJSON(env, settingsKey(site), sanitise(body.settings));
+      return adminView(env, site);
+    }
+    return fail(405, "Not allowed.");
+  }
+  if (parts[1] === "copy" && parts.length === 2 && m === "POST") {
+    if (site !== "Live") return fail(400, "Copying only goes from Preview to Live, on the live site's admin page.");
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    const section = String((body && body.section) || "");
+    if (section !== "all" && !SECTIONS.includes(section)) return fail(400, "There's no section called that.");
+    const live = await loadSettings(env, "Live"), preview = await loadSettings(env, "Preview");
+    await writeJSON(env, settingsKey("Live"), copySections(live, preview, section));
+    return adminView(env, site);
+  }
+  return fail(404, "Not found.");
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url), m = request.method;
@@ -678,6 +772,13 @@ export async function onRequest(context) {
     if (m !== "GET" && m !== "POST") return fail(405, "Not allowed.");
     try { return await unsubscribe(request, env, url); }
     catch (err) { return page(502, "Please try again", "<h1>That didn't work just now</h1><p>Please try again in a little while.</p>"); }
+  }
+  if (parts[0] === "settings" && parts.length === 1) {         // what's on offer: anyone may read it
+    if (m !== "GET") return fail(405, "Not allowed.");
+    return json(publicView(await loadSettings(env, siteOf(url.origin))));
+  }
+  if (parts[0] === "admin") {                                  // the admin page's: only with your Cloudflare Access pass
+    try { return await adminRoute(request, env, parts, m); } catch (err) { return fail(500, "The settings couldn't be saved: " + (err && err.message ? err.message : "unknown")); }
   }
   if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");
