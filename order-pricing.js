@@ -20,10 +20,11 @@ export const PRICING = {
     icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
     magnets: { label: "Magnets to join models (per side)", short: "magnets", price: 100 },  // per pair of magnets on a side: £1 a side (two a wall), £2 on the 250 (four)
   },
-  /* Print colours, by how many filaments the scheme uses: one colour is included, two or four cost more. */
+  /* Print colours, by how many filaments the scheme uses: one colour is included, more cost more. */
   colours: {
     1: { label: "One colour", short: "", price: 0 },
     2: { label: "Two-colour print", short: "two colours", price: 500 },
+    3: { label: "Three-colour print", short: "three colours", price: 750 },
     4: { label: "Four-colour print", short: "four colours", price: 1000 },
   },
   schemeColours: { solid: 1, water: 2, green: 2, natural: 4, bold: 4 },  // the studio's schemes, by colours used

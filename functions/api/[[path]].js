@@ -57,9 +57,11 @@
        GET  /api/admin/settings            everything, this site's and the other's, and which sections match.
        PUT  /api/admin/settings            { settings } saves this site's.
        POST /api/admin/copy                { section } (or "all"): Live only, copies that section from Preview.
+       POST /api/basket-check              { items: [{ id, token }] } -> which models hold something switched off
+                                           since they went in the basket (and so can't be checked out).
      The admin ones need Cloudflare Access's signed pass for ADMIN_EMAIL, checked here as well as at the door. */
 import { PRICING, itemFromDesign, priceItem, priceCart, money, magnetsFor } from "../../order-pricing.js";
-import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections } from "../../site-settings.js";
+import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections, unavailableIn, checkSettings } from "../../site-settings.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
 const EMAIL_ATTACH_BUDGET = 28 * 1024 * 1024;           // Resend takes 40 MB per email after base64 (×4/3)
@@ -264,9 +266,12 @@ async function createItem(request, env) {
   const design = body && body.design;
   if (!design || typeof design !== "object") return fail(400, "There was no design.");
   const item = itemFromDesign(design);
-  const P = await pricingFor(env, request);
+  const view = await viewFor(env, request), P = await pricingFor(env, request, view);
   let price;
   try { price = priceItem(item, P); } catch (e) { return fail(400, e.message); }
+  // anything else switched off on the admin page since the studio was opened can't be ordered either
+  const gone = unavailableIn(design, view);
+  if (gone.length) return json({ error: gone.join(" "), unavailable: gone }, 409);
   const id = crypto.randomUUID();
   const link = typeof body.link === "string" && body.link.length < 20000 ? body.link : "";
   await writeJSON(env, itemKey(id), { id, created: new Date().toISOString(), status: "open", item, price, design, link,
@@ -287,12 +292,25 @@ async function upload(request, env, id, what) {
 }
 
 /* ---- checkout: the whole cart, one Stripe page ---- */
+/* The basket page asks, when it opens, whether anything in it has been switched off since it went in. */
+async function basketCheck(request, env) {
+  let body; try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
+  const list = (Array.isArray(body && body.items) ? body.items : []).slice(0, 50), view = await viewFor(env, request), out = [];
+  for (const it of list) {
+    const id = String((it && it.id) || "");
+    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) continue;
+    const rec = await readJSON(env, itemKey(id));
+    if (rec) out.push({ id, problems: unavailableIn(rec.design, view) });
+  }
+  return json({ items: out });
+}
+
 async function checkout(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
   const list = Array.isArray(body && body.items) ? body.items : [];
   if (!list.length) return fail(400, "The basket is empty.");
-  const P = await pricingFor(env, request);
+  const view = await viewFor(env, request), P = await pricingFor(env, request, view);
   if (list.length > P.maxItems) return fail(400, "That's more models than one order can hold.");
   const items = [];
   for (const it of list) {
@@ -303,6 +321,9 @@ async function checkout(request, env) {
     if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the basket is missing its print file. Please remove it and add it again.");
     items.push(rec);
   }
+  // anything switched off since it went in the basket: named model by model, so the basket can show which
+  const flagged = items.map((rec) => ({ id: rec.id, problems: unavailableIn(rec.design, view) })).filter((x) => x.problems.length);
+  if (flagged.length) return json({ error: "Something in your basket isn't available at the moment. Please change it in the studio, or remove it.", unavailable: flagged }, 409);
   let price;
   try { price = priceCart(items.map((r) => r.item), body.shipping, P); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
@@ -370,6 +391,28 @@ export const SHEET_COLUMNS = ["Order", "Model", "Date", "Site", "Payment", "Cust
 // label in front of the site's own pages.dev name; misogimodel.com and misogimodel.pages.dev are live
 export const siteOf = (origin) => { let h = ""; try { h = new URL(origin).hostname; } catch (e) {}
   return /^[^.]+\.[^.]+\.pages\.dev$/.test(h) || /^(localhost|127\.)/.test(h) ? "Preview" : "Live"; };
+/* What to load in the printer, in words: the colour way and its filaments, the route's colour and the
+   icons', each with its finish (matte or standard) when the design says. */
+const finishWord = (f) => f === "matte" ? "matte" : f === "standard" ? "standard" : "";
+const colourWords = (name, hex, finish) => { const bits = [name, finishWord(finish)].filter(Boolean).join(", ");
+  return (bits ? bits + " " : "") + "(" + String(hex || "").toUpperCase() + ")"; };
+export function coloursLine(d) {
+  const pr = d.print || {};
+  if (!pr.on || !pr.scheme) return "plain";
+  const name = pr.label || pr.scheme, cols = Array.isArray(pr.colours) ? pr.colours.slice(0, pr.count || pr.colours.length) : [];
+  return cols.length ? name + ": " + cols.map((c) => String(c).toUpperCase()).join(", ") : name;
+}
+export function routeLine(d, named) {
+  if (!d.route) return "No";
+  const rs = d.routeStyle || {};
+  return ((named && d.route.name) || "Yes") + (rs.colour ? " · " + colourWords(rs.colourName, rs.colour, rs.finish) : "");
+}
+export function iconsLine(d) {
+  const list = d.icons || []; if (!list.length) return "0";
+  const counts = new Map();
+  for (const ic of list) { const k = colourWords(ic.colourName, ic.colour, ic.finish); counts.set(k, (counts.get(k) || 0) + 1); }
+  return list.length + ": " + [...counts].map(([k, n]) => (n > 1 ? n + " × " : "") + k).join("; ");
+}
 export function sheetRow(rec, p, { short, i, n, modelUrl }) {
   const d = rec.design || {}, f = d.frame || {}, m = magnetsFor(f);
   const texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text);
@@ -377,8 +420,8 @@ export function sheetRow(rec, p, { short, i, n, modelUrl }) {
     "Order": short, "Model": (i + 1) + " of " + n, "Model name": rec.name || "",
     "Size": p.size.name + " (" + p.size.dims + ")", "Shape": f.outline === "hex" ? "Hexagon" : "Square",
     "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join(" · ") : "",
-    "Route": d.route ? "Yes" : "No", "Magnets": m.count ? "Yes (" + m.count + ")" : "No",
-    "Icons": String((d.icons || []).length), "Colours": (d.print && d.print.on && d.print.scheme) || "plain",
+    "Route": routeLine(d), "Magnets": m.count ? "Yes (" + m.count + ")" : "No",
+    "Icons": iconsLine(d), "Colours": coloursLine(d),
     "Model price": money(p.subtotal, PRICING.currency), "Print file": modelUrl, "Studio link": rec.link || "", "Status": "To print",
   };
 }
@@ -410,12 +453,12 @@ function itemBlock(rec, p, origin, modelUrl, attached) {
     ["Centre", d.sel ? d.sel.lat + ", " + d.sel.lng : "—"],
     ["Area", d.sel ? (d.sel.size / 1000).toFixed(2) + " km square" + (d.sel.rot ? ", turned " + d.sel.rot + "°" : "") : "—"],
     ["Shape", f.outline === "hex" ? "Hexagon" : "Square"],
-    ["Colours", (d.print && d.print.scheme) || "plain"],
+    ["Colours", coloursLine(d)],
     ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
     ["Loose parts", looseParts(f)],
     ["Magnets", magnetLine(f)],
-    ["Route", d.route ? (d.route.name || "Yes") : "No"],
-    ["Icons", String((d.icons || []).length)],
+    ["Route", routeLine(d, true)],
+    ["Icons", iconsLine(d)],
     ["Price", money(p.subtotal, PRICING.currency)],
   ].map(([k, v]) => `<tr><td style="color:#5B6470;padding-right:12px">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
   return `<div style="margin:22px 0;padding-top:18px;border-top:1px solid #E5E8EE">
@@ -688,9 +731,10 @@ export async function loadSettings(env, site) {
   catch (e) { return sanitise(DEFAULT_SETTINGS); }       // a spoilt file never breaks the shop
 }
 /* The price list for this site: the built-in one with the admin page's prices folded in. */
-export async function pricingFor(env, request) {
+export async function viewFor(env, request) { return publicView(await loadSettings(env, siteOf(new URL(request.url).origin))); }
+export async function pricingFor(env, request, view) {
   const P = JSON.parse(JSON.stringify(PRICING));
-  return applyToPricing(P, publicView(await loadSettings(env, siteOf(new URL(request.url).origin))));
+  return applyToPricing(P, view || await viewFor(env, request));
 }
 
 /* Cloudflare Access's pass: a token it signs and adds to every request it lets through. Checked here
@@ -752,6 +796,8 @@ async function adminRoute(request, env, parts, m) {
     if (m === "PUT") {
       let body; try { body = await request.json(); } catch (e) { return fail(400, "Those settings didn't come through properly."); }
       if (!body || typeof body.settings !== "object") return fail(400, "There were no settings.");
+      const wrong = checkSettings(body.settings);
+      if (wrong.length) return fail(400, wrong[0].msg);
       await writeJSON(env, settingsKey(site), sanitise(body.settings));
       return adminView(env, site);
     }
@@ -807,6 +853,7 @@ export async function onRequest(context) {
   try {
     if (parts[0] === "stripe-webhook" && m === "POST") return await webhook(request, env);
     if (parts[0] === "checkout" && m === "POST") return await checkout(request, env);
+    if (parts[0] === "basket-check" && m === "POST") return await basketCheck(request, env);
     if (parts[0] !== "items") return fail(404, "Not found.");
     if (parts.length === 1 && m === "POST") return await createItem(request, env);
     const id = parts[1] || "";

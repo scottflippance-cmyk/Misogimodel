@@ -45,6 +45,8 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .ship label:has(input:checked){outline:2px solid #E4572E}
 .ship label > span:nth-of-type(1){white-space:nowrap}
 .ship small{color:#5B6470}
+.item .gone{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:#FDECEA;color:#9B231C;font-size:13.5px;line-height:1.4}
+.item .gone a{color:inherit;font-weight:600}
 .free-note{margin:10px 2px 0;font-size:13.5px;color:#5B6470}.free-note.got{color:#1E7A3A;font-weight:600}
 .ship .p{margin-left:auto;font-weight:600}
 .sums{width:100%;border-collapse:collapse;margin-top:18px;font-size:15px}
@@ -242,6 +244,20 @@ const studioLink = (link) => {                       // the saved design, opened
   const i = (link || "").indexOf("#design=");
   return "/studio/" + (i >= 0 ? link.slice(i) : "");
 };
+/* Models holding something switched off on the admin page since they went in the basket, by id. */
+let gone = {};
+async function checkBasket() {
+  const cart = readCart(); if (!cart.items.length) return;
+  try {
+    let data;
+    if (window.MISOGI_BASKET_CHECK) data = await window.MISOGI_BASKET_CHECK(cart.items);     // the checks stand in for the server
+    else if (!local) { const r = await fetch(origin + "/api/basket-check", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })) }) }); if (!r.ok) return; data = await r.json(); }
+    if (!data) return;
+    gone = Object.fromEntries((data.items || []).map((x) => [x.id, x.problems || []]));
+    render();
+  } catch (e) { /* the server checks again at checkout */ }
+}
 function say(t, bad) { $("msg").textContent = t || ""; $("msg").classList.toggle("bad", !!bad); }
 
 /* Models to start from, shown under an empty cart. Each opens in the studio, framed and built. */
@@ -349,6 +365,12 @@ function render() {
       .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
     const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? " · " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
     for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
+    if (gone[it.id] && gone[it.id].length) {           // switched off since it went in the basket
+      const g = document.createElement("p"); g.className = "gone"; g.textContent = gone[it.id].join(" ") + " ";
+      if (it.link) { const a = document.createElement("a"); a.href = studioLink(it.link); a.textContent = "Change it in the studio"; g.append(a, "."); }
+      else g.append("Please remove it and design it again.");
+      li.querySelector(".body").append(g);
+    }
     li.querySelector(".price").textContent = p ? money(p.subtotal, PRICING.currency) : "—";
     const edit = li.querySelector(".edit");
     if (it.link) edit.href = studioLink(it.link); else edit.remove();
@@ -382,7 +404,9 @@ function render() {
   $("shipLabel").textContent = bill ? bill.shipping.label + " delivery" : "Delivery";
   $("shipping").textContent = bill ? (bill.shipping.free ? "Free" : money(bill.shipping.price, bill.currency)) : "—";
   $("total").textContent = bill ? money(bill.total, bill.currency) : "—";
-  $("checkout").disabled = !bill;
+  const blocked = cart.items.some((it) => gone[it.id] && gone[it.id].length);
+  $("checkout").disabled = !bill || blocked;
+  if (blocked) say("Something in your basket isn't available at the moment. Change it in the studio, or remove it, to check out.", true);
   renderBox(cart.items);
   if (!bill) say("One of these models can't be priced any more. Please remove it and add it again.", true);
 }
@@ -436,6 +460,9 @@ async function checkout() {
     const r = await fetch(origin + "/api/checkout", { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })), shipping: cart.shipping, updates: $("updates").checked }) });
     let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
+    if (r.status === 409 && data && Array.isArray(data.unavailable)) {   // switched off just now: show which, on each model
+      for (const x of data.unavailable) gone[x.id] = x.problems; render(); return;
+    }
     if (!r.ok || !data || !data.url) throw new Error((data && data.error) || "the server said no (" + r.status + ")");
     window.__checkoutGoingTo = data.url;
     location.assign(data.url);
@@ -456,6 +483,7 @@ if (new URLSearchParams(location.search).get("checkout") === "cancelled") {
   try { history.replaceState(null, "", location.pathname); } catch (e) { /* a file has no history to tidy */ }
 }
 render();
+checkBasket();
 window.__cartReady = true;
 </script>
 <!-- banner-contours -->

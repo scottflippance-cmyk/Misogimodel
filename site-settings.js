@@ -14,19 +14,24 @@
 
    Amounts are in pence: 4900 is £49.00. */
 
-export const SECTIONS = ["filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices"];
-export const SECTION_NAMES = { filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
+export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices"];
+export const SECTION_NAMES = { parts: "Model parts", filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
   iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices" };
 
-/* The parts of a model a colour way can colour. Trees and shrubs always share a colour. */
-export const PARTS = { water: "Water", trees: "Trees, shrubs", paths: "Paths" };
-export const FINISH_KEYS = ["black", "charcoal", "walnut", "oak", "white"];
-const FINISH_NAMES = { black: "Black", charcoal: "Charcoal", walnut: "Walnut", oak: "Oak", white: "White" };
+/* The parts of a model a colour way can colour, besides the ground (always colour 1). */
+export const PARTS = { water: "Water", trees: "Woodland", trees3d: "Trees", shrubs: "Shrubs", paths: "Paths", roads: "Roads", snow: "Snow" };
+export const MAX_COLOURS = 4;                          // the printer's four filament slots
+export const MAX_COLOUR_WAYS = 12;
+export const FINISHES = { matte: "Matte", standard: "Standard" };   // a route or icon colour's filament
+export const FINISH_KEYS = ["black", "white"];        // the frame
+const FINISH_NAMES = { black: "Black", white: "White" };
 
 export const DEFAULT_SETTINGS = {
-  version: 1,
+  version: 3,
+  /* Which parts the studio shows at all. Off: not drawn, and its switch hidden. */
+  parts: { water: true, trees: true, trees3d: true, shrubs: true, paths: false, roads: false, snow: true },
   filaments: [
-    { id: "slate-grey", name: "Slate grey", hex: "#8A949E", on: true, base: true },   // the model's own colour
+    { id: "slate-grey", name: "Slate grey", hex: "#8A949E", on: true },
     { id: "bone", name: "Bone", hex: "#E4DCCB", on: true },
     { id: "moss", name: "Moss", hex: "#4C7A45", on: true },
     { id: "clay", name: "Clay", hex: "#A8503C", on: true },
@@ -36,21 +41,24 @@ export const DEFAULT_SETTINGS = {
     { id: "ink", name: "Ink", hex: "#1B242B", on: true },
     { id: "snow", name: "Snow", hex: "#F4F6F8", on: true },
   ],
-  /* Each colour way: its filaments in order (colour 1 is the ground), and which part takes which. */
+  /* Each colour way: its filaments in order (colour 1 is the ground), and which part takes which.
+     Solid always comes first and is always on: its one filament is the model's plain colour. */
   colourWays: [
     { key: "solid", label: "Solid", on: true, slots: ["slate-grey"], assign: {} },
     { key: "water", label: "Land & water", on: true, slots: ["slate-grey", "slate"], assign: { water: 2 } },
-    { key: "green", label: "Land & green", on: true, slots: ["slate-grey", "moss"], assign: { trees: 2 } },
-    { key: "natural", label: "Natural", on: true, slots: ["slate-grey", "slate", "moss", "clay"], assign: { water: 2, trees: 3, paths: 4 } },
-    { key: "bold", label: "Bold", on: true, slots: ["charcoal", "slate-grey", "sand", "clay"], assign: { water: 2, paths: 3, trees: 4 } },
+    { key: "green", label: "Land & green", on: true, slots: ["slate-grey", "moss"], assign: { trees: 2, trees3d: 2, shrubs: 2 } },
+    { key: "natural", label: "Natural", on: true, slots: ["slate-grey", "slate", "moss", "clay"], assign: { water: 2, trees: 3, trees3d: 3, shrubs: 3, paths: 4 } },
+    { key: "bold", label: "Bold", on: true, slots: ["charcoal", "slate-grey", "sand", "clay"], assign: { water: 2, paths: 3, trees: 4, trees3d: 4, shrubs: 4 } },
   ],
   routeColours: [
-    { name: "Red", hex: "#E4572E", on: true }, { name: "Yellow", hex: "#F2C230", on: true }, { name: "Blue", hex: "#1FA8E0", on: true },
-    { name: "Purple", hex: "#8E44E0", on: true }, { name: "White", hex: "#FFFFFF", on: true }, { name: "Black", hex: "#111111", on: true },
+    { name: "Red", hex: "#E4572E", finish: "standard", on: true }, { name: "Yellow", hex: "#F2C230", finish: "standard", on: true },
+    { name: "Blue", hex: "#1FA8E0", finish: "standard", on: true }, { name: "Purple", hex: "#8E44E0", finish: "standard", on: true },
+    { name: "White", hex: "#FFFFFF", finish: "standard", on: true }, { name: "Black", hex: "#111111", finish: "standard", on: true },
   ],
   iconColours: [
-    { name: "Red", hex: "#D8342B", on: true }, { name: "Amber", hex: "#E0A33C", on: true }, { name: "Green", hex: "#2E9E57", on: true },
-    { name: "Blue", hex: "#1F7FC4", on: true }, { name: "Purple", hex: "#8E44E0", on: true }, { name: "Black", hex: "#1B1B1B", on: true },
+    { name: "Red", hex: "#D8342B", finish: "standard", on: true }, { name: "Amber", hex: "#E0A33C", finish: "standard", on: true },
+    { name: "Green", hex: "#2E9E57", finish: "standard", on: true }, { name: "Blue", hex: "#1F7FC4", finish: "standard", on: true },
+    { name: "Purple", hex: "#8E44E0", finish: "standard", on: true }, { name: "Black", hex: "#1B1B1B", finish: "standard", on: true },
   ],
   frameFinishes: FINISH_KEYS.map((key) => ({ key, name: FINISH_NAMES[key], on: key === "black" })),
   prices: {
@@ -58,7 +66,7 @@ export const DEFAULT_SETTINGS = {
     sizes: { 100: { price: 3500, on: true }, 150: { price: 4900, on: true }, 250: { price: 8900, on: true }, 500: { price: 19900, on: true } },
     extras: { route: 200, frame: 800, icon: 100, magnets: 100 },
     maxIcons: 3,
-    colours: { 1: 0, 2: 500, 4: 1000 },
+    colours: { 1: 0, 2: 500, 3: 750, 4: 1000 },
     shipping: [{ id: "uk-standard", price: 395, on: true }, { id: "uk-express", price: 795, on: true }],
     freeDelivery: { on: false, threshold: 7500, shippingId: "uk-standard" },
   },
@@ -76,41 +84,55 @@ const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").re
    fields dropped, colours as #RRGGBB, prices whole pence, a colour way only ever naming filaments
    that exist. What can't be read falls back to the default, never to nothing. */
 export function sanitise(input) {
-  const s = input && typeof input === "object" ? input : {}, d = DEFAULT_SETTINGS, out = { version: 1 };
+  const s = input && typeof input === "object" ? input : {}, d = DEFAULT_SETTINGS, out = { version: 3 };
+  const older = !(s.version >= 3);                     // saved before the parts were split up: shrubs and 3D trees went with the woods
 
-  // filaments: a list; the model's own colour (base) is always there and can't be switched off
+  // filaments: a list, each with a name and a colour
   const fil = [], seen = new Set();
   for (const f of Array.isArray(s.filaments) ? s.filaments : d.filaments) {
     const hex = hexOf(f && f.hex), name = nameOf(f && f.name);
     let id = slug((f && f.id) || name);
     if (!hex || !name || !id || seen.has(id)) continue;
-    seen.add(id); fil.push({ id, name, hex, on: bool(f.on, true), ...(f.base ? { base: true } : {}) });
+    seen.add(id); fil.push({ id, name, hex, on: bool(f.on, true) });
     if (fil.length >= 40) break;
   }
-  if (!fil.some((f) => f.base)) {
-    const base = d.filaments[0], have = fil.find((f) => f.id === base.id);
-    if (have) have.base = true; else fil.unshift(clone(base));
-  }
-  fil.forEach((f) => { if (f.base) f.on = true; });
-  fil.forEach((f, i) => { if (f.base && fil.findIndex((g) => g.base) !== i) delete f.base; });
+  if (!fil.length) fil.push(...clone(d.filaments));
+  const gp = s.parts && typeof s.parts === "object" ? s.parts : {};
+  out.parts = Object.fromEntries(Object.keys(PARTS).map((k) => [k, bool(gp[k], d.parts[k])]));
   out.filaments = fil;
-  const ids = new Set(fil.map((f) => f.id)), baseId = fil.find((f) => f.base).id;
+  const ids = new Set(fil.map((f) => f.id));
 
-  // colour ways: always the same five (the print file knows how to make these), each with its own
-  // name, on/off, and which filament fills each of its colours
-  const given = Array.isArray(s.colourWays) ? s.colourWays : [];
-  out.colourWays = d.colourWays.map((def) => {
-    const g = given.find((c) => c && c.key === def.key) || {};
-    const slots = def.slots.map((dv, i) => { const v = Array.isArray(g.slots) ? g.slots[i] : null;
-      return ids.has(v) ? v : ids.has(dv) ? dv : baseId; });
-    return { key: def.key, label: nameOf(g.label) || def.label, on: bool(g.on, def.on), slots, assign: clone(def.assign) };
-  });
+  // colour ways: Solid first and always on, then any others, each with up to four filaments and which
+  // part takes which. A colour no part uses is dropped (it would only add to the price).
+  const given = Array.isArray(s.colourWays) ? s.colourWays.filter((c) => c && typeof c === "object") : d.colourWays;
+  const ways = [], keys = new Set();
+  const firstOn = (fil.find((f) => f.on) || fil[0]).id;
+  for (const g of given) {
+    let key = slug(g.key) || "cw"; if (keys.has(key) && key !== "solid") { let n = 2; while (keys.has(key + "-" + n)) n++; key = key + "-" + n; }
+    if (keys.has(key)) continue;
+    const def = d.colourWays.find((c) => c.key === key);
+    let slots = (Array.isArray(g.slots) ? g.slots : def ? def.slots : []).slice(0, key === "solid" ? 1 : MAX_COLOURS)
+      .map((v, i) => ids.has(v) ? v : def && ids.has(def.slots[i]) ? def.slots[i] : firstOn);
+    if (!slots.length) slots = [firstOn];
+    const assign = {}, ga = Object.assign({}, g.assign || (def ? def.assign : {}));
+    if (older && ga.trees) { if (ga.shrubs == null) ga.shrubs = ga.trees; if (ga.trees3d == null) ga.trees3d = ga.trees; }
+    for (const p of Object.keys(PARTS)) { const n = Math.round(+ga[p]); if (n >= 2 && n <= slots.length) assign[p] = n; }
+    // drop the colours nothing uses, numbering the rest again
+    const used = [1, ...new Set(Object.values(assign))].sort((x, y) => x - y), keep = slots.filter((_, i) => used.includes(i + 1));
+    for (const p of Object.keys(assign)) assign[p] = used.indexOf(assign[p]) + 1;
+    ways.push({ key, label: nameOf(g.label) || (def ? def.label : "Colour way"), on: key === "solid" ? true : bool(g.on, true), slots: keep, assign });
+    keys.add(key);
+    if (ways.length >= MAX_COLOUR_WAYS) break;
+  }
+  const si = ways.findIndex((c) => c.key === "solid");
+  const solid = si >= 0 ? ways.splice(si, 1)[0] : { key: "solid", label: "Solid", on: true, slots: [ids.has("slate-grey") ? "slate-grey" : fil[0].id], assign: {} };
+  out.colourWays = [solid, ...ways].slice(0, MAX_COLOUR_WAYS);
 
   const swatches = (list, defs) => {
     const outL = [];
     for (const c of Array.isArray(list) ? list : defs) {
       const hex = hexOf(c && c.hex), name = nameOf(c && c.name);
-      if (hex && name) outL.push({ name, hex, on: bool(c.on, true) });
+      if (hex && name) outL.push({ name, hex, finish: FINISHES[c.finish] ? c.finish : "standard", on: bool(c.on, true) });
       if (outL.length >= 24) break;
     }
     return outL.length ? outL : clone(defs);
@@ -144,16 +166,17 @@ export function sanitise(input) {
 /* What the studio and basket are sent: only what's on offer, nothing switched off. */
 export function publicView(settings) {
   const s = sanitise(settings), byId = Object.fromEntries(s.filaments.map((f) => [f.id, f]));
-  const base = s.filaments.find((f) => f.base);
-  const colourWays = s.colourWays.filter((c) => c.on && c.slots.every((id) => byId[id] && byId[id].on))
+  const base = byId[s.colourWays[0].slots[0]];          // Solid's filament: the model's plain colour
+  const colourWays = s.colourWays.filter((c, i) => i === 0 || (c.on && c.slots.every((id) => byId[id] && byId[id].on)))
     .map((c) => ({ key: c.key, label: c.label, colours: c.slots.map((id) => byId[id].hex), assign: clone(c.assign) }));
   const p = s.prices;
   return {
-    version: 1,
+    version: 3,
+    parts: clone(s.parts),
     ground: base.hex,
     colourWays,
-    routeColours: s.routeColours.filter((c) => c.on).map(({ name, hex }) => ({ name, hex })),
-    iconColours: s.iconColours.filter((c) => c.on).map(({ name, hex }) => ({ name, hex })),
+    routeColours: s.routeColours.filter((c) => c.on).map(({ name, hex, finish }) => ({ name, hex, finish })),
+    iconColours: s.iconColours.filter((c) => c.on).map(({ name, hex, finish }) => ({ name, hex, finish })),
     frameFinishes: s.frameFinishes.filter((f) => f.on).map((f) => f.key),
     prices: {
       placeholder: p.placeholder,
@@ -182,6 +205,34 @@ export function applyToPricing(P, view) {
   return P;
 }
 
+/* What stops the admin page saving: one plain sentence each, with the section it's in. Run on the
+   settings as edited, before they're tidied (tidying would quietly paper over these). */
+export function checkSettings(input) {
+  const s = input && typeof input === "object" ? input : {}, out = [], add = (section, msg) => out.push({ section, msg });
+  const fil = Array.isArray(s.filaments) ? s.filaments : [], byId = Object.fromEntries(fil.map((f) => [f && f.id, f]));
+  fil.forEach((f, i) => { if (!nameOf(f && f.name)) add("filaments", "Filament " + (i + 1) + " needs a name."); });
+  const ways = Array.isArray(s.colourWays) ? s.colourWays : [];
+  ways.forEach((c, wi) => {
+    const label = nameOf(c && c.label) || "Colour way " + (wi + 1), slots = Array.isArray(c && c.slots) ? c.slots : [];
+    if (!nameOf(c && c.label)) add("colourWays", "Colour way " + (wi + 1) + " needs a name.");
+    slots.forEach((id, i) => {
+      const f = byId[id];
+      if (!f) add("colourWays", label + ": colour " + (i + 1) + "'s filament has been removed. Pick another.");
+      else if (c.key === "solid" && f.on === false) add("colourWays", "Solid uses " + nameOf(f.name) + ", which is switched off. It's the model's plain colour, so it has to stay on.");
+      if (i > 0 && !Object.values((c && c.assign) || {}).includes(i + 1)) add("colourWays", label + ": colour " + (i + 1) + " isn't used by any part. Tick a part, or remove the colour.");
+    });
+  });
+  for (const key of ["routeColours", "iconColours"]) {
+    const list = Array.isArray(s[key]) ? s[key] : [], seenC = new Set(), what = key === "routeColours" ? "route" : "icon";
+    list.forEach((c, i) => {
+      if (!nameOf(c && c.name)) add(key, "The " + what + " colour " + (i + 1) + " needs a name.");
+      const k = String((c && c.hex) || "").toUpperCase() + "|" + ((c && c.finish) || "standard");
+      if (seenC.has(k)) add(key, "Two " + what + " colours are the same colour and finish (" + nameOf(c.name) + ")."); seenC.add(k);
+    });
+  }
+  return out;
+}
+
 /* Which sections of two sets of settings are the same (for the admin page's ticks and crosses). */
 export function sameSections(a, b) {
   const A = sanitise(a), B = sanitise(b);
@@ -194,9 +245,31 @@ export function copySections(to, from, section) {
   for (const k of which) if (SECTIONS.includes(k)) T[k] = F[k];
   if (which.includes("colourWays") && !which.includes("filaments")) {   // bring any filament they use that isn't here yet
     for (const c of T.colourWays) for (const id of c.slots)
-      if (!T.filaments.some((f) => f.id === id)) { const f = F.filaments.find((g) => g.id === id); if (f) T.filaments.push({ ...f, base: undefined }); }
-    T.filaments.forEach((f) => { if (f.base === undefined) delete f.base; });
+      if (!T.filaments.some((f) => f.id === id)) { const f = F.filaments.find((g) => g.id === id); if (f) T.filaments.push(clone(f)); }
   }
   // a colour way may now name a filament the copied list doesn't have: tidying again puts that right
   return sanitise(T);
+}
+
+/* What in a design isn't on offer any more (switched off on the admin page since it was made): one
+   plain sentence for each, to show the customer. Empty when everything's available. */
+const SIZE_LABEL = { 100: "10 cm", 150: "15 cm", 250: "25 cm", 500: "50 cm" };
+export function unavailableIn(design, view) {
+  const out = [], d = design || {}, f = d.frame || {}, v = view || {}, low = (x) => String(x || "").toLowerCase();
+  if (!v.prices) return out;
+  const mm = Math.round(+f.modelMM || 0);
+  if (mm && v.prices.sizes && v.prices.sizes[mm] == null) out.push("The " + (SIZE_LABEL[mm] || mm + " mm") + " size isn't available at the moment.");
+  const scheme = d.print && d.print.on && d.print.scheme;
+  if (scheme && scheme !== "solid" && !(v.colourWays || []).some((c) => c.key === scheme)) {
+    const def = DEFAULT_SETTINGS.colourWays.find((c) => c.key === scheme);
+    out.push(def ? "The " + def.label + " colours aren't available at the moment." : "The colour way you chose isn't available at the moment.");
+  }
+  // a colour matches on its hex, and on its finish too when the design says which (older ones don't)
+  const offered = (list, hex, finish) => (list || []).some((c) => low(c.hex) === low(hex) && (!finish || !c.finish || c.finish === finish));
+  const rs = d.route && d.routeStyle;
+  if (rs && rs.colour && !offered(v.routeColours, rs.colour, rs.finish)) out.push("Your route's colour isn't available at the moment.");
+  const offIcons = (d.icons || []).filter((ic) => ic && ic.colour && !offered(v.iconColours, ic.colour, ic.finish)).length;
+  if (offIcons) out.push(offIcons === 1 ? "One of your icons' colours isn't available at the moment." : offIcons + " of your icons' colours aren't available at the moment.");
+  if (f.show && f.colour && !(v.frameFinishes || []).includes(f.colour)) out.push("The " + (FINISH_NAMES[f.colour] || f.colour) + " frame isn't available at the moment.");
+  return out;
 }

@@ -374,6 +374,7 @@ body:not(.none) #panelMap #buildBlock{padding-top:0}
 .head-btn.on{border-color:var(--accent); color:var(--accent)}
 
 label.field{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px}
+label.field .cname{color:var(--text); margin-left:6px}
 input[type=text], input[type=number], select{
   width:100%; background:var(--bg); color:var(--text);
   border:1px solid var(--line); border-radius:8px;
@@ -886,6 +887,7 @@ body.focus-3d #textPop, body.focus-3d #iconWin, body.focus-3d #routeWin{display:
 .pick-menu input[type=range]{width:100%; margin:0}
 .pick-foot{font-size:12px; color:var(--muted)}
 body:not(.mode-view) #snowPick, body:not(.mode-view) #treePick{display:none}
+#snowPick[hidden], #treePick[hidden], #snowBlock[hidden], .sub-head[hidden], label[hidden]{display:none !important}
 #northArrow{position:absolute; right:8px; bottom:8px; width:31px; height:40px; z-index:700; cursor:pointer;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); transition:transform .15s ease}
 #northArrow[hidden]{display:none}
@@ -1389,7 +1391,7 @@ body.menu-open .site-banner--app{z-index:3000}
         <option value="square">Square</option>
         <option value="triangle">Triangle</option>
       </select>
-      <label class="field" style="margin-top:10px">Colour</label>
+      <label class="field" style="margin-top:10px">Colour<span class="cname" id="iconColourName"></span></label>
       <div class="swatches" id="iconSwatches">
         <button data-c="#D8342B" style="background:#D8342B" aria-label="Red" aria-pressed="true"></button>
         <button data-c="#E0A33C" style="background:#E0A33C" aria-label="Amber" aria-pressed="false"></button>
@@ -1424,7 +1426,7 @@ body.menu-open .site-banner--app{z-index:3000}
         </button>
       </div>
       <div id="routeStyleRows" hidden>
-      <label class="field">Colour</label>
+      <label class="field">Colour<span class="cname" id="routeColourName"></span></label>
       <div class="swatches" id="routeSwatches">
         <button data-c="#E4572E" style="background:#E4572E" aria-label="Red" aria-pressed="true"></button>
         <button data-c="#F2C230" style="background:#F2C230" aria-label="Yellow" aria-pressed="false"></button>
@@ -4751,7 +4753,7 @@ function plantTrees(pts, s, styleKey, data, vS) {
      the ground they stand on, and read by their shape and the light on them rather than by colour.
      Assigned print colours are the exception — giving the trees a colour of their own is the point
      of that. */
-  const palHex = printCols.on ? [PC("trees")] : [PLAIN_GROUND];
+  const palHex = printCols.on ? [PC("trees3d")] : [PLAIN_GROUND];
   const pal = palHex.map(srgb);
   if (three.featureStats) three.featureStats.leaf = palHex[0];   // which colour they actually wore
   const trunkC = srgb(palHex[0]), white = srgb("#F4F7FC");   // trunk and canopy alike
@@ -4898,7 +4900,10 @@ const PRINT_PALETTE = [
 const printCols = { on: false, scheme: null, count: 2, colours: ["#E4DCCB", "#4C7A45", "#A8503C", "#33627F"], assign: {} };   // part → colour number
 /* Icons keep the colours chosen in the Icons section, so they aren't listed here. */
 const PART_LABELS = { trees: "Trees", shrubs: "Shrubs & scrub", buildings: "Buildings", roads: "Roads",
-                      paths: "Paths & tracks", water: "Water" };
+                      paths: "Paths & tracks", water: "Water", snow: "Snow", trees3d: "3D trees" };
+/* Every part a colour way can colour (the admin page's list). A colour way names each one, 1 being
+   the ground, so a design saved from it says plainly where every part went. */
+const COLOUR_PARTS = ["water", "trees", "trees3d", "shrubs", "paths", "roads", "snow"];
 /* Only the parts this model actually has. */
 const partApplies = (key) => key !== "roads";   // roads are painted on, never a separate part
 function printableParts() {
@@ -4908,6 +4913,7 @@ function printableParts() {
   if (show.roads) out.push("roads");
   if (show.paths) out.push("paths");
   if (show.water) out.push("water");
+  if (snow.on && snow.cover > 0) out.push("snow");
   return out;
 }
 /* The colour a part prints in: its own, or colour 1. null when print colours are off. */
@@ -4930,11 +4936,11 @@ const fil = (name) => (PRINT_PALETTE.find((c) => c.name === name) || PRINT_PALET
 const COLOUR_SCHEMES = [
   { key: "solid", label: "Solid", colours: [PLAIN_GROUND], assign: {} },
   { key: "water", label: "Land & water", colours: [PLAIN_GROUND, fil("Slate")], assign: { water: 2 } },
-  { key: "green", label: "Land & green", colours: [PLAIN_GROUND, fil("Moss")], assign: { trees: 2, shrubs: 2 } },
+  { key: "green", label: "Land & green", colours: [PLAIN_GROUND, fil("Moss")], assign: { trees: 2, trees3d: 2, shrubs: 2 } },
   { key: "natural", label: "Natural", colours: [PLAIN_GROUND, fil("Slate"), fil("Moss"), fil("Clay")],
-    assign: { water: 2, trees: 3, shrubs: 3, paths: 4 } },
+    assign: { water: 2, trees: 3, trees3d: 3, shrubs: 3, paths: 4 } },
   { key: "bold", label: "Bold", colours: [fil("Charcoal"), PLAIN_GROUND, fil("Sand"), fil("Clay")],
-    assign: { water: 2, paths: 3, trees: 4, shrubs: 4 } }
+    assign: { water: 2, paths: 3, trees: 4, trees3d: 4, shrubs: 4 } }
 ];
 const schemeBy = (key) => COLOUR_SCHEMES.find((s) => s.key === key) || null;
 /* The state half on its own, so restoring a design can set it without redrawing anything. */
@@ -4945,7 +4951,7 @@ function schemeState(key) {
   printCols.on = true;
   printCols.count = sc.colours.length;
   printCols.colours = sc.colours.slice();
-  printCols.assign = Object.assign({}, sc.assign);
+  printCols.assign = Object.assign(Object.fromEntries(COLOUR_PARTS.map((p) => [p, 1])), sc.assign);
 }
 /* Nothing chosen is the model in its one plain colour, which is what Solid prints, so Solid shows as
    chosen then. Picking Solid, or the chosen colour way again, comes back to that plain model. */
@@ -5001,8 +5007,7 @@ function applyPrintColours() {
 /* ---------- frame ---------- */
 const FINISH = {                                 // [wood, text]
   black: ["#1B1D20", "#E8E4DC"],                  // the frame: black, its lettering a warm off-white
-  walnut: ["#5B3B26", "#F1E4D0"], oak: ["#B58A57", "#3A2A1A"],
-  charcoal: ["#2C3034", "#E8E4DC"], white: ["#ECE8E1", "#3A3A3A"]
+  white: ["#ECE8E1", "#3A3A3A"]
 };
 const LEDGE_MM = 7;                                // how far the frame's foot reaches in under the model: past a pin's head
 const frameVals = { h: 0, t: 10, d: 3, modelMM: 150, text: 17 * (25.4 / 72), lift: 0 };   // text: 17 pt, held in mm   // 15 cm: the middle size   // lift: model height in the frame, mm
@@ -6617,12 +6622,20 @@ function restyleRoute() {
   $("routeDash").disabled = routeStyle.mode === "raised";
   syncProfileButtons();                              // runs after the mode is recorded, whatever the handler order
 }
-function setRouteColour(hex) {
-  routeStyle.colour = hex;
-  document.querySelectorAll("#routeSwatches button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c.toLowerCase() === hex.toLowerCase())));
+/* A route or icon colour is its hex and its filament's finish (matte or standard, from the admin page):
+   two swatches can share a hex and differ only in finish. Older designs have no finish: any matches. */
+const sameSwatch = (b, hex, finish) => b.dataset.c.toLowerCase() === String(hex).toLowerCase() && (!finish || !b.dataset.f || b.dataset.f === finish);
+const FINISH_WORD = { matte: "Matte", standard: "Standard" };
+const swatchName = (b) => b ? (b.getAttribute("aria-label") || "") + (b.dataset.f ? " · " + FINISH_WORD[b.dataset.f] : "") : "";
+function setRouteColour(hex, finish) {
+  const b = [...document.querySelectorAll("#routeSwatches button")].find((x) => sameSwatch(x, hex, finish));
+  routeStyle.colour = hex; routeStyle.finish = b && b.dataset.f || finish || undefined; routeStyle.colourName = b ? b.getAttribute("aria-label") : routeStyle.colourName;
+  if (!routeStyle.finish) delete routeStyle.finish;
+  document.querySelectorAll("#routeSwatches button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  $("routeColourName").textContent = swatchName(b);
   restyleRoute();
 }
-document.querySelectorAll("#routeSwatches button").forEach((b) => b.addEventListener("click", () => setRouteColour(b.dataset.c)));
+document.querySelectorAll("#routeSwatches button").forEach((b) => b.addEventListener("click", () => setRouteColour(b.dataset.c, b.dataset.f)));
 bindPair("routeW", "routeWNum", 1, 5, (v) => { routeStyle.mm = v; restyleRoute(); });
 $("routeDash").addEventListener("change", (e) => { routeStyle.dash = e.target.value; restyleRoute(); });
 $("routeMode").addEventListener("change", (e) => { routeStyle.mode = e.target.value; restyleRoute(); });
@@ -6985,8 +6998,19 @@ function snowCanvas(data, px) {
   data._snow = { key, canvas: cv };
   return cv;
 }
+/* The snow in one flat colour: its print colour, keeping only its shape (and soft edge). */
+function tintedSnow(data, px, hex) {
+  const cv = document.createElement("canvas"); cv.width = cv.height = px;
+  const g = cv.getContext("2d"); g.drawImage(snowCanvas(data, 1024), 0, 0, px, px);
+  g.globalCompositeOperation = "source-in"; g.fillStyle = hex; g.fillRect(0, 0, px, px);
+  return cv;
+}
 function drawSnow(ctx, data, px, base) {
   if (!snow.on || snow.cover <= 0) return;
+  if (printCols.on) {                                // with print colours on, the snow shows as it prints: in its
+    if (printedSeparately("snow")) ctx.drawImage(tintedSnow(data, px, PC("snow")), 0, 0);   // own colour, or not at all
+    return;
+  }
   const sc = snowCanvas(data, 1024);
   ctx.drawImage(sc, 0, 0, px, px);
   if (base && snowStyleKey() === "satellite") {       // let the photo's rock and ridge texture show through the snow
@@ -8135,7 +8159,9 @@ const icons = [];
 let iconSeq = 0, selIconId = null;
 /* h: how far the icon stands proud of the highest ground under it, in millimetres. At zero its
    top is level with that highest point. */
-const iconStyle = { shape: "heart", badge: "circle", colour: "#D8342B", mm: 10, mode: "raised", h: 3 };
+const iconStyle = { shape: "heart", badge: "circle", colour: "#D8342B", finish: undefined, colourName: "Red", mm: 10, mode: "raised", h: 3 };
+const iconColourFields = (o) => ({ colour: o.colour, ...(o.finish ? { finish: o.finish } : {}), ...(o.colourName ? { colourName: o.colourName } : {}) });
+function pickIconColour(b) { iconStyle.colour = b.dataset.c; iconStyle.finish = b.dataset.f || undefined; iconStyle.colourName = b.getAttribute("aria-label"); iconControlChanged(); }
 /* Flat and raised icons replace whatever map features sit under them. */
 /* The room an icon needs: its own size plus the space you asked to keep clear. Nothing is built in
    3D inside it — no trees, shrubs or buildings — but the map underneath is painted as usual. */
@@ -8527,13 +8553,15 @@ function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = nul
 function selectIcon(id) {
   selIconId = id;
   const ic = icons.find((x) => x.id === id);
-  if (ic) { Object.assign(iconStyle, { shape: ic.shape, badge: ic.badge, colour: ic.colour, mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 }); syncIconControls(); }
+  if (ic) { Object.assign(iconStyle, { shape: ic.shape, badge: ic.badge, colour: ic.colour, finish: ic.finish, colourName: ic.colourName, mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 }); syncIconControls(); }
   renderIconList();
 }
 function syncIconControls() {
   document.querySelectorAll("#iconShapes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.shape === iconStyle.shape)));
   $("iconBadge").value = iconStyle.badge; setSeg("iconModeSeg", "imode", iconStyle.mode);
-  document.querySelectorAll("#iconSwatches button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c.toLowerCase() === iconStyle.colour.toLowerCase())));
+  const sw = [...document.querySelectorAll("#iconSwatches button")].find((b) => sameSwatch(b, iconStyle.colour, iconStyle.finish));
+  document.querySelectorAll("#iconSwatches button").forEach((b) => b.setAttribute("aria-pressed", String(b === sw)));
+  $("iconColourName").textContent = swatchName(sw);
   setPairUI("iconMM", "iconMMNum", iconStyle.mm); setPairUI("iconH", "iconHNum", iconStyle.h);
   $("iconHRow").style.opacity = iconStyle.mode === "raised" ? "" : "0.45";
 }
@@ -8565,7 +8593,8 @@ function renderIconList() {
 /* a change to the controls restyles the selected icon (if any) and future ones */
 function iconControlChanged() {
   const ic = icons.find((x) => x.id === selIconId);
-  if (ic) Object.assign(ic, { shape: iconStyle.shape, badge: iconStyle.badge, colour: iconStyle.colour, mm: iconStyle.mm, mode: iconStyle.mode, h: iconStyle.h });
+  if (ic) { delete ic.finish; delete ic.colourName;
+            Object.assign(ic, { shape: iconStyle.shape, badge: iconStyle.badge, ...iconColourFields(iconStyle), mm: iconStyle.mm, mode: iconStyle.mode, h: iconStyle.h }); }
   syncIconControls();
   if (ic) { iconsChanged(); if (popIconId === ic.id) $("iconWinTitle").textContent = ICON_SHAPES[ic.shape].label + " icon"; }
 }
@@ -8579,7 +8608,7 @@ function initIconControls() {           // run at start-up, once every helper it
   }
   $("iconBadge").addEventListener("change", (e) => { iconStyle.badge = e.target.value; iconControlChanged(); });
   document.querySelectorAll("#iconModeSeg button").forEach((b) => b.addEventListener("click", () => { iconStyle.mode = b.dataset.imode; iconControlChanged(); }));
-  document.querySelectorAll("#iconSwatches button").forEach((b) => b.addEventListener("click", () => { iconStyle.colour = b.dataset.c; iconControlChanged(); }));
+  document.querySelectorAll("#iconSwatches button").forEach((b) => b.addEventListener("click", () => pickIconColour(b)));
   bindPair("iconMM", "iconMMNum", 3, 40, (v) => { iconStyle.mm = v; iconControlChanged(); });
   bindPair("iconH", "iconHNum", 0, 20, (v) => { iconStyle.h = v; iconControlChanged(); });
   $("addIcon").addEventListener("click", () => {
@@ -9497,11 +9526,10 @@ async function printPaint(data, W) {
   g.fillStyle = printBaseColour(); g.fillRect(0, 0, px, px);
   if (printCols.on) {                               // Solid has nothing on top but its own colour
     paintOpenSea(g, data, px);
-    if (streetFeaturesOn()) {
-      const ws = px / 1024 * 1.2;
-      await paintAreaFeatures(g, data.bounds, px, ws, UNDER_SNOW);
-      await paintAreaFeatures(g, data.bounds, px, ws, OVER_SNOW);
-    }
+    const ws = px / 1024 * 1.2;
+    if (streetFeaturesOn()) await paintAreaFeatures(g, data.bounds, px, ws, UNDER_SNOW);
+    if (snow.on && snow.cover > 0 && printedSeparately("snow")) g.drawImage(tintedSnow(data, px, PC("snow")), 0, 0);   // the snow, in its own colour
+    if (streetFeaturesOn()) await paintAreaFeatures(g, data.bounds, px, ws, OVER_SNOW);
   }
   if (route && routeStyle.mode === "painted" && (!printCols.on || printedSeparately("route"))) paintRoute(g, data.bounds, px, mm);
   if (typeof paintIcons === "function") paintIcons(g, data.bounds, px, mm, null);
@@ -9896,7 +9924,7 @@ async function buildPrintFile(opts) {
       let trees = treesSolid(S, toSTL, k);
       if (trees) {                                    // they fill only the air: the ground keeps its own plastic
         trees = S(trees.subtract(model)); for (const tp of [...tops, { solid: routePiece }]) if (tp.solid) trees = S(trees.subtract(tp.solid));
-        if (trees.volume() > 0.01) extras.push({ name: "trees", tris: trisOf(trees), colour: (printCols.on ? PC("trees") : printBaseColour()).toUpperCase() });
+        if (trees.volume() > 0.01) extras.push({ name: "trees", tris: trisOf(trees), colour: (printCols.on ? PC("trees3d") : printBaseColour()).toUpperCase() });
       }
     }
     cutSymbols(S, iconParts);
@@ -10034,16 +10062,44 @@ function siteSettings() {
   })());
 }
 const SWATCH_HTML = (c) => { const b = document.createElement("button"); b.type = "button"; b.dataset.c = c.hex; b.style.background = c.hex;
-  b.setAttribute("aria-label", c.name); b.title = c.name; b.setAttribute("aria-pressed", "false"); return b; };
-const FINISH_NAMES = { black: "Black", charcoal: "Charcoal", walnut: "Walnut", oak: "Oak", white: "White" };
+  if (FINISH_WORD[c.finish]) b.dataset.f = c.finish;
+  b.setAttribute("aria-label", c.name); b.title = c.name + (FINISH_WORD[c.finish] ? " · " + FINISH_WORD[c.finish] : ""); b.setAttribute("aria-pressed", "false"); return b; };
+const FINISH_NAMES = { black: "Black", white: "White" };
+/* Which parts of the model are offered at all (the admin page's Model parts). One that's off isn't
+   drawn and its switch is hidden; one that's on is drawn as the studio would anyway. Roads and paths
+   have no switch of their own: on here means they're drawn. */
+let PARTS_ON = { water: true, trees: true, trees3d: true, shrubs: true, paths: false, roads: false, snow: true };
+function enforceParts(redraw) {
+  const P = PARTS_ON, was = JSON.stringify([show.water, show.woodland, show.scrub, show.paths, show.roads, $("show3dTrees").checked, snow.on]);
+  const waterBox = document.querySelector('input[data-layer="water"]');
+  if (waterBox) waterBox.checked = P.water;
+  show.water = P.water;
+  const wood = document.querySelector('input[data-layer="woodland"]');
+  if (wood) { const row = wood.closest(".sub-head"); if (row) row.hidden = !P.trees;
+              if (!P.trees) wood.checked = false; show.woodland = wood.checked; }
+  const t3 = $("show3dTrees"), t3row = t3.closest("label");
+  if (t3row) t3row.hidden = !P.trees3d;
+  if (!P.trees3d) t3.checked = false;
+  show.scrub = P.shrubs;
+  show.paths = P.paths; show.roads = P.roads;
+  $("snowBlock").hidden = !P.snow; $("snowPick").hidden = !P.snow; $("treePick").hidden = !P.trees3d;
+  if (!P.snow) { snow.on = false; $("snowOn").checked = false; }
+  const changed = was !== JSON.stringify([show.water, show.woodland, show.scrub, show.paths, show.roads, t3.checked, snow.on]);
+  if (redraw && changed) {
+    syncGates(); if (printColUiReady) renderPrintSlots(); refreshOverlays(); setTimeout(syncMapTools, 0);
+    if (typeof current !== "undefined" && current && three) { paintSurface(current); buildFeatures3D(current); }
+  }
+}
 function applySiteSettings(v) {
   if (!v || typeof v !== "object") return;
   try {
     if (/^#[0-9A-F]{6}$/i.test(v.ground || "")) PLAIN_GROUND = v.ground.toUpperCase();
     // the colour ways on offer, in the admin page's order; trees and shrubs always share a colour
     if (Array.isArray(v.colourWays) && v.colourWays.length) {
+      // settings from before the parts were split up (version 2 and earlier): shrubs and 3D trees follow the woods
+      const old = !(v.version >= 3);
       const list = v.colourWays.map((c) => ({ key: c.key, label: c.label, colours: c.colours.slice(),
-        assign: Object.assign({}, c.assign, c.assign && c.assign.trees ? { shrubs: c.assign.trees } : {}) }));
+        assign: Object.assign({}, c.assign, old && c.assign && c.assign.trees ? { shrubs: c.assign.trees, trees3d: c.assign.trees } : {}) }));
       COLOUR_SCHEMES.splice(0, COLOUR_SCHEMES.length, ...list);
       if (printCols.on) schemeState(schemeBy(printCols.scheme) ? printCols.scheme : null);   // a colour way that's gone: back to plain
       renderPrintSlots(); applyPrintColours();
@@ -10051,16 +10107,17 @@ function applySiteSettings(v) {
     // route colours
     if (Array.isArray(v.routeColours) && v.routeColours.length) {
       const host = $("routeSwatches"); host.innerHTML = "";
-      for (const c of v.routeColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => setRouteColour(c.hex)); host.append(b); }
-      const keep = v.routeColours.find((c) => c.hex.toLowerCase() === String(routeStyle.colour).toLowerCase());
-      setRouteColour(keep ? keep.hex : v.routeColours[0].hex);
+      for (const c of v.routeColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => setRouteColour(c.hex, c.finish)); host.append(b); }
+      const keep = v.routeColours.find((c) => c.hex.toLowerCase() === String(routeStyle.colour).toLowerCase() && (!routeStyle.finish || !c.finish || c.finish === routeStyle.finish));
+      setRouteColour(keep ? keep.hex : v.routeColours[0].hex, keep ? keep.finish : v.routeColours[0].finish);
     }
     // icon colours (a new icon takes the chosen one; icons already placed keep theirs)
     if (Array.isArray(v.iconColours) && v.iconColours.length) {
       const host = $("iconSwatches"); host.innerHTML = "";
-      for (const c of v.iconColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => { iconStyle.colour = c.hex; iconControlChanged(); }); host.append(b); }
-      if (!v.iconColours.some((c) => c.hex.toLowerCase() === iconStyle.colour.toLowerCase())) iconStyle.colour = v.iconColours[0].hex;
-      host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c.toLowerCase() === iconStyle.colour.toLowerCase())));
+      for (const c of v.iconColours) { const b = SWATCH_HTML(c); b.addEventListener("click", () => pickIconColour(b)); host.append(b); }
+      const keep = [...host.querySelectorAll("button")].find((b) => sameSwatch(b, iconStyle.colour, iconStyle.finish)) || host.firstChild;
+      Object.assign(iconStyle, { colour: keep.dataset.c, finish: keep.dataset.f || undefined, colourName: keep.getAttribute("aria-label") });
+      syncIconControls();
     }
     // frame finishes
     if (Array.isArray(v.frameFinishes) && v.frameFinishes.length) {
@@ -10070,6 +10127,7 @@ function applySiteSettings(v) {
       if (sel.value !== was) queueFrame();
     }
     if (v.prices && v.prices.maxIcons >= 0) MAX_ICONS = v.prices.maxIcons;
+    if (v.parts && typeof v.parts === "object") { for (const k of Object.keys(PARTS_ON)) if (typeof v.parts[k] === "boolean") PARTS_ON[k] = v.parts[k]; enforceParts(true); }
   } catch (e) { console.error("settings", e); }
 }
 /* links: JSON → deflate → base64url, the form openFromHash reads back */
@@ -10157,7 +10215,7 @@ function closeOrder() { $("orderDlg").hidden = true; }
 async function sendJSON(url, opts) {
   const r = await fetch(url, opts);
   let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
-  if (!r.ok) throw new Error((data && data.error) || "the server said no (" + r.status + ")");
+  if (!r.ok) { const e = new Error((data && data.error) || "the server said no (" + r.status + ")"); e.status = r.status; e.data = data; throw e; }
   return data;
 }
 async function addToCart() {
@@ -10193,7 +10251,12 @@ async function addToCart() {
     $("odCart").focus();
   } catch (err) {
     console.error(err);
-    say("Sorry, that didn't go through: " + err.message + ". Please try again.", true);
+    if (err.status === 409 && err.data && Array.isArray(err.data.unavailable)) {
+      // something was switched off on the admin page while this was being designed: say what, and
+      // fetch what's on offer now, so the choices on screen are the ones that can be ordered
+      say(err.data.unavailable.join(" ") + " Please choose another, then add it again.", true);
+      siteSettingsP = null; siteSettings().then(applySiteSettings);
+    } else say("Sorry, that didn't go through: " + err.message + ". Please try again.", true);
   } finally { $("odPay").disabled = false; }
 }
 $("buyBtn").addEventListener("click", openOrder);
@@ -10251,14 +10314,15 @@ function collectState() {
     trees: Object.assign({}, treeOpts), roads: Object.assign({}, roadOpts), treeScale, gap: { on: $("treeGap").checked, m: gapMetres }, snow: Object.assign({}, snow),
     display: { legend: chk("showLegend"), summit: chk("showSummit"), north: chk("showNorth"), t3d: chk("show3dTrees"),
                contours: chk("showContours"), spin: chk("spin") },
-    print: { on: printCols.on, scheme: printCols.scheme, count: printCols.count, colours: printCols.colours.slice(), assign: Object.assign({}, printCols.assign) },
+    print: { on: printCols.on, scheme: printCols.scheme, ...(schemeBy(printCols.scheme) ? { label: schemeBy(printCols.scheme).label } : {}),
+             count: printCols.count, colours: printCols.colours.slice(), assign: Object.assign({}, printCols.assign) },
     frame: Object.assign({ show: chk("showFrame"),
                            outline: modelOutline, colour: $("frameColour").value, magnets: frameMagnets,
                            texts: frameTexts.map((x) => ({ text: x.text, side: x.side, font: x.font, pt: x.pt,
                                                            align: x.align, ...(x.flip ? { flip: true } : {}) })) }, frameVals),
     interval: $("interval").value,
     route: route ? encodeRoute(route) : null, routeStyle: Object.assign({}, routeStyle),
-    icons: icons.map((ic) => ({ lat: +ic.lat.toFixed(6), lng: +ic.lng.toFixed(6), shape: ic.shape, badge: ic.badge, colour: ic.colour, mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 })),
+    icons: icons.map((ic) => ({ lat: +ic.lat.toFixed(6), lng: +ic.lng.toFixed(6), shape: ic.shape, badge: ic.badge, ...iconColourFields(ic), mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 })),
   };
 }
 
@@ -10323,6 +10387,7 @@ async function applyState(st, origin, opts) {
   if (P.assign) Object.assign(assign, P.assign);
   else (P.parts || []).forEach((x, i) => (Array.isArray(x) ? x : x ? [x] : []).forEach((k) => { assign[k] = i + 2; }));  // older designs
   delete assign.contours; delete assign.icons; delete assign.route;   // these are set elsewhere now
+  if (assign.trees && assign.trees3d == null) assign.trees3d = assign.trees;   // older designs: the 3D trees went with the woods
   Object.assign(printCols, { on: !!P.on, scheme: P.scheme || null, count: P.count || 2,
                              colours: P.colours || printCols.colours, assign });
   /* Designs saved before the schemes carried loose colours. Snap one to the scheme it matches, or
@@ -10347,8 +10412,9 @@ async function applyState(st, origin, opts) {
   $("routeMode").value = routeStyle.mode; $("routeProfile").value = routeStyle.profile;
   $("routeOutline").checked = routeStyle.outline; $("routeMarkers").checked = routeStyle.markers; $("routeOnMap").checked = routeStyle.onMap;
   showRouteInfo();
-  setRouteColour(routeStyle.colour);                // also redraws the route on the map
+  setRouteColour(routeStyle.colour, routeStyle.finish);   // also redraws the route on the map
   setIcons((st.icons || []).map((ic) => Object.assign({ id: ++iconSeq }, ic)));
+  enforceParts(false);                               // what the admin page has switched off stays off, whatever the design says
   syncLegend(); syncProfileButtons(); syncGates();
   setPlaceChosen(true);
   drawSelection();
