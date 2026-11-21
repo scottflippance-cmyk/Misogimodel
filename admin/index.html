@@ -375,8 +375,7 @@ function renderFilaments() {
     box.append(el("div", { class: "row" },
       el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"),
       swatch(f.hex, (v) => { f.hex = v; hexEl.textContent = v; renderColourWays(); refresh(); }),
-      el("span", {}, el("input", { class: "t", value: f.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { f.name = e.target.value; refresh(); }, onchange: () => renderColourWays() }),
-        uses.length ? el("small", { class: "uses", title: "Used by " + uses.join(", ") }, "In " + uses.join(", ")) : null),
+      el("input", { class: "t", value: f.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { f.name = e.target.value; refresh(); }, onchange: () => renderColourWays() }),
       hexEl,
       tog(f.on, (v) => { f.on = v; renderColourWays(); refresh(); }),
       el("button", { class: "x", title: "Remove", "aria-label": "Remove " + f.name, onclick: () => {
