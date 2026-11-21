@@ -53,7 +53,7 @@ section{background:var(--card);border:1px solid var(--line);border-radius:14px;p
 .cp:disabled{opacity:.4;cursor:default}
 .sw{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.15);display:inline-block;position:relative;overflow:hidden;flex:none}
 .sw input[type=color]{position:absolute;inset:-6px;width:40px;height:40px;border:0;padding:0;opacity:0;cursor:pointer}
-.row{display:grid;grid-template-columns:22px 34px minmax(0,1fr) 88px 44px 30px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:22px 34px minmax(0,1fr) 176px 74px 44px 30px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
 .row.fin{grid-template-columns:22px 34px minmax(0,1fr) 176px 74px 44px 30px}
 .row:first-child{border-top:0}
 .row.dragging,.way.dragging{opacity:.4}.row.over,.way.over{box-shadow:0 -2px 0 var(--acc) inset}
@@ -74,6 +74,10 @@ section{background:var(--card);border:1px solid var(--line);border-radius:14px;p
 .fpill span{position:relative;z-index:1;display:grid;place-items:center;color:#8A857C;transition:color .2s}
 .fpill[data-f=matte] span:first-child,.fpill[data-f=standard] span:last-child{color:#fff}
 .fpill:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.fpill:disabled{cursor:default;opacity:.6}
+.row.pickrow{grid-template-columns:22px minmax(0,300px) 176px 74px minmax(0,1fr) 44px 30px}
+.row.pickrow .fpill.none{visibility:hidden}
+.row.filoff .pick>button{opacity:.6}
 .add{margin-top:10px;color:var(--acc);font-weight:600;background:none;border:0;padding:0;cursor:pointer}
 .add:disabled{color:var(--muted);cursor:default}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -180,7 +184,7 @@ aside .lbl:first-of-type{margin-top:4px}
 @media (max-width:1420px){.ways{grid-template-columns:1fr}.edit{position:static}}
 @media (max-width:1240px){main{grid-template-columns:150px minmax(0,1fr)}aside{grid-column:2;position:static;max-height:none;display:grid;grid-template-columns:1fr 1fr}}
 @media (max-width:860px){main{grid-template-columns:1fr}nav{display:none}aside{grid-column:1;grid-template-columns:1fr}.two,.ways{grid-template-columns:1fr}.edit{position:static}
-  .row{grid-template-columns:18px 30px minmax(0,1fr) 40px 24px}.row .hex{display:none}.row.fin{grid-template-columns:18px 30px minmax(0,1fr) 120px 40px 24px}.rule{grid-column:auto}}
+  .row{grid-template-columns:18px 30px minmax(0,1fr) 40px 24px}.row .hex{display:none}.row.fin{grid-template-columns:18px 30px minmax(0,1fr) 120px 40px 24px}.row.pickrow{grid-template-columns:18px minmax(0,1fr) 120px 0 40px 24px}.rule{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -366,18 +370,31 @@ function renderParts() {
   }
   sec.append(box);
 }
+/* Matte or standard: one big pill, the dark half slides to the one chosen. Set on a filament; shown,
+   but not changeable, wherever that filament is used. */
+function finishPill(get, set, name) {
+  const fin = el("button", { type: "button", class: "fpill", role: "switch", disabled: !set, title: set ? "Matte or standard filament" : "Set under Filaments" },
+    el("span", {}, "Matte"), el("span", {}, "Standard"));
+  const say = () => { const f = get() || "standard"; fin.dataset.f = f; fin.setAttribute("aria-checked", String(f === "matte")); fin.setAttribute("aria-label", name() + " finish: " + S.FINISHES[f]); };
+  if (set) fin.addEventListener("click", () => { set((get() || "standard") === "matte" ? "standard" : "matte"); say(); });
+  say(); return fin;
+}
+const usedBy = (id) => [...work.colourWays.filter((c) => c.slots.includes(id)).map((c) => c.label),
+  ...(work.routeColours.some((c) => c.filament === id) ? ["route colours"] : []), ...(work.iconColours.some((c) => c.filament === id) ? ["icon colours"] : [])];
+const renderColourLists = () => { renderSwatchList("routeColours"); renderSwatchList("iconColours"); };
 function renderFilaments() {
-  const sec = $("filaments"); sec.replaceChildren(...head("filaments", "Filaments", "The colours you can print, used by the colour ways. Switch one off if you've run out: any colour way that needs it is hidden in the studio until it's back."));
-  const box = el("div"), rerender = () => { renderFilaments(); renderColourWays(); refresh(); };
+  const sec = $("filaments"); sec.replaceChildren(...head("filaments", "Filaments", "Every colour you can print, and whether it's matte or standard. Colour ways, route colours and icon colours all pick from here. Switch one off if you've run out: whatever uses it is hidden in the studio until it's back."));
+  const box = el("div"), rerender = () => { renderFilaments(); renderColourWays(); renderColourLists(); refresh(); };
   work.filaments.forEach((f, i) => {
     const hexEl = el("span", { class: "hex" }, f.hex);
-    const uses = work.colourWays.filter((c) => c.slots.includes(f.id)).map((c) => c.label);
-    box.append(el("div", { class: "row" },
+    const uses = usedBy(f.id);
+    box.append(el("div", { class: "row fin" },
       el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"),
-      swatch(f.hex, (v) => { f.hex = v; hexEl.textContent = v; renderColourWays(); refresh(); }),
-      el("input", { class: "t", value: f.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { f.name = e.target.value; refresh(); }, onchange: () => renderColourWays() }),
+      swatch(f.hex, (v) => { f.hex = v; hexEl.textContent = v; renderColourWays(); renderColourLists(); refresh(); }),
+      el("input", { class: "t", value: f.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { f.name = e.target.value; refresh(); }, onchange: () => { renderColourWays(); renderColourLists(); } }),
+      finishPill(() => f.finish, (v) => { f.finish = v; renderColourLists(); refresh(); }, () => f.name),
       hexEl,
-      tog(f.on, (v) => { f.on = v; renderColourWays(); refresh(); }),
+      tog(f.on, (v) => { f.on = v; renderColourWays(); renderColourLists(); refresh(); }),
       el("button", { class: "x", title: "Remove", "aria-label": "Remove " + f.name, onclick: () => {
         work.filaments.splice(i, 1); rerender();
         if (uses.length) toast(f.name + " was in " + uses.join(", ") + ": pick another filament there before saving.");
@@ -385,7 +402,7 @@ function renderFilaments() {
   });
   sec.append(box); sortable(box, work.filaments, rerender);
   sec.append(el("button", { class: "add", onclick: () => { let n = 1; while (work.filaments.some((f) => f.id === "new-" + n)) n++;
-    work.filaments.push({ id: "new-" + n, name: "New colour " + n, hex: "#888888", on: false }); rerender(); } }, "+ Add a filament"));
+    work.filaments.push({ id: "new-" + n, name: "New colour " + n, hex: "#888888", finish: "standard", on: false }); rerender(); } }, "+ Add a filament"));
 }
 
 function renderColourWays() {
@@ -475,25 +492,28 @@ function markWays(wrong) {
   });
 }
 
-function renderSwatchList(key, title, sub) {
+const LISTS = { routeColours: ["Route colours", "Offered under Route in the studio. Pick from your filaments: the name, colour and finish come from there."],
+  iconColours: ["Icon colours", "Offered under Icons in the studio. Pick from your filaments, as for the route."] };
+function renderSwatchList(key) {
+  const [title, sub] = LISTS[key], what = key === "routeColours" ? "Route" : "Icon";
   const sec = $(key); sec.replaceChildren(...head(key, title, sub));
-  const box = el("div"), list = work[key], rerender = () => { renderSwatchList(key, title, sub); refresh(); };
+  const box = el("div"), list = work[key], rerender = () => { renderSwatchList(key); renderFilaments(); refresh(); };
   list.forEach((c, i) => {
-    const hexEl = el("span", { class: "hex" }, c.hex);
-    const say = () => { fin.dataset.f = c.finish || "standard"; fin.setAttribute("aria-checked", String(fin.dataset.f === "matte")); fin.setAttribute("aria-label", c.name + " finish: " + S.FINISHES[fin.dataset.f]); };
-    const fin = el("button", { type: "button", class: "fpill", role: "switch", title: "Matte or standard filament",
-      onclick: () => { c.finish = (c.finish || "standard") === "matte" ? "standard" : "matte"; say(); refresh(); } }, el("span", {}, "Matte"), el("span", {}, "Standard"));
-    say();
-    box.append(el("div", { class: "row fin" },
+    const f = filById(c.filament);
+    box.append(el("div", { class: "row pickrow" + (f && !f.on ? " filoff" : "") },
       el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"),
-      swatch(c.hex, (v) => { c.hex = v; hexEl.textContent = v; refresh(); }),
-      el("input", { class: "t", value: c.name, "aria-label": "Name", maxlength: 40, oninput: (e) => { c.name = e.target.value; refresh(); } }),
-      fin, hexEl,
-      tog(c.on, (v) => { c.on = v; refresh(); }),
-      el("button", { class: "x", title: "Remove", "aria-label": "Remove " + c.name, disabled: list.length <= 1, onclick: () => { list.splice(i, 1); rerender(); } }, "✕")));
+      filamentPick(c.filament, (id) => { c.filament = id; rerender(); }, what + " colour " + (i + 1)),
+      (() => { const p = finishPill(() => f && f.finish, null, () => f ? f.name : what + " colour " + (i + 1)); if (!f) p.classList.add("none"); return p; })(),
+      el("span", { class: "hex" }, f ? f.hex : ""), el("span"),
+      tog(c.on, (v) => { c.on = v; refresh(); }, false, "Offer " + (f ? f.name : what.toLowerCase() + " colour " + (i + 1))),
+      el("button", { class: "x", title: "Remove", "aria-label": "Remove " + (f ? f.name : what.toLowerCase() + " colour " + (i + 1)), disabled: list.length <= 1, onclick: () => { list.splice(i, 1); rerender(); } }, "✕")));
   });
   sec.append(box); sortable(box, list, rerender);
-  sec.append(el("button", { class: "add", onclick: () => { list.push({ name: "New colour", hex: "#888888", finish: "matte", on: false }); rerender(); } }, "+ Add a colour"));
+  const free = work.filaments.find((x) => !list.some((c) => c.filament === x.id));
+  sec.append(el("button", { class: "add", disabled: !free, onclick: () => { list.push({ filament: free.id, on: false }); rerender();
+    toast("Added, switched off: pick its filament, then switch it on."); } }, free ? "+ Add a colour" : "Every filament is already here"));
+  const wrong = problems().filter((x) => x.section === key);
+  if (wrong.length) sec.append(el("ul", { class: "err", style: "margin:10px 0 0" }, wrong.map((x) => el("li", {}, x.msg))));
 }
 function renderFinishes() {
   const sec = $("frameFinishes"); sec.replaceChildren(...head("frameFinishes", "Frame finishes", "The frame's colour. At least one is always on."));
@@ -580,8 +600,7 @@ function renderPreview() {
 
 function renderAll() {
   renderParts(); renderFilaments(); renderColourWays();
-  renderSwatchList("routeColours", "Route colours", "Offered under Route in the studio. Matte or standard says which filament to load, and shows in the studio.");
-  renderSwatchList("iconColours", "Icon colours", "Offered under Icons in the studio.");
+  renderColourLists();
   renderFinishes(); renderPrices(); refresh();
 }
 

@@ -22,7 +22,7 @@ export const SECTION_NAMES = { parts: "Model parts", filaments: "Filaments", col
 export const PARTS = { water: "Water", trees: "Woodland", trees3d: "Trees", shrubs: "Shrubs", paths: "Paths", roads: "Roads", snow: "Snow" };
 export const MAX_COLOURS = 4;                          // the printer's four filament slots
 export const MAX_COLOUR_WAYS = 12;
-export const FINISHES = { matte: "Matte", standard: "Standard" };   // a route or icon colour's filament
+export const FINISHES = { matte: "Matte", standard: "Standard" };   // a filament's finish
 export const FINISH_KEYS = ["black", "white"];        // the frame
 const FINISH_NAMES = { black: "Black", white: "White" };
 
@@ -40,7 +40,11 @@ export const DEFAULT_SETTINGS = {
     { id: "sand", name: "Sand", hex: "#C9A15C", on: true },
     { id: "ink", name: "Ink", hex: "#1B242B", on: true },
     { id: "snow", name: "Snow", hex: "#F4F6F8", on: true },
-  ],
+    { id: "red", name: "Red", hex: "#E4572E", on: true }, { id: "yellow", name: "Yellow", hex: "#F2C230", on: true },
+    { id: "amber", name: "Amber", hex: "#E0A33C", on: true }, { id: "green", name: "Green", hex: "#2E9E57", on: true },
+    { id: "blue", name: "Blue", hex: "#1FA8E0", on: true }, { id: "purple", name: "Purple", hex: "#8E44E0", on: true },
+    { id: "white", name: "White", hex: "#FFFFFF", on: true }, { id: "black", name: "Black", hex: "#111111", on: true },
+  ].map((f) => ({ ...f, finish: "standard" })),
   /* Each colour way: its filaments in order (colour 1 is the ground), and which part takes which.
      Solid always comes first and is always on: its one filament is the model's plain colour. */
   colourWays: [
@@ -50,16 +54,9 @@ export const DEFAULT_SETTINGS = {
     { key: "natural", label: "Natural", on: true, slots: ["slate-grey", "slate", "moss", "clay"], assign: { water: 2, trees: 3, trees3d: 3, shrubs: 3, paths: 4 } },
     { key: "bold", label: "Bold", on: true, slots: ["charcoal", "slate-grey", "sand", "clay"], assign: { water: 2, paths: 3, trees: 4, trees3d: 4, shrubs: 4 } },
   ],
-  routeColours: [
-    { name: "Red", hex: "#E4572E", finish: "standard", on: true }, { name: "Yellow", hex: "#F2C230", finish: "standard", on: true },
-    { name: "Blue", hex: "#1FA8E0", finish: "standard", on: true }, { name: "Purple", hex: "#8E44E0", finish: "standard", on: true },
-    { name: "White", hex: "#FFFFFF", finish: "standard", on: true }, { name: "Black", hex: "#111111", finish: "standard", on: true },
-  ],
-  iconColours: [
-    { name: "Red", hex: "#D8342B", finish: "standard", on: true }, { name: "Amber", hex: "#E0A33C", finish: "standard", on: true },
-    { name: "Green", hex: "#2E9E57", finish: "standard", on: true }, { name: "Blue", hex: "#1F7FC4", finish: "standard", on: true },
-    { name: "Purple", hex: "#8E44E0", finish: "standard", on: true }, { name: "Black", hex: "#1B1B1B", finish: "standard", on: true },
-  ],
+  /* Route and icon colours are filaments from the list above: their name, colour and finish come from there. */
+  routeColours: ["red", "yellow", "blue", "purple", "white", "black"].map((filament) => ({ filament, on: true })),
+  iconColours: ["red", "amber", "green", "blue", "purple", "black"].map((filament) => ({ filament, on: true })),
   frameFinishes: FINISH_KEYS.map((key) => ({ key, name: FINISH_NAMES[key], on: key === "black" })),
   prices: {
     placeholder: true,                                 // the basket's "example prices" note
@@ -93,7 +90,7 @@ export function sanitise(input) {
     const hex = hexOf(f && f.hex), name = nameOf(f && f.name);
     let id = slug((f && f.id) || name);
     if (!hex || !name || !id || seen.has(id)) continue;
-    seen.add(id); fil.push({ id, name, hex, on: bool(f.on, true) });
+    seen.add(id); fil.push({ id, name, hex, finish: FINISHES[f.finish] ? f.finish : "standard", on: bool(f.on, true) });
     if (fil.length >= 40) break;
   }
   if (!fil.length) fil.push(...clone(d.filaments));
@@ -128,14 +125,28 @@ export function sanitise(input) {
   const solid = si >= 0 ? ways.splice(si, 1)[0] : { key: "solid", label: "Solid", on: true, slots: [ids.has("slate-grey") ? "slate-grey" : fil[0].id], assign: {} };
   out.colourWays = [solid, ...ways].slice(0, MAX_COLOUR_WAYS);
 
+  // route and icon colours: each a filament. Older settings kept a name, colour and finish here
+  // instead; each of those becomes the filament of that colour and finish, added if there isn't one.
+  const filamentFor = (c) => {
+    if (c.filament != null) return ids.has(c.filament) ? c.filament : null;
+    const hex = hexOf(c.hex), name = nameOf(c.name), finish = FINISHES[c.finish] ? c.finish : "standard";
+    if (!hex || !name) return null;
+    const same = fil.find((f) => f.hex === hex && f.finish === finish);
+    if (same) return same.id;
+    if (fil.length >= 60) return null;
+    let id = slug(name) || "colour"; if (ids.has(id)) { let n = 2; while (ids.has(id + "-" + n)) n++; id = id + "-" + n; }
+    fil.push({ id, name, hex, finish, on: true }); ids.add(id); return id;
+  };
   const swatches = (list, defs) => {
-    const outL = [];
+    const outL = [], used = new Set();
     for (const c of Array.isArray(list) ? list : defs) {
-      const hex = hexOf(c && c.hex), name = nameOf(c && c.name);
-      if (hex && name) outL.push({ name, hex, finish: FINISHES[c.finish] ? c.finish : "standard", on: bool(c.on, true) });
+      const id = c && typeof c === "object" ? filamentFor(c) : null;
+      if (id && !used.has(id)) { used.add(id); outL.push({ filament: id, on: bool(c.on, true) }); }
       if (outL.length >= 24) break;
     }
-    return outL.length ? outL : clone(defs);
+    if (outL.length) return outL;
+    const back = defs.filter((c) => ids.has(c.filament));                // the defaults, as far as their filaments are here
+    return back.length ? clone(back) : [{ filament: (fil.find((f) => f.on) || fil[0]).id, on: true }];
   };
   out.routeColours = swatches(s.routeColours, d.routeColours);
   out.iconColours = swatches(s.iconColours, d.iconColours);
@@ -163,6 +174,11 @@ export function sanitise(input) {
   return out;
 }
 
+/* A route or icon colour list as the studio needs it: the filament's name, colour and finish, for each
+   one switched on whose filament is on too. */
+const swatchesOn = (list, byId) => list.filter((c) => c.on && byId[c.filament] && byId[c.filament].on)
+  .map((c) => { const f = byId[c.filament]; return { name: f.name, hex: f.hex, finish: f.finish }; });
+
 /* What the studio and basket are sent: only what's on offer, nothing switched off. */
 export function publicView(settings) {
   const s = sanitise(settings), byId = Object.fromEntries(s.filaments.map((f) => [f.id, f]));
@@ -175,8 +191,8 @@ export function publicView(settings) {
     parts: clone(s.parts),
     ground: base.hex,
     colourWays,
-    routeColours: s.routeColours.filter((c) => c.on).map(({ name, hex, finish }) => ({ name, hex, finish })),
-    iconColours: s.iconColours.filter((c) => c.on).map(({ name, hex, finish }) => ({ name, hex, finish })),
+    routeColours: swatchesOn(s.routeColours, byId),
+    iconColours: swatchesOn(s.iconColours, byId),
     frameFinishes: s.frameFinishes.filter((f) => f.on).map((f) => f.key),
     prices: {
       placeholder: p.placeholder,
@@ -223,11 +239,12 @@ export function checkSettings(input) {
     });
   });
   for (const key of ["routeColours", "iconColours"]) {
-    const list = Array.isArray(s[key]) ? s[key] : [], seenC = new Set(), what = key === "routeColours" ? "route" : "icon";
+    const list = Array.isArray(s[key]) ? s[key] : [], seenC = new Set(), what = key === "routeColours" ? "Route" : "Icon";
     list.forEach((c, i) => {
-      if (!nameOf(c && c.name)) add(key, "The " + what + " colour " + (i + 1) + " needs a name.");
-      const k = String((c && c.hex) || "").toUpperCase() + "|" + ((c && c.finish) || "standard");
-      if (seenC.has(k)) add(key, "Two " + what + " colours are the same colour and finish (" + nameOf(c.name) + ")."); seenC.add(k);
+      if (!c || typeof c !== "object" || !("filament" in c)) return;   // an older entry (a name and colour): tidying makes it a filament
+      const id = c.filament, f = byId[id];
+      if (!f) { add(key, what + " colour " + (i + 1) + "'s filament has been removed. Pick another."); return; }
+      if (seenC.has(id)) add(key, nameOf(f.name) + " is in the " + what.toLowerCase() + " colours twice."); seenC.add(id);
     });
   }
   return out;
@@ -243,8 +260,11 @@ export function copySections(to, from, section) {
   const T = sanitise(to), F = sanitise(from);
   const which = section === "all" ? SECTIONS : [section];
   for (const k of which) if (SECTIONS.includes(k)) T[k] = F[k];
-  if (which.includes("colourWays") && !which.includes("filaments")) {   // bring any filament they use that isn't here yet
-    for (const c of T.colourWays) for (const id of c.slots)
+  if (!which.includes("filaments")) {               // bring any filament the copied sections use that isn't here yet
+    const need = [];
+    if (which.includes("colourWays")) for (const c of T.colourWays) need.push(...c.slots);
+    for (const k of ["routeColours", "iconColours"]) if (which.includes(k)) for (const c of T[k]) need.push(c.filament);
+    for (const id of need)
       if (!T.filaments.some((f) => f.id === id)) { const f = F.filaments.find((g) => g.id === id); if (f) T.filaments.push(clone(f)); }
   }
   // a colour way may now name a filament the copied list doesn't have: tidying again puts that right
