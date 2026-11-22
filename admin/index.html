@@ -109,7 +109,29 @@ section{background:var(--card);border:1px solid var(--line);border-radius:14px;p
 .tick:disabled{cursor:default;opacity:.55}
 .slotn{display:inline-block;width:20px;color:var(--muted);font-size:12px}
 .edit .foot{display:flex;align-items:center;gap:10px;margin-top:12px}
-.edit .err{color:var(--bad);font-size:12.5px;margin:10px 0 0;padding-left:16px}
+.edit .err,section .err{color:var(--bad);font-size:12.5px;margin:10px 0 0;padding-left:16px}
+/* titles and text: one row a line of words, grouped by page and part of the page */
+.tpage{margin:18px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tpage:first-of-type{margin-top:4px}
+.tgroup{border:1px solid var(--line);border-radius:12px;padding:4px 14px;margin-bottom:10px}
+.tgroup > b{display:block;font-size:13px;padding:8px 0 2px}
+.trow{display:grid;grid-template-columns:130px minmax(0,1fr) 54px;gap:10px;align-items:start;padding:6px 0;border-top:1px solid var(--line)}
+.trow:nth-child(2){border-top:0}
+.trow > span{color:var(--muted);font-size:12.5px;padding-top:7px}
+.trow.changed > span{color:var(--ink);font-weight:600}
+.trow.changed > span::after{content:" •";color:var(--acc)}
+.tin{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--soft);font:inherit;line-height:1.4;resize:vertical}
+.tin:focus{outline:none;border-color:var(--ink);background:#fff}
+.reset{border:0;background:none;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;padding:7px 0 0;text-align:left}
+.reset[hidden]{display:none}
+/* questions */
+.faq{display:grid;grid-template-columns:22px minmax(0,1fr) 30px;gap:6px 10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.faq.dragging{opacity:.4}.faq.over{box-shadow:0 -2px 0 var(--acc) inset}
+.faq .drag{padding-top:6px}
+.faq .qa{display:flex;flex-direction:column;gap:6px}
+.faq .tin.q{font-weight:600}
+.faq .x{align-self:start;padding-top:6px}
+.fromfile{background:#F3F1EC;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px;color:#57534E}
 .del{color:var(--bad);border-color:#EBC9C5}
 /* a dropdown that shows each colour as a circle */
 .pick{position:relative;display:inline-block;width:100%}
@@ -205,6 +227,8 @@ aside .lbl:first-of-type{margin-top:4px}
     <a href="#parts">Model parts</a><a href="#filaments">Filaments</a><a href="#colourWays">Colour ways</a><a href="#routeColours">Route colours</a><a href="#iconColours">Icon colours</a><a href="#frameFinishes">Frame finishes</a>
     <small>Shop</small>
     <a href="#prices">Prices</a><a href="#delivery">Delivery</a>
+    <small>Site</small>
+    <a href="#text">Titles and text</a><a href="#faqs">Questions</a>
   </nav>
   <div>
     <section id="parts"></section>
@@ -214,6 +238,8 @@ aside .lbl:first-of-type{margin-top:4px}
     <section id="iconColours"></section>
     <section id="frameFinishes"></section>
     <section id="prices"></section>
+    <section id="text"></section>
+    <section id="faqs"></section>
   </div>
   <aside id="side" aria-label="Checks and preview">
     <div class="box" id="checks"></div>
@@ -359,9 +385,10 @@ function sortable(host, list, rerender, sel = ".row", fixed = 0) {
 
 /* ---- the sections ---- */
 const PART_NOTES = { water: "Lakes, rivers and the sea", trees: "The wooded ground, painted on", trees3d: "Trees standing in the woods, if the customer turns them on",
-  shrubs: "Scrub and heath", paths: "Footpaths and tracks", roads: "Roads, painted on", snow: "Snow on the high ground, if the customer turns it on" };
+  shrubs: "Scrub and heath", paths: "Footpaths and tracks, in colour ways that give them a colour", roads: "Roads, in colour ways that give them a colour",
+  snow: "Snow on high ground, if the customer turns it on, in colour ways that give it a colour" };
 function renderParts() {
-  const sec = $("parts"); sec.replaceChildren(...head("parts", "Model parts", "What the studio shows on a model. Switch one off and it isn't drawn, and the customer can't turn it on."));
+  const sec = $("parts"); sec.replaceChildren(...head("parts", "Model parts", "What the studio shows on a model. Switch one off and it isn't drawn, and the customer can't turn it on. Roads, paths and snow show only in colour ways that tick them in a colour of their own (they'd print as plain ground otherwise)."));
   const box = el("div", { class: "pcards" });
   for (const [k, name] of Object.entries(S.PARTS)) {
     const card = el("div", { class: "pcard" + (work.parts[k] ? "" : " off"), "data-part": k }, el("div", {}, el("b", {}, name), el("small", {}, PART_NOTES[k])),
@@ -598,10 +625,80 @@ function renderPreview() {
     el("div", { class: "sizes" }, Object.keys(work.prices.sizes).map((k) => el("div", { class: p.sizes[k] == null ? "off" : "" }, el("b", {}, SIZE_NAMES[k][0]), pounds(work.prices.sizes[k].price)))));
 }
 
+/* ---- the site's words ---- */
+function grow(t) { t.style.height = "auto"; t.style.height = Math.min(320, t.scrollHeight + 2) + "px"; }
+function renderText() {
+  const sec = $("text"); sec.replaceChildren(...head("text", "Titles and text", "The homepage's titles and the lines under them, and the studio's section names. Leave one as it is, or empty, to keep the words the page already has."));
+  let page = null, box = null, group = null;
+  for (const t of S.TEXT) {
+    if (t.page !== page) { page = t.page; sec.append(el("div", { class: "tpage" }, page)); group = null; }
+    if (t.group !== group) { group = t.group; box = el("div", { class: "tgroup" }, el("b", {}, group)); sec.append(box); }
+    const has = typeof work.text[t.key] === "string";
+    const long = t.text.length > 60;
+    const input = el(long ? "textarea" : "input", { class: "tin", "aria-label": page + ", " + group + ": " + t.label, maxlength: 400, rows: long ? 2 : null, "data-key": t.key });
+    input.value = has ? work.text[t.key] : t.text;
+    const row = el("div", { class: "trow" + (has ? " changed" : "") }, el("span", {}, t.label), input);
+    const reset = el("button", { class: "reset", hidden: !has, title: "Back to: " + t.text, onclick: () => { delete work.text[t.key]; input.value = t.text; if (long) grow(input); say(); refresh(); } }, "Reset");
+    row.append(reset);
+    const say = () => { const on = typeof work.text[t.key] === "string"; row.classList.toggle("changed", on); reset.hidden = !on; };
+    input.addEventListener("input", () => { const v = input.value.replace(/\s+/g, " ").trim();
+      if (!v || v === t.text) delete work.text[t.key]; else work.text[t.key] = input.value.replace(/\n/g, " ");
+      if (long) grow(input); say(); refresh(); });
+    box.append(row);
+    if (long) requestAnimationFrame(() => grow(input));
+  }
+}
+let fileFaqs = null;                                 // the questions in faq.txt, until some are saved here
+function parseFaqTxt(txt) {                          // the homepage's own reading of faq.txt
+  const items = []; let cur = null, field = null;
+  for (const raw of String(txt || "").replace(/\r/g, "").split("\n")) {
+    const line = raw.trimEnd();
+    if (/^\s*#/.test(line)) continue;
+    const q = line.match(/^\s*Q:\s*(.*)$/i), a = line.match(/^\s*A:\s*(.*)$/i);
+    if (q) { cur = { q: q[1], a: [] }; items.push(cur); field = "q"; continue; }
+    if (a && cur) { cur.a.push(a[1]); field = "a"; continue; }
+    if (!cur) continue;
+    if (field === "q") { if (line.trim()) cur.q += " " + line.trim(); }
+    else if (!line.trim()) cur.a.push("");
+    else cur.a[cur.a.length - 1] = (cur.a[cur.a.length - 1] ? cur.a[cur.a.length - 1] + " " : "") + line.trim();
+  }
+  return items.map((it) => ({ q: it.q.trim(), a: it.a.join("\n").split(/\n+/).map((p) => p.trim()).filter(Boolean).join("\n\n") })).filter((it) => it.q && it.a);
+}
+const faqTxt = window.MISOGI_FAQ_TXT != null ? Promise.resolve(window.MISOGI_FAQ_TXT)
+  : local ? Promise.resolve("") : fetch("/faq.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => "");
+faqTxt.then((t) => { fileFaqs = parseFaqTxt(t); if (work) renderFaqs(); });
+function renderFaqs() {
+  const sec = $("faqs"); sec.replaceChildren(...head("faqs", "Questions", "The questions at the foot of the homepage. Web and email addresses in an answer become links; a blank line starts a new paragraph."));
+  const fromFile = !Array.isArray(work.faqs);
+  const list = fromFile ? clone(fileFaqs || []) : work.faqs;
+  const own = () => { if (!Array.isArray(work.faqs)) { work.faqs = list; } return work.faqs; };   // the first change takes them over from faq.txt
+  if (fromFile) sec.append(el("div", { class: "fromfile" }, list.length ? "These come from faq.txt for now. Change, add or remove one and save, and the homepage takes them from here instead." : "The homepage reads faq.txt for now. Add a question here and save, and it takes them from here instead."));
+  const box = el("div", { id: "faqList" }), rerender = () => { renderFaqs(); refresh(); };
+  list.forEach((f, i) => {
+    const q = el("input", { class: "tin q", value: f.q, maxlength: 200, "aria-label": "Question " + (i + 1), placeholder: "The question",
+      oninput: (e) => { own()[i].q = e.target.value; refresh(); } });
+    const a = el("textarea", { class: "tin a", maxlength: 3000, rows: 3, "aria-label": "Answer " + (i + 1), placeholder: "The answer",
+      oninput: (e) => { own()[i].a = e.target.value; grow(e.target); refresh(); } });
+    a.value = f.a;
+    box.append(el("div", { class: "faq" }, el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"), el("div", { class: "qa" }, q, a),
+      el("button", { class: "x", title: "Remove", "aria-label": "Remove question " + (i + 1), onclick: () => { own().splice(i, 1); rerender(); } }, "✕")));
+    requestAnimationFrame(() => grow(a));
+  });
+  sec.append(box);
+  sortable(box, list, () => { own(); rerender(); }, ".faq");
+  const full = list.length >= S.MAX_FAQS;
+  sec.append(el("div", { style: "display:flex;gap:16px;align-items:center;margin-top:4px" },
+    el("button", { class: "add", style: "margin:0", disabled: full, onclick: () => { own().push({ q: "", a: "" }); rerender();
+      const qs = sec.querySelectorAll(".tin.q"); qs[qs.length - 1].focus(); } }, full ? "That's the most questions (" + S.MAX_FAQS + ")" : "+ Add a question"),
+    fromFile ? null : el("button", { class: "reset", style: "padding:0", onclick: () => { if (!confirm("Go back to the questions in faq.txt? The ones here are dropped when you save.")) return; work.faqs = null; rerender(); } }, "Go back to faq.txt")));
+  const wrong = problems().filter((x) => x.section === "faqs");
+  if (wrong.length) sec.append(el("ul", { class: "err" }, wrong.map((x) => el("li", {}, x.msg))));
+}
+
 function renderAll() {
   renderParts(); renderFilaments(); renderColourWays();
   renderColourLists();
-  renderFinishes(); renderPrices(); refresh();
+  renderFinishes(); renderPrices(); renderText(); renderFaqs(); refresh();
 }
 
 /* ---- saving and copying ---- */

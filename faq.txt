@@ -1,5 +1,8 @@
 # The questions on the homepage.
 #
+# They can now be edited on the admin page (/admin, Questions). Once saved there, the homepage
+# uses those and this file is no longer read. Until then, this file is used.
+#
 # To change them, edit this file on GitHub (open it, click the pencil, edit, then "Commit changes").
 # The homepage reads it every time it loads, so there is nothing else to do.
 #

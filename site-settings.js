@@ -14,9 +14,51 @@
 
    Amounts are in pence: 4900 is £49.00. */
 
-export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices"];
+export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices", "text", "faqs"];
 export const SECTION_NAMES = { parts: "Model parts", filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
-  iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices" };
+  iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices", text: "Titles and text", faqs: "Questions" };
+
+/* The words the admin page can change: the homepage's titles and the lines under them, and the
+   studio's section names and their grey lines. Each page keeps these words as written (so it reads
+   right before the settings arrive); the settings hold only what's been changed. */
+export const TEXT = [
+  ["home.hero.title", "Homepage", "Top of the page", "Title", "Your biggest challenge of the year, in your hands."],
+  ["home.hero.sub", "Homepage", "Top of the page", "Under the title", "Every twist, turn and summit you earned. 3D\u2011printed to scale and made to hang on your wall or sit on a desk."],
+  ["home.how.title", "Homepage", "How it works", "Title", "How it works."],
+  ["home.how.1.title", "Homepage", "How it works", "Step 1", "Find your place"],
+  ["home.how.1.text", "Homepage", "How it works", "Step 1 text", "Pick a suggested location, search for your own, or drop in a GPX file and the map frames your route for you."],
+  ["home.how.2.title", "Homepage", "How it works", "Step 2", "Make it yours"],
+  ["home.how.2.text", "Homepage", "How it works", "Step 2 text", "Adjust the shape and elevation, and add icons, a frame and custom text."],
+  ["home.how.3.title", "Homepage", "How it works", "Step 3", "We print it"],
+  ["home.how.3.text", "Homepage", "How it works", "Step 3 text", "Your model is 3D-printed to order in the colours you pick, and posted to you."],
+  ["home.sizes.title", "Homepage", "Sizes", "Title", "Pick your size."],
+  ["home.sizes.sub", "Homepage", "Sizes", "Under the title", "Names for the days they remember."],
+  ["home.style.title", "Homepage", "Colours", "Title", "Pick your style."],
+  ["home.style.sub", "Homepage", "Colours", "Under the title", "From a single quiet grey to every feature picked out."],
+  ["home.misogi.title", "Homepage", "What is a misogi?", "Title", "What is a misogi?"],
+  ["home.misogi.p1", "Homepage", "What is a misogi?", "First paragraph", "A misogi is an extremely difficult challenge you set yourself each year: a tough ride, a long run, a brutal climb, a day you weren't sure you'd finish. It deserves more than a photo lost in your phone."],
+  ["home.misogi.p2", "Homepage", "What is a misogi?", "Second paragraph", "We turn that story into a model to celebrate your success and remind you that you can do hard things."],
+  ["home.faq.title", "Homepage", "Questions", "Title", "Questions."],
+  ["home.news.title", "Homepage", "Newsletter", "Title", "Keep in the loop."],
+  ["home.news.sub", "Homepage", "Newsletter", "Under the title", "Be the first to hear about new products, deals and updates."],
+  ["studio.size.title", "Studio", "Print size", "Section name", "Print Dimensions"],
+  ["studio.size.sub", "Studio", "Print size", "Grey line", "The size of your design once printed."],
+  ["studio.extras.title", "Studio", "Extras", "Section name", "Extras"],
+  ["studio.extras.sub", "Studio", "Extras", "Grey line", "All optional."],
+  ["studio.relief.title", "Studio", "Relief", "Section name", "Relief"],
+  ["studio.route.title", "Studio", "Route", "Section name", "Route"],
+  ["studio.route.sub", "Studio", "Route", "Grey line", "Your trail, on the model."],
+  ["studio.icons.title", "Studio", "Icons", "Section name", "Icons"],
+  ["studio.icons.sub", "Studio", "Icons", "Grey line", "Drag them into place."],
+  ["studio.frame.title", "Studio", "Frame", "Section name", "Frame"],
+  ["studio.frame.sub", "Studio", "Frame", "Grey line", "The engraving."],
+  ["studio.colours.title", "Studio", "Colours", "Section name", "Colours"],
+  ["studio.colours.sub", "Studio", "Colours", "Grey line", "Pick your favourite."],
+  ["studio.order.title", "Studio", "Order", "Section name", "Order"],
+  ["studio.order.sub", "Studio", "Order", "Grey line", "Printed and posted to you."],
+].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011") }));
+const TEXT_BY_KEY = Object.fromEntries(TEXT.map((t) => [t.key, t]));
+export const MAX_FAQS = 30;
 
 /* The parts of a model a colour way can colour, besides the ground (always colour 1). */
 export const PARTS = { water: "Water", trees: "Woodland", trees3d: "Trees", shrubs: "Shrubs", paths: "Paths", roads: "Roads", snow: "Snow" };
@@ -72,6 +114,10 @@ export const DEFAULT_SETTINGS = {
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const HEX = /^#[0-9A-F]{6}$/;
 const hexOf = (v) => { const s = String(v || "").trim().toUpperCase(); return HEX.test(s) ? s : null; };
+/* Words for a page: kept as plain text (pages put them in as text, never as HTML), line breaks kept
+   where asked, other control characters dropped. */
+const textOf = (v, max, lines) => String(v == null ? "" : v).replace(/\r/g, "").replace(lines ? /[\u0000-\u0009\u000b-\u001f]/g : /[\u0000-\u001f]/g, lines ? "" : " ")
+  .replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
 const nameOf = (v, max = 40) => String(v == null ? "" : v).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, max);
 const pence = (v, def, max = 10000000) => { const n = Math.round(+v); return Number.isFinite(n) && n >= 0 && n <= max ? n : def; };
 const bool = (v, def) => (typeof v === "boolean" ? v : def);
@@ -96,6 +142,13 @@ export function sanitise(input) {
   if (!fil.length) fil.push(...clone(d.filaments));
   const gp = s.parts && typeof s.parts === "object" ? s.parts : {};
   out.parts = Object.fromEntries(Object.keys(PARTS).map((k) => [k, bool(gp[k], d.parts[k])]));
+  // the words: only those changed from what the page says already
+  out.text = {};
+  const gt = s.text && typeof s.text === "object" ? s.text : {};
+  for (const t of TEXT) { const v = textOf(gt[t.key], 400, false); if (v && v !== t.text) out.text[t.key] = v; }
+  // the homepage's questions: null means it reads its own faq.txt as before
+  out.faqs = Array.isArray(s.faqs) ? s.faqs.filter((f) => f && typeof f === "object")
+    .map((f) => ({ q: textOf(f.q, 200, false), a: textOf(f.a, 3000, true) })).filter((f) => f.q && f.a).slice(0, MAX_FAQS) : null;
   out.filaments = fil;
   const ids = new Set(fil.map((f) => f.id));
 
@@ -194,6 +247,8 @@ export function publicView(settings) {
     routeColours: swatchesOn(s.routeColours, byId),
     iconColours: swatchesOn(s.iconColours, byId),
     frameFinishes: s.frameFinishes.filter((f) => f.on).map((f) => f.key),
+    text: clone(s.text),
+    faqs: s.faqs ? clone(s.faqs) : null,
     prices: {
       placeholder: p.placeholder,
       sizes: Object.fromEntries(Object.entries(p.sizes).filter(([, z]) => z.on).map(([k, z]) => [k, z.price])),
@@ -247,6 +302,11 @@ export function checkSettings(input) {
       if (seenC.has(id)) add(key, nameOf(f.name) + " is in the " + what.toLowerCase() + " colours twice."); seenC.add(id);
     });
   }
+  if (Array.isArray(s.faqs)) s.faqs.forEach((f, i) => {
+    if (!textOf(f && f.q, 200, false)) add("faqs", "Question " + (i + 1) + " needs a question.");
+    if (!textOf(f && f.a, 3000, true)) add("faqs", "Question " + (i + 1) + " needs an answer.");
+  });
+  if (Array.isArray(s.faqs) && s.faqs.length > MAX_FAQS) add("faqs", "That's more than " + MAX_FAQS + " questions.");
   return out;
 }
 

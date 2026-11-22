@@ -87,7 +87,8 @@ the file every time it loads, so nothing else needs uploading.
 `/admin` edits what the studio and basket offer and charge: which parts of the model are shown (water,
 woodland, trees, shrubs, paths, roads, snow), filaments, colour ways (your own too: up to four filaments,
 ticking which part prints in which), route and icon colours (each matte or standard), frame finishes,
-prices, delivery and free delivery over a set spend. It won't save while something needs putting right
+prices, delivery and free delivery over a set spend, the homepage's titles and the lines under them, the
+studio's section names, and the homepage's questions (which replace faq.txt once saved there). It won't save while something needs putting right
 (a colour way using a filament you've removed, say): the panel on the right lists what. Preview and Live each keep
 their own settings; the live page is red. On Live, each section shows a tick when it matches Preview and
 a cross when it doesn't, with a copy button to bring Preview's across (copying only ever goes that way).

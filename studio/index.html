@@ -1016,6 +1016,49 @@ body:not(.light) #scrollRail{background:rgba(255,255,255,.14)}
 /* The phone menu opens over the studio too, above the map's own controls. */
 body.menu-open .site-banner--app{z-index:3000}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- the customise panel, compact (layout A) ----------
+   Route, icons and frame are three tiles side by side under Extras; each one's own section only
+   shows once it's been added. Relief is one slim bar. The colour ways sit two to a row. */
+.extra-tiles{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px}
+body:not(.none) #extraTiles .xtile, #extraTiles .xtile{display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  text-align:center; gap:1px; margin:0; min-width:0; width:auto; flex:none; padding:12px 6px 10px; border-radius:12px;
+  background:var(--panel-2); border:2px solid transparent; font-size:13px; font-weight:600; letter-spacing:0;
+  color:var(--text); cursor:pointer; line-height:1.25}
+#extraTiles .xtile::before{content:""; width:32px; height:32px; border-radius:9px; flex:none; margin-bottom:6px;
+  background:var(--panel) center / 18px no-repeat}
+#extraTiles .xtile[data-x="route"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232A2E33' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 18c3 0 3-5 7-5s3-7 9-7'/%3E%3Ccircle cx='4' cy='18' r='1.8'/%3E%3Ccircle cx='20' cy='6' r='1.8'/%3E%3C/svg%3E")}
+#extraTiles .xtile[data-x="icon"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232A2E33' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z'/%3E%3C/svg%3E")}
+#extraTiles .xtile[data-x="frame"]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232A2E33' stroke-width='2'%3E%3Crect x='3.5' y='3.5' width='17' height='17' rx='2'/%3E%3Crect x='8' y='8' width='8' height='8'/%3E%3C/svg%3E")}
+#extraTiles .xtile b{font-weight:600; color:inherit}
+body:not(.none) #extraTiles .xtile small, #extraTiles .xtile small{display:block; margin:0; font-size:11px; font-weight:400; color:var(--muted);
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+body:not(.none) #extraTiles .xtile .pr, #extraTiles .xtile .pr{display:inline-block; margin:7px 0 0; padding:4px 10px; border-radius:999px;
+  background:var(--panel); font-size:12px; font-weight:700; line-height:16px; color:var(--heading); max-width:none}
+#extraTiles .xtile .pr:empty{display:none}
+body:not(.none) #extraTiles .xtile:hover:not(:disabled), #extraTiles .xtile.over{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 6%, var(--panel-2))}
+body:not(.none) #extraTiles .xtile.on, #extraTiles .xtile.on{background:var(--panel); border-color:var(--accent); color:var(--accent); padding:12px 6px 10px}
+#extraTiles .xtile.on::before{background-color:var(--panel-2)}
+body:not(.none) #extraTiles .xtile.on .pr{background:var(--panel-2)}
+#extraTiles .xtile:disabled{opacity:.55; cursor:default}
+#panelView .block.x-empty{display:none !important}
+/* Relief: the name, the slider and its number on one slim bar */
+/* the grey bar lines up with the sections' contents: the block's side padding becomes a clear border */
+body:not(.none) #panelView #shapeBlock{display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; background:var(--panel-2);
+  background-clip:padding-box; border:0 solid transparent; border-width:0 12px; border-radius:24px; padding:9px 14px; margin-top:2px; margin-bottom:2px}
+@media (max-width:860px){ body:not(.none) #panelView #shapeBlock{border-width:0; border-radius:12px} }
+#panelView #shapeBlock > h2{margin:0; flex:none; font-size:14px}
+#panelView #shapeBlock > .sec-body{flex:1 1 0; min-width:0; margin:0}
+#panelView #shapeBlock .slider-row{margin:0}
+#panelView #shapeBlock .numbox input{background:var(--panel)}
+#panelView #shapeBlock .relief-cap{flex-basis:100%}
+/* Colour ways: two to a row, the colours on top, the name and price under them */
+#panelView .scheme-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+body:not(.none) #panelView .scheme{flex-direction:column; align-items:stretch; gap:7px; padding:7px}
+body:not(.none) #panelView .scheme[aria-pressed="true"]{padding:6.5px}
+body:not(.none) #panelView .scheme .bar{flex:none; width:100%; height:34px; border-radius:8px}
+body:not(.none) #panelView .scheme .nm{flex:none; font-size:13px; padding:0 2px}
+#panelView #shapeBlock .relief-size{flex-basis:100%; font-size:11.5px; color:var(--muted); margin-top:-2px}
 </style>
 </head>
 <body class="mode-map light">
@@ -1110,6 +1153,13 @@ body.menu-open .site-banner--app{z-index:3000}
         <button data-mm="500" aria-pressed="false">The Misogi<small>50 cm × 50 cm</small><small class="tiles">Four interlocking tiles</small></button>
       </div>
       <div hidden><span id="reliefOut">—</span><span id="reliefNote"></span></div>
+    </div>
+
+    <!-- Route, icons and frame are offered as three tiles here; their own sections below show
+         only once each has been added. The tiles are those sections' own buttons, moved in. -->
+    <div class="block" id="extrasBlock">
+      <h2>Extras</h2>
+      <div class="extra-tiles" id="extraTiles" role="group" aria-label="Extras"></div>
     </div>
 
     <div class="block" id="routeBlock">
@@ -1964,9 +2014,14 @@ function baseFeatureStyle(layer, p, type, z) {
       ? { line: COL.waterway, width: (cls === "river" || cls === "canal") ? 2.2 : 1.1, alpha: 0.95, order: 3, water: true } : null;
     case "road": {
       /* Roads are a way of recognising where you are, so they are drawn on the map while an area
-         is being chosen — and on the mini-map beside the model. They are never drawn on the model
-         itself. Paths, tracks and steps are not drawn anywhere. */
-      if (type !== 2 || paintingModel || ROAD_PATH.has(cls)) return null;
+         is being chosen, and on the mini-map beside the model. On the model itself they're drawn
+         only when the admin page has Roads (or Paths) switched on, and then only in a colour way
+         that prints them in a colour of their own: in one colour they'd print as plain ground. */
+      if (type !== 2) return null;
+      const isPath = ROAD_PATH.has(cls);
+      if (paintingModel) { if ((isPath ? !show.paths : !show.roads) || !modelCarries()) return null; }
+      else if (isPath) return null;                     // the map keeps to roads
+      if (isPath) return { line: COL.path, width: 0.8, alpha: 0.95, order: 5, road: "paths" };
       const tunnel = p.structure === "tunnel";
       if (ROAD_MAJOR.has(cls)) return { line: COL.road, width: 2.1, casing: COL.roadCase, casingWidth: 3.3, alpha: tunnel ? 0.35 : 1, dash: tunnel ? [4, 3] : null, order: 8, road: "roads" };
       if (ROAD_MID.has(cls))   return { line: COL.roadMid, width: 1.45, casing: COL.roadCaseMid, casingWidth: 2.4, alpha: tunnel ? 0.35 : 1, order: 7, road: "roads" };
@@ -5810,8 +5865,7 @@ function syncFrameBtn() {
   const on = $("showFrame").checked, b = $("frameBtn");
   if (b) {                                           // two lines, so the whole button is rebuilt
     const sub = document.createElement("small");
-    sub.textContent = (on ? "Its engraved text goes with it" : "A border with engraved text") + " ";
-    const opt = document.createElement("small"); opt.className = "opt"; opt.textContent = "(optional)"; sub.append(opt);
+    sub.textContent = on ? "Tap to remove" : "Engraved text";
     b.replaceChildren(on ? "Remove frame" : "Add frame", sub);
     if (EXTRA_PRICE && EXTRA_PRICE.frame) { const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.frame; b.append(pr); }
     b.classList.toggle("on", on);
@@ -5820,6 +5874,14 @@ function syncFrameBtn() {
   if (part) part.hidden = !on;                       // no frame, nothing to letter: the list goes too
   if (!on) closeTextPopup();
   if (typeof syncMagnets === "function" && $("magnetBtn")) syncMagnets();
+  syncExtras();
+}
+/* A section for the route, the icons or the frame shows only once there's one to show. */
+function syncExtras() {
+  const set = (id, on) => { const el = $(id); if (el) el.classList.toggle("x-empty", !on); };
+  set("routeBlock", typeof route !== "undefined" && !!route);
+  set("iconsBlock", typeof icons !== "undefined" && icons.length > 0);
+  set("frameBlock", $("showFrame").checked);
 }
 $("showFrame").addEventListener("change", () => { syncGates(); syncFrameBtn(); queueFrame(); renderPrintSlots();
   if (exagOff()) { setExag(exagWanted); rebuild(); } });   // the frame's depth counts toward the height limit
@@ -6466,9 +6528,9 @@ document.querySelectorAll("aside .block").forEach(makeCollapsible);
 /* Each option introduces itself the way a product page does: its name, then one grey sentence. */
 /* "(optional)" after a sentence marks the sections a design can do without. */
 const SECTION_SUBS = {
-  sizeBlock: "The size of your design once printed.", routeBlock: "Add a GPX file.",
-  iconsBlock: "Add small details.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
-  frameBlock: "Add custom text.", printColBlock: "Pick your favourite.", printBlock: "Printed and posted to you.",
+  sizeBlock: "The size of your design once printed.", extrasBlock: "All optional.", routeBlock: "Your trail, on the model.",
+  iconsBlock: "Drag them into place.", treesBlock: "Bring the ground to life.", snowBlock: "Cap the peaks.",
+  frameBlock: "The engraving.", printColBlock: "Pick your favourite.", printBlock: "Printed and posted to you.",
 };
 for (const [secId, sub] of Object.entries(SECTION_SUBS)) {
   const sp = $(secId) && $(secId).querySelector(".sec-toggle span");
@@ -6491,7 +6553,7 @@ const SHARED = [];
 const STAGES = [
   { key: "select", label: "Select", map: true, blocks: [] },      // choosing the place, on the map step
   { key: "customise", label: "Customise",
-    blocks: ["sizeBlock", "routeBlock", "shapeBlock", "iconsBlock",
+    blocks: ["sizeBlock", "extrasBlock", "routeBlock", "shapeBlock", "iconsBlock",
              "treesBlock", "snowBlock", "frameBlock", "printColBlock"], open: "sizeBlock" },
   { key: "print", label: "Print", blocks: ["printBlock"] }
 ];
@@ -6593,8 +6655,12 @@ function syncRouteBlock() {
 function updateGapReadout() { $("gapOut").textContent = "≈ " + (gapMetres / sel.size * frameVals.modelMM).toFixed(2) + " mm on the model"; }
 /* A route is loaded from the first screen now; this section just reports what's loaded. */
 function syncFindPanels() {
-  $("dropZone").hidden = !!route;                    // swap the chooser for the route's details
+  const dz = $("dropZone");                          // the Route tile: added, it names the route and changes it
+  dz.classList.toggle("on", !!route);
+  if (dz.dataset.x) { dz.querySelector("b").textContent = route ? "Change route" : "Add route";
+    dz.querySelector("small").textContent = route ? (route.name || "Route added") : "A GPX file"; }
   $("gpxInfo").hidden = !route;
+  syncExtras();
   $("findSearch").hidden = false;
 }
 
@@ -7007,19 +7073,9 @@ function tintedSnow(data, px, hex) {
 }
 function drawSnow(ctx, data, px, base) {
   if (!snow.on || snow.cover <= 0) return;
-  if (printCols.on) {                                // with print colours on, the snow shows as it prints: in its
-    if (printedSeparately("snow")) ctx.drawImage(tintedSnow(data, px, PC("snow")), 0, 0);   // own colour, or not at all
-    return;
-  }
-  const sc = snowCanvas(data, 1024);
-  ctx.drawImage(sc, 0, 0, px, px);
-  if (base && snowStyleKey() === "satellite") {       // let the photo's rock and ridge texture show through the snow
-    const tmp = document.createElement("canvas"); tmp.width = tmp.height = px;
-    const g = tmp.getContext("2d");
-    g.drawImage(base, 0, 0, px, px);
-    g.globalCompositeOperation = "destination-in"; g.drawImage(sc, 0, 0, px, px);
-    ctx.save(); ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = 0.55; ctx.drawImage(tmp, 0, 0); ctx.restore();
-  }
+  /* The snow shows as it prints: in its own colour when the colour way gives it one, otherwise not
+     at all (in Solid, or with snow on the ground's colour, it would print as plain ground). */
+  if (printedSeparately("snow")) ctx.drawImage(tintedSnow(data, px, PC("snow")), 0, 0);
 }
 
 function baseRelief(data, px, strength) {
@@ -8548,6 +8604,9 @@ function syncAddIcon() {
   const full = icons.length >= MAX_ICONS;
   b.disabled = full;
   b.firstChild.textContent = full ? "Three icons added" : "Add icon";
+  b.classList.toggle("on", icons.length > 0);
+  const sub = b.querySelector("small:not(.pr)"); if (sub) sub.textContent = icons.length ? icons.length + " of " + MAX_ICONS + " added" : "Drag into place";
+  syncExtras();
 }
 function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = null; iconsChanged(); }
 function selectIcon(id) {
@@ -10090,6 +10149,19 @@ function enforceParts(redraw) {
     if (typeof current !== "undefined" && current && three) { paintSurface(current); buildFeatures3D(current); }
   }
 }
+/* Section names and their grey lines, as changed on the admin page (Titles and text). Each goes in as
+   plain text over the words written here. */
+const STUDIO_TEXT = { size: "sizeBlock", extras: "extrasBlock", relief: "shapeBlock", route: "routeBlock", icons: "iconsBlock",
+  frame: "frameBlock", colours: "printColBlock", order: "printBlock" };
+function applyStudioText(t) {
+  for (const [k, id] of Object.entries(STUDIO_TEXT)) {
+    const sp = $(id) && $(id).querySelector(".sec-toggle span"); if (!sp) continue;
+    const title = t["studio." + k + ".title"], sub = t["studio." + k + ".sub"];
+    if (typeof title === "string" && title.trim() && sp.firstChild && sp.firstChild.nodeType === 3) { sp.firstChild.nodeValue = title; sp.dataset.label = title; }
+    const ss = sp.querySelector(".sec-sub");
+    if (ss && typeof sub === "string" && sub.trim()) { const tn = [...ss.childNodes].find((n) => n.nodeType === 3); if (tn) tn.nodeValue = " " + sub; }
+  }
+}
 function applySiteSettings(v) {
   if (!v || typeof v !== "object") return;
   try {
@@ -10127,6 +10199,7 @@ function applySiteSettings(v) {
       if (sel.value !== was) queueFrame();
     }
     if (v.prices && v.prices.maxIcons >= 0) MAX_ICONS = v.prices.maxIcons;
+    if (v.text && typeof v.text === "object") applyStudioText(v.text);
     if (v.parts && typeof v.parts === "object") { for (const k of Object.keys(PARTS_ON)) if (typeof v.parts[k] === "boolean") PARTS_ON[k] = v.parts[k]; enforceParts(true); }
   } catch (e) { console.error("settings", e); }
 }
@@ -10576,6 +10649,15 @@ setPlaceChosen(true);        // open on the default place, ready to build
 
 setMode("map");
 $("panelView").insertBefore($("iconsBlock"), $("treesBlock"));   // icons belong to the 3D step only
+(function extraTiles() {                             // the route, icon and frame buttons become the Extras tiles
+  const host = $("extraTiles"), dz = $("dropZone"), ai = $("addIcon"), fb = $("frameBtn");
+  dz.dataset.x = "route"; ai.dataset.x = "icon"; fb.dataset.x = "frame";
+  dz.innerHTML = '<b>Add route</b><small>A GPX file</small><span class="pr" id="routePrice"></span>';
+  ai.innerHTML = 'Add icon<small>Drag into place</small><small class="pr" id="iconPrice"></small>';
+  for (const b of [dz, ai, fb]) { b.classList.add("xtile"); host.append(b); }
+  const so = $("sizeOut"); if (so) { so.classList.add("relief-size"); $("shapeBlock").append(so); }   // the model's size, under the Relief bar
+  syncFrameBtn(); syncAddIcon(); syncFindPanels();
+})();
 renderPrintSlots();
 syncDashRow();
 drawTopoBackdrop();
@@ -10593,6 +10675,7 @@ pricingModule().then(({ PRICING, money, schemePrice }) => {
                   magnetUnit: PRICING.extras.magnets ? PRICING.extras.magnets.price : 0, magnetSide: plus };   // per side, by the pair
   for (const sc of COLOUR_SCHEMES) { const p = schemePrice(sc.key, PRICING); if (p != null) EXTRA_PRICE.schemes[sc.key] = plus(p); }
   $("routePrice").textContent = EXTRA_PRICE.route;
+  if ($("iconPrice") && PRICING.extras.icon) $("iconPrice").textContent = plus(PRICING.extras.icon.price) + " each";
   syncFrameBtn(); syncMagnets(); renderPrintSlots();
   document.querySelectorAll("#sizeSeg button").forEach((b) => {
     const sz = PRICING.sizes[+b.dataset.mm];
