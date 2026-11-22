@@ -45,6 +45,8 @@ export const TEXT = [
   ["studio.size.sub", "Studio", "Print size", "Grey line", "The size of your design once printed."],
   ["studio.extras.title", "Studio", "Extras", "Section name", "Extras"],
   ["studio.extras.sub", "Studio", "Extras", "Grey line", "All optional."],
+  ["studio.look.title", "Studio", "Look", "Section name", "Look"],
+  ["studio.look.sub", "Studio", "Look", "Grey line", "Free to change."],
   ["studio.relief.title", "Studio", "Relief", "Section name", "Relief"],
   ["studio.route.title", "Studio", "Route", "Section name", "Route"],
   ["studio.route.sub", "Studio", "Route", "Grey line", "Your trail, on the model."],
