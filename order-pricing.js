@@ -18,7 +18,6 @@ export const PRICING = {
     route: { label: "Your route, raised on the model", short: "route", price: 200 },
     frame: { label: "Frame with your engraved text", short: "frame", price: 800 },
     icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
-    magnets: { label: "Magnets to join models (per side)", short: "magnets", price: 100 },  // per pair of magnets on a side: £1 a side (two a wall), £2 on the 250 (four)
   },
   /* Print colours, by how many filaments the scheme uses: one colour is included, more cost more. */
   colours: {
@@ -38,14 +37,15 @@ export const PRICING = {
   maxIcons: 3,                                          // icons on one model
 };
 
-/* The magnets hidden in a frame's walls, to join models side by side: two a wall, halfway between the
-   pin and each corner, four a wall on the 250, none on the Misogi (too heavy for them) or without a frame. */
-export const MAGNET_SIZES = [100, 150, 250];
-export function magnetsFor(frame) {
+/* The staples that come with a frame, to join framed models side by side: every frame on the three
+   smaller sizes has two staple holes in each wall and comes with one staple for each wall (two frames
+   side by side share a wall's two). None on the Misogi, which is too big to join, or without a frame.
+   They're part of the frame: nothing extra to pay. The studio's print file counts them the same way. */
+export const STAPLE_SIZES = [100, 150, 250];
+export function staplesFor(frame) {
   const f = frame || {}, mm = Math.round(+f.modelMM || 0);
-  if (f.show !== true || f.magnets !== true || !MAGNET_SIZES.includes(mm)) return { sides: 0, perWall: 0, count: 0 };
-  const sides = f.outline === "hex" ? 6 : 4, perWall = mm >= 250 ? 4 : 2;
-  return { sides, perWall, count: sides * perWall };
+  if (f.show !== true || !STAPLE_SIZES.includes(mm)) return 0;
+  return f.outline === "hex" ? 6 : 4;
 }
 
 /* What one model is, read from a design as the studio saves it (its collectState()). */
@@ -57,9 +57,7 @@ export function itemFromDesign(design) {
     frame: !!frame.show,
     icons: Math.max(0, Math.min(50, ((design && design.icons) || []).length)),
     scheme: (design && design.print && design.print.on && design.print.scheme) || "solid",
-    magnetSides: magnetsFor(frame).sides,             // priced by the side,
-    magnetsPerWall: magnetsFor(frame).perWall,        // by the pair of magnets on it
-    magnets: magnetsFor(frame).count,
+    staples: staplesFor(frame),
   };
 }
 
@@ -77,10 +75,6 @@ export function priceItem(item, pricing = PRICING) {
   add("route", item.route);
   add("frame", item.frame);
   add("icon", item.icons > 0, item.icons);
-  if (item.magnetSides > 0) {                        // a price for each side, by the pairs of magnets in its wall
-    const x = pricing.extras.magnets, pairs = Math.max(1, Math.round((item.magnetsPerWall || 2) / 2)), unit = x.price * pairs;
-    lines.push({ key: "magnets", label: x.label, unit, qty: item.magnetSides | 0, amount: unit * (item.magnetSides | 0) });
-  }
   // the colours: priced by the scheme's own count from this list, never by what the browser says
   const nCol = pricing.schemeColours[item.scheme || "solid"];
   if (nCol == null) throw new Error("That colour scheme isn't on the price list.");
@@ -88,7 +82,7 @@ export function priceItem(item, pricing = PRICING) {
   if (col && col.price > 0) lines.push({ key: "colours", label: col.label, unit: col.price, qty: 1, amount: col.price });
   const extras = [item.route && "route", item.frame && "frame",
                   item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons")),
-                  item.magnetSides > 0 && "magnets", col && col.short].filter(Boolean);
+                  col && col.short].filter(Boolean);
   return { size, lines, extras, subtotal: lines.reduce((t, l) => t + l.amount, 0) };
 }
 

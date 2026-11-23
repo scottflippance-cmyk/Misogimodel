@@ -8,8 +8,8 @@
 |---|---|---|
 | `/` | `index.html` | The landing page, built from the design canvas |
 | `/studio/` | `studio/index.html` | The studio: pick a place, shape it, export it |
-| `/studio/vendor/` | `studio/vendor/manifold.js`, `manifold.wasm` | Manifold 3.0.1, the geometry library the studio cuts the print parts with (frame, pins, tiles). Loaded only when a print file is made. Keep the two files together and at the same version |
-| `/images/box/` | `model.webp`, `frame.webp`, `pin.webp` | The pictures in the basket's "What's in the box?" fold-out, rendered from the studio and the real print parts. Replace with photos of real prints whenever you like, at the same names |
+| `/studio/vendor/` | `studio/vendor/manifold.js`, `manifold.wasm` | Manifold 3.0.1, the geometry library the studio cuts the print parts with (frame, pins, staples, tiles). Loaded only when a print file is made. Keep the two files together and at the same version |
+| `/images/box/` | `model.webp`, `frame.webp`, `pin.webp`, `staple.webp` | The pictures in the basket's "What's in the box?" fold-out, rendered from the studio and the real print parts. Replace with photos of real prints whenever you like, at the same names |
 | `/admin/` | `admin/index.html` | The admin page: colours, colour ways, frame finishes, prices and delivery, for this site. Locked to you by Cloudflare Access (see below). Its settings live in `site-settings.js` (rules and defaults) and in storage as `settings/preview.json` and `settings/live.json` |
 | anything missing | `404.html` | The "Off the map" page |
 | `/brand/` | `brand/*` | Logo files: the mark, the stone, lockups (SVG + PNG) |
@@ -95,6 +95,22 @@ a cross when it doesn't, with a copy button to bring Preview's across (copying o
 Nothing is saved in the code, so changes take effect straight away; if the settings can't be read, the
 site falls back to what it was built with.
 
+The page is split into tabs across the top: **Colours** (model parts, filaments, colour ways, route,
+icon and frame colours), **Shop** (prices and delivery), **Site** (titles and text, questions),
+**Emails** and **History**. Each tab shows only its own sections, listed down the left, and says how
+many things in it need putting right or have changed. The address keeps the tab (`/admin/#emails`).
+
+**Emails** switches each email the site sends on or off, and adds up to three addresses to copy it to:
+in cc on the emails to you, in bcc on the ones to customers. The new order and contact message to you
+always go. "Send me a test" sends one, filled in with made-up details, to `ORDER_EMAIL_TO` alone, marked
+[Test]; the new order email is tested by placing a test order on Preview. Where the emails to you go and
+who they're from stay in Cloudflare's variables. The newsletter emails' look and wording are Resend
+templates (see Newsletter).
+
+**History** lists every save and copy on either site, newest first: when, which site, who (the Access
+sign-in), and each change in plain words ("15 cm: £49.00 → £55.00"). It reloads every 20 seconds while
+open. Each entry is kept in the ORDERS bucket under `audit/`, with the settings as they were left.
+
 The lock is Cloudflare Access (Zero Trust, free for one person), with the server checking Access's signed
 pass again on every admin request:
 
@@ -103,6 +119,10 @@ pass again on every admin request:
    (the whole site), policy Allow → Emails → your address. Session 24 hours.
 3. Add → Self-hosted, **misogimodel preview webhook**: `preview.misogimodel.pages.dev/api/stripe-webhook`,
    policy action **Bypass**, Include → Everyone (Stripe has to reach it; it checks Stripe's signature itself).
+   Add one more the same way, **misogimodel preview print files**: `preview.misogimodel.pages.dev/api/items`,
+   policy action **Bypass**, Include → Everyone. The order email has Resend fetch each print file from its
+   link, and the order sheet's Print file links point there too; behind the lock, Resend gets Access's
+   sign-in page instead and Gmail bounces the email. The links still need their long signed key, as on Live.
 4. Add → Self-hosted, **misogimodel admin**: `misogimodel.com/admin`, `misogimodel.com/api/admin`
    (and the same on `misogimodel.pages.dev`), policy Allow → Emails → your address.
 5. From the admin application's page, copy the **Application Audience (AUD) tag**; your team domain is

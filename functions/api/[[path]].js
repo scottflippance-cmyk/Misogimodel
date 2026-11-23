@@ -27,7 +27,8 @@
 
    Files are only ever streamed, never read here: the free plan allows about 10 ms of work per
    request, which a model of tens of megabytes would blow through. That is also why the email asks
-   Resend to fetch each attachment from a private signed link rather than being handed it.
+   Resend to fetch each attachment from a private signed link rather than being handed it. On Preview, which sits
+   behind Cloudflare Access, /api/items needs a Bypass in Access for that to work (see the README).
 
    Settings (Cloudflare Pages → Settings → Variables and Secrets, and Bindings):
      ORDERS                 R2 bucket binding where items and orders are kept
@@ -57,14 +58,20 @@
        GET  /api/admin/settings            everything, this site's and the other's, and which sections match.
        PUT  /api/admin/settings            { settings } saves this site's.
        POST /api/admin/copy                { section } (or "all"): Live only, copies that section from Preview.
+       POST /api/admin/test-email          { email }: a test of one email, to you alone.
+       GET  /api/admin/history             the history of saves and copies, newest first (?before=<key> for more).
        POST /api/basket-check              { items: [{ id, token }] } -> which models hold something switched off
                                            since they went in the basket (and so can't be checked out).
      The admin ones need Cloudflare Access's signed pass for ADMIN_EMAIL, checked here as well as at the door. */
-import { PRICING, itemFromDesign, priceItem, priceCart, money, magnetsFor } from "../../order-pricing.js";
-import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections, unavailableIn, checkSettings } from "../../site-settings.js";
+import { PRICING, itemFromDesign, priceItem, priceCart, money, staplesFor } from "../../order-pricing.js";
+import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections, unavailableIn, checkSettings, emailSetting, EMAILS, describeChanges } from "../../site-settings.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
-const EMAIL_ATTACH_BUDGET = 28 * 1024 * 1024;           // Resend takes 40 MB per email after base64 (×4/3)
+/* How much print file goes into one email as attachments. An attachment travels base64-encoded, a
+   third bigger, and Gmail turns away any email over 25 MB (Outlook.com 20 MB) as a whole: the 28 MB
+   once allowed here, fine for Resend, made a 20 MB file bounce. 14 MB of files is under 19 MB as sent,
+   with room for the rest of the email. A model that doesn't fit is still in the email, as a download link. */
+export const EMAIL_ATTACH_BUDGET = 14 * 1024 * 1024;
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 const fail = (status, message) => json({ error: message }, status);
@@ -100,50 +107,63 @@ async function newsletter(request, env) {
    (how many are on the list and still subscribed, the new one included);
    the subject comes from the template. If a template is missing or unpublished, the plain built-in
    version below goes instead, so a sign-up is never left without its emails. */
-async function signupEmails(env, email, firstName, origin, source) {
-  const where = source === "checkout" ? "checkout, with an order" : "the website";
-  if (!env.RESEND_API_KEY) return;
-  const unsub = await unsubscribeLink(env, origin, email);
-  // the first name as typed, cut down to plain text: no markup, and & written as "and" (the templates print it as is)
-  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").replace(/&/g, " and ").replace(/\s+/g, " ").trim().slice(0, 60);
-  const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
-  const post = (msg) => fetch("https://api.resend.com/emails", {
-    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify(msg) });
-  // the template first; if Resend turns it down, the built-in version
-  const send = async (head, template, plain, what) => {
-    try {
-      const t = await post({ ...head, template });
-      if (t.ok) return;
-      console.log("newsletter: the " + what + " template wasn't used, Resend said " + t.status + "; sending the plain one");
-      const r = await post({ ...head, ...plain });
-      if (!r.ok) console.log("newsletter: the " + what + " wasn't sent, Resend said " + r.status);
-    } catch (e) { console.log("newsletter: the " + what + " wasn't sent"); }
-  };
-  // the unsubscribe link also goes in the headers, so mail apps can show their own one-tap button
-  const jobs = [send({ from, to: [email], ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
-      headers: { "List-Unsubscribe": "<" + unsub + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } },
-    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: first ? "Hi " + first + "," : "Hi,", UNSUBSCRIBE_URL: unsub } },
-    { subject: "You're on the list",
-      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+/* The plain built-in welcome and sign-up note, used when the Resend template isn't there (and for tests). */
+function welcomePlain(first, unsub) {
+  return { subject: "You're on the list",
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
 <p style="margin:0 0 12px">Hi${first ? " " + esc(first) : ""},</p>
 <p style="margin:0 0 12px">Thanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.</p>
 <p style="margin:0 0 12px">If you didn't sign up, or change your mind, you can unsubscribe at any time.</p>
 <p style="margin:0 0 20px">misogimodel</p>
 <p style="margin:0"><a href="${esc(unsub)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#F4F4F5;color:#5B6470;font-size:13px;text-decoration:none">Unsubscribe</a></p></div>`,
-      text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, you can unsubscribe at any time:\n" + unsub + "\n\nmisogimodel" },
-    "welcome")];
-  const count = env.ORDER_EMAIL_TO ? await countSubscribers(env) : null;
-  if (env.ORDER_EMAIL_TO) jobs.push(send({ from, to: [env.ORDER_EMAIL_TO] },
-    { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note",
-      variables: { SIGNUP_EMAIL: email, SIGNUP_NAME: first ? " (" + first + ")" : "", SIGNUP_SOURCE: where, ...(count ? { SUBSCRIBER_COUNT: count } : {}) } },
-    { subject: "New sign-up: " + email + (source === "checkout" ? " (at checkout)" : ""),
-      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+    text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, you can unsubscribe at any time:\n" + unsub + "\n\nmisogimodel" };
+}
+function signupNotePlain(email, first, source, count) {
+  const where = source === "checkout" ? "checkout, with an order" : "the website";
+  return { subject: "New sign-up: " + email + (source === "checkout" ? " (at checkout)" : ""),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
 <p style="margin:0 0 8px"><b>${esc(email)}</b>${first ? " (" + esc(first) + ")" : ""} has joined the mailing list from ${where}.</p>${count ? `
 <p style="margin:0 0 8px">Active subscribers now: <b>${esc(count)}</b></p>` : ""}
 <p style="margin:0;color:#5B6470;font-size:13px">Everyone on the list is under Audience → Contacts in Resend.</p></div>`,
-      text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from " + where + ".\n\n" + (count ? "Active subscribers now: " + count + "\n\n" : "") + "Everyone on the list is under Audience → Contacts in Resend." },
-    "note to you"));
+    text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from " + where + ".\n\n" + (count ? "Active subscribers now: " + count + "\n\n" : "") + "Everyone on the list is under Audience → Contacts in Resend." };
+}
+/* Copies, as the admin page's Emails section sets them: cc on an email to you, bcc on one to a customer. */
+const copies = (e, toYou) => (e && e.copy && e.copy.length ? (toYou ? { cc: e.copy } : { bcc: e.copy }) : {});
+const resendPost = (env, msg) => fetch("https://api.resend.com/emails", {
+  method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" }, body: JSON.stringify(msg) });
+// a template first; if Resend turns it down, the built-in version
+async function sendTemplated(env, head, template, plain, what) {
+  try {
+    const t = await resendPost(env, { ...head, template });
+    if (t.ok) return true;
+    console.log("email: the " + what + " template wasn't used, Resend said " + t.status + "; sending the plain one");
+    const r = await resendPost(env, { ...head, ...plain });
+    if (!r.ok) console.log("email: the " + what + " wasn't sent, Resend said " + r.status);
+    return r.ok;
+  } catch (e) { console.log("email: the " + what + " wasn't sent"); return false; }
+}
+async function signupEmails(env, email, firstName, origin, source) {
+  if (!env.RESEND_API_KEY) return;
+  const settings = await loadSettings(env, siteOf(origin)), welcome = emailSetting(settings, "welcome"), note = emailSetting(settings, "signupNote");
+  if (!welcome.on && !(note.on && env.ORDER_EMAIL_TO)) return;     // both switched off on the admin page
+  const unsub = await unsubscribeLink(env, origin, email);
+  // the first name as typed, cut down to plain text: no markup, and & written as "and" (the templates print it as is)
+  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").replace(/&/g, " and ").replace(/\s+/g, " ").trim().slice(0, 60);
+  const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
+  const where = source === "checkout" ? "checkout, with an order" : "the website";
+  const jobs = [];
+  // the unsubscribe link also goes in the headers, so mail apps can show their own one-tap button
+  if (welcome.on) jobs.push(sendTemplated(env, { from, to: [email], ...copies(welcome, false), ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
+      headers: { "List-Unsubscribe": "<" + unsub + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } },
+    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: first ? "Hi " + first + "," : "Hi,", UNSUBSCRIBE_URL: unsub } },
+    welcomePlain(first, unsub), "welcome"));
+  if (note.on && env.ORDER_EMAIL_TO) {
+    const count = await countSubscribers(env);
+    jobs.push(sendTemplated(env, { from, to: [env.ORDER_EMAIL_TO], ...copies(note, true) },
+      { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note",
+        variables: { SIGNUP_EMAIL: email, SIGNUP_NAME: first ? " (" + first + ")" : "", SIGNUP_SOURCE: where, ...(count ? { SUBSCRIBER_COUNT: count } : {}) } },
+      signupNotePlain(email, first, source, count), "note to you"));
+  }
   await Promise.all(jobs);
 }
 /* One address onto the mailing list in Resend (the newsletter box, and buyers who left the box at
@@ -362,30 +382,22 @@ async function checkout(request, env) {
 }
 
 /* What goes in the box besides the printed pieces, as the print file makes them: a pin for every
-   side of a frame (one per join on the Misogi), and eight dowels for the Misogi's four tiles. */
+   side of a frame (one per join on the Misogi), a staple for every wall of a frame on the smaller
+   sizes, and eight dowels for the Misogi's four tiles. */
 export function looseParts(f) {
   const misogi = +(f && f.modelMM) >= 500, sides = f && f.outline === "hex" ? 6 : 4;
-  const pins = f && f.show ? sides : 0, dowels = misogi ? 8 : 0;
+  const pins = f && f.show ? sides : 0, staples = staplesFor(f), dowels = misogi ? 8 : 0;
   const out = [];
   if (pins) out.push(pins + " pins");
+  if (staples) out.push(staples + " staples");
   if (dowels) out.push(dowels + " dowels");
   return out.length ? out.join(", ") : "None";
-}
-
-/* The magnets the frame takes, if any, and how to put them in: the pockets are sealed over by the
-   print, so it has to be paused at their top (12.1 mm) to drop them in, each the right way round. */
-export function magnetLine(f) {
-  const m = magnetsFor(f);
-  if (!m.count) return "No";
-  return m.count + " × 10 × 2 mm (" + m.perWall + " a wall). Pause the frame's print at 12.1 mm to drop them in. "
-    + (m.perWall === 2 ? "Seen from outside, on each wall the left magnet faces north out and the right one south out."
-                       : "Seen from outside, on each wall the left two magnets face north out and the right two south out.");
 }
 
 /* ---- the order sheet: a Google Sheet, through a small script on it (order-sheet.gs). One row a model,
    so each has its own status as it is printed. Every add-on is a column of its own. ---- */
 export const SHEET_COLUMNS = ["Order", "Model", "Date", "Site", "Payment", "Customer", "Email", "Phone",
-  "Model name", "Size", "Shape", "Frame", "Frame text", "Route", "Magnets", "Icons", "Colours",
+  "Model name", "Size", "Shape", "Frame", "Frame text", "Route", "Icons", "Colours",
   "Model price", "Delivery", "Order total", "Address", "Updates", "Print file", "Studio link", "Status", "Tracking no.", "Notes"];
 // the preview branch (preview.misogimodel.pages.dev) and Cloudflare's per-upload addresses are a
 // label in front of the site's own pages.dev name; misogimodel.com and misogimodel.pages.dev are live
@@ -414,13 +426,13 @@ export function iconsLine(d) {
   return list.length + ": " + [...counts].map(([k, n]) => (n > 1 ? n + " × " : "") + k).join("; ");
 }
 export function sheetRow(rec, p, { short, i, n, modelUrl }) {
-  const d = rec.design || {}, f = d.frame || {}, m = magnetsFor(f);
+  const d = rec.design || {}, f = d.frame || {};
   const texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text);
   return {
     "Order": short, "Model": (i + 1) + " of " + n, "Model name": rec.name || "",
     "Size": p.size.name + " (" + p.size.dims + ")", "Shape": f.outline === "hex" ? "Hexagon" : "Square",
     "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join(" · ") : "",
-    "Route": routeLine(d), "Magnets": m.count ? "Yes (" + m.count + ")" : "No",
+    "Route": routeLine(d),
     "Icons": iconsLine(d), "Colours": coloursLine(d),
     "Model price": money(p.subtotal, PRICING.currency), "Print file": modelUrl, "Studio link": rec.link || "", "Status": "To print",
   };
@@ -446,7 +458,7 @@ export async function addToOrderSheet(env, rows) {
 }
 
 /* ---- paid: one email, every model, each with its print file ---- */
-function itemBlock(rec, p, origin, modelUrl, attached) {
+function itemBlock(rec, p, origin, modelUrl, attached, tooBig) {
   const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
   const facts = [
     ["Size", p.size.name + " (" + p.size.dims + ")"],
@@ -456,7 +468,6 @@ function itemBlock(rec, p, origin, modelUrl, attached) {
     ["Colours", coloursLine(d)],
     ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
     ["Loose parts", looseParts(f)],
-    ["Magnets", magnetLine(f)],
     ["Route", routeLine(d, true)],
     ["Icons", iconsLine(d)],
     ["Price", money(p.subtotal, PRICING.currency)],
@@ -465,7 +476,7 @@ function itemBlock(rec, p, origin, modelUrl, attached) {
 <h3 style="margin:0 0 10px">${esc(rec.name || "A model")}</h3>
 <img src="${origin}/api/items/${rec.id}/preview.jpg" alt="" style="width:100%;max-width:420px;border-radius:12px">
 <table cellpadding="3" style="border-collapse:collapse;margin-top:8px">${facts}</table>
-<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? ` · <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
+<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : tooBig ? "Print file too big to attach (" + (tooBig / 1048576).toFixed(1) + " MB): download it from the link. " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? ` · <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
 </div>`;
 }
 async function webhook(request, env) {
@@ -495,7 +506,7 @@ async function webhook(request, env) {
     if (rec.fileName !== fileName && rec.id) { rec.fileName = fileName; await writeJSON(env, itemKey(itemId), rec); }
     let attached = "";
     if (head && head.size <= budget) { attachments.push({ filename, path: modelUrl }); budget -= head.size; attached = filename; }
-    blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached));
+    blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached, head && !attached ? head.size : 0));
     sheetRows.push(sheetRow(rec, p.items[i], { short, i, n: order.items.length, modelUrl }));
   }
   // a row for each model on the order sheet, first, so the email can say how that went; it never holds up the order
@@ -525,7 +536,7 @@ ${blocks.join("\n")}
     headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
     body: JSON.stringify({
       from: env.ORDER_EMAIL_FROM || "misogimodel orders <orders@send.misogimodel.com>",
-      to: [env.ORDER_EMAIL_TO],
+      to: [env.ORDER_EMAIL_TO], ...copies(emailSetting(await loadSettings(env, siteOf(origin)), "newOrder"), true),
       reply_to: cd.email || undefined,
       subject: "New order " + short + ": " + n + (n === 1 ? " model" : " models") + " — " + money(session.amount_total != null ? session.amount_total : p.total, p.currency),
       html, attachments,
@@ -666,6 +677,27 @@ async function unsubscribe(request, env, url) {
    the email escaped, so nothing typed can become markup. The hidden "website" box catches bots. */
 const TOPICS = { order: "An order I've placed", design: "Help with a design", custom: "A custom or bulk request", other: "Something else" };
 const clean = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, n);
+/* The contact form's two emails: the message to you, and the short reply to the person who wrote. */
+function contactMessageEmail({ name, email, topic, order, message }) {
+  return { subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
+<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
+${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
+<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
+<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`,
+    text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message };
+}
+function contactReplyEmail({ name, topic, order }) {
+  const first = name.split(" ")[0], about = TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1);
+  return { subject: "We've got your message",
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+<p style="margin:0 0 12px">Hi ${esc(first)},</p>
+<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(about)}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
+<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
+<p style="margin:0">misogimodel</p></div>`,
+    text: "Hi " + first + ",\n\nThanks for getting in touch about " + about + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel" };
+}
 async function contact(request, env) {
   if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "The contact form isn't switched on just yet");
   let body;
@@ -680,42 +712,17 @@ async function contact(request, env) {
   if (!name) return fail(400, "Please add your name.");
   if (!EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
   if (message.length < 10) return fail(400, "Please write a little more in your message.");
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
-<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
-<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
-${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
-<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
-<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`;
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify({
-      from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
-      to: [env.ORDER_EMAIL_TO], reply_to: email,
-      subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
-      html,
-      text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message,
-    }),
-  });
+  const settings = await loadSettings(env, siteOf(new URL(request.url).origin));
+  const from = env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>";
+  const r = await resendPost(env, { from, to: [env.ORDER_EMAIL_TO], ...copies(emailSetting(settings, "contactMessage"), true), reply_to: email,
+    ...contactMessageEmail({ name, email, topic, order, message }) });
   if (r.ok) {
-    // A short confirmation to the sender. It deliberately doesn't repeat what they wrote, so the form
-    // can't be used to send someone else's words to a stranger's inbox. If it fails, the message to
-    // you has still gone, so the person is still told it worked.
-    try {
-      const first = name.split(" ")[0];
-      const c = await fetch("https://api.resend.com/emails", {
-        method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-        body: JSON.stringify({
-          from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
-          to: [email], reply_to: env.ORDER_EMAIL_TO,
-          subject: "We've got your message",
-          html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
-<p style="margin:0 0 12px">Hi ${esc(first)},</p>
-<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1))}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
-<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
-<p style="margin:0">misogimodel</p></div>`,
-          text: "Hi " + first + ",\n\nThanks for getting in touch about " + TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1) + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel",
-        }),
-      });
+    // A short confirmation to the sender, unless it's switched off on the admin page. It deliberately
+    // doesn't repeat what they wrote, so the form can't be used to send someone else's words to a
+    // stranger's inbox. If it fails, the message to you has still gone, so the person is still told it worked.
+    const reply = emailSetting(settings, "contactReply");
+    if (reply.on) try {
+      const c = await resendPost(env, { from, to: [email], ...copies(reply, false), reply_to: env.ORDER_EMAIL_TO, ...contactReplyEmail({ name, topic, order }) });
       if (!c.ok) console.log("contact: the confirmation wasn't sent, Resend said " + c.status);
     } catch (e) { console.log("contact: the confirmation wasn't sent"); }
     return json({ ok: true });
@@ -779,6 +786,50 @@ export async function verifyAccess(request, env, now = Date.now()) {
   return { ok: true, email: body.email };
 }
 
+/* "Send me a test" on the admin page: one email, filled in with made-up details, to you alone (never
+   to its copies or to anyone else), with "[Test]" in front of its subject. It goes whether the email is
+   switched on or not, so you can look before you switch it on. The new order email can't be faked this
+   way: a test order on Preview sends the real thing. */
+export const TESTABLE = ["contactMessage", "contactReply", "welcome", "signupNote"];
+async function testEmail(env, origin, key) {
+  if (!TESTABLE.includes(key)) return fail(400, key === "newOrder" ? "Place a test order on the Preview site to see this one." : "There's no email called that.");
+  if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "Emails aren't set up on this site (RESEND_API_KEY and ORDER_EMAIL_TO).");
+  const sample = { name: "Sam Walker", email: "sam@example.com", topic: "design", order: "MM-AB12C",
+                   message: "Hello! This is a test message from the admin page, so you can see how the email looks." };
+  const unsub = origin + "/api/unsubscribe?test=1";
+  const to = { to: [env.ORDER_EMAIL_TO] }, tag = (m) => ({ ...m, subject: "[Test] " + m.subject });
+  const contactFrom = env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>", newsFrom = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
+  let ok;
+  if (key === "contactMessage") ok = (await resendPost(env, { from: contactFrom, ...to, ...tag(contactMessageEmail(sample)) })).ok;
+  else if (key === "contactReply") ok = (await resendPost(env, { from: contactFrom, ...to, ...tag(contactReplyEmail(sample)) })).ok;
+  else if (key === "welcome") ok = await sendTemplated(env, { from: newsFrom, ...to, subject: "[Test] You're on the list" },
+    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: "Hi Sam,", UNSUBSCRIBE_URL: unsub } }, tag(welcomePlain("Sam", unsub)), "test welcome");
+  else ok = await sendTemplated(env, { from: newsFrom, ...to, subject: "[Test] New sign-up: sam@example.com" },
+    { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note", variables: { SIGNUP_EMAIL: "sam@example.com", SIGNUP_NAME: " (Sam)", SIGNUP_SOURCE: "the website", SUBSCRIBER_COUNT: "42" } },
+    tag(signupNotePlain("sam@example.com", "Sam", "website", "42")), "test sign-up note");
+  return ok ? json({ ok: true, sentTo: "your inbox" }) : fail(502, "Resend didn't send it. Please try again in a minute.");
+}
+/* ---- the history: every save and copy on either site's admin page, kept in the ORDERS bucket under
+   audit/, one small file each. The file names count down with time, so listing them gives the newest
+   first. Each holds when, which site, who (the Cloudflare Access sign-in), what was done, the changes
+   in plain words, and the settings as they were left, so any earlier version could be brought back. ---- */
+const auditKey = () => "audit/" + String(9999999999999 - Date.now()).padStart(13, "0") + "-" + crypto.randomUUID().slice(0, 8) + ".json";
+export async function recordChange(env, { site, who, action, section, before, after }) {
+  const changes = describeChanges(before, after);
+  if (!changes.length) return null;                     // saved with nothing changed: nothing to record
+  const entry = { at: new Date().toISOString(), site, who: who || "", action, ...(section ? { section } : {}),
+                  changes: changes.slice(0, 300), more: Math.max(0, changes.length - 300), settings: sanitise(after) };
+  try { await writeJSON(env, auditKey(), entry); } catch (e) { console.log("history: couldn't record the change"); }
+  return entry;
+}
+async function history(env, url) {
+  const before = String(url.searchParams.get("before") || ""), limit = Math.min(50, Math.max(1, +url.searchParams.get("limit") || 30));
+  const list = await env.ORDERS.list({ prefix: "audit/", limit: limit + 1, ...(before.startsWith("audit/") ? { startAfter: before } : {}) });
+  const keys = list.objects.map((o) => o.key), page = keys.slice(0, limit);
+  const entries = (await Promise.all(page.map(async (key) => { const e = await readJSON(env, key).catch(() => null);
+    if (!e) return null; const { settings, ...rest } = e; return { key, ...rest }; }))).filter(Boolean);
+  return json({ entries, next: keys.length > limit ? page[page.length - 1] : null });
+}
 async function adminView(env, site) {
   const other = site === "Live" ? "Preview" : "Live";
   const mine = await loadSettings(env, site), theirs = await loadSettings(env, other);
@@ -798,18 +849,26 @@ async function adminRoute(request, env, parts, m) {
       if (!body || typeof body.settings !== "object") return fail(400, "There were no settings.");
       const wrong = checkSettings(body.settings);
       if (wrong.length) return fail(400, wrong[0].msg);
-      await writeJSON(env, settingsKey(site), sanitise(body.settings));
+      const was = await loadSettings(env, site), now = sanitise(body.settings);
+      await writeJSON(env, settingsKey(site), now);
+      await recordChange(env, { site, who: who.email, action: "save", before: was, after: now });
       return adminView(env, site);
     }
     return fail(405, "Not allowed.");
+  }
+  if (parts[1] === "history" && parts.length === 2 && m === "GET") return history(env, new URL(request.url));
+  if (parts[1] === "test-email" && parts.length === 2 && m === "POST") {
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    return testEmail(env, new URL(request.url).origin, String((body && body.email) || ""));
   }
   if (parts[1] === "copy" && parts.length === 2 && m === "POST") {
     if (site !== "Live") return fail(400, "Copying only goes from Preview to Live, on the live site's admin page.");
     let body; try { body = await request.json(); } catch (e) { body = {}; }
     const section = String((body && body.section) || "");
     if (section !== "all" && !SECTIONS.includes(section)) return fail(400, "There's no section called that.");
-    const live = await loadSettings(env, "Live"), preview = await loadSettings(env, "Preview");
-    await writeJSON(env, settingsKey("Live"), copySections(live, preview, section));
+    const live = await loadSettings(env, "Live"), preview = await loadSettings(env, "Preview"), now = copySections(live, preview, section);
+    await writeJSON(env, settingsKey("Live"), now);
+    await recordChange(env, { site: "Live", who: who.email, action: "copy", section, before: live, after: now });
     return adminView(env, site);
   }
   return fail(404, "Not found.");

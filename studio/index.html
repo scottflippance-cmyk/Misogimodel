@@ -224,36 +224,15 @@ body:not(.light) .brand-stone g{stroke:#FFFFFF}   /* the stone follows the theme
 #sizeSeg button[aria-pressed="true"] small{color:inherit}
 /* Every price sits in the same pill: the size tiles, the GPX box, the frame button and each colour
    scheme. On a grey box the pill is white; on a chosen (white) one it is grey, so it always shows. */
-#sizeSeg button .price, #dropZone .pr, #frameBtn small.pr, #magnetBtn small.pr{display:table; margin:8px auto 0; padding:4px 10px; border-radius:999px;
+#sizeSeg button .price, #dropZone .pr, #frameBtn small.pr{display:table; margin:8px auto 0; padding:4px 10px; border-radius:999px;
   background:var(--panel); font-size:12px; font-weight:700; line-height:16px; color:var(--heading)}
-#sizeSeg button[aria-pressed="true"] .price, #frameBtn.on small.pr, #magnetBtn.on small.pr{background:var(--panel-2)}
+#sizeSeg button[aria-pressed="true"] .price, #frameBtn.on small.pr{background:var(--panel-2)}
 #dropZone .pr:empty{display:none}
 /* "(optional)" sits inside the box now, small and grey after its second line, not in the title. */
 #dropZone .opt, .head-btn small .opt{display:inline; margin:0; font-size:11.5px; font-weight:400; color:var(--muted)}
 body:not(.none) #dropZone{padding:10px 12px 10px}
 body:not(.none) #frameBtn{padding:10px 12px 10px}
 body:not(.none) #frameBtn.on{padding:9px 11px 9px}
-body:not(.none) #magnetBtn{display:block; width:100%; margin-top:14px; padding:10px 12px 10px}
-body:not(.none) #magnetBtn.on{padding:9px 11px 9px}
-#magnetBtn > small{display:block}
-/* What the magnets are for: tucked away behind a link, opened over the shape the model is */
-.info-link{display:block; margin-top:8px; padding:4px 0; background:none; border:0; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; text-align:left}
-.info-link[hidden]{display:none}
-.info-link:hover{text-decoration:underline}
-.info-link:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
-.magnet-info{margin-top:10px; background:var(--panel-2); border-radius:9px; padding:12px 14px; font-size:13px; line-height:1.5; color:var(--text)}
-.magnet-info .mi-head{display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:600}
-.mi-seg{display:inline-flex; gap:2px; padding:3px; border-radius:999px; background:#E3E6EA; flex:none}
-.mi-seg button{border:0; border-radius:999px; padding:4px 11px; font:600 12px var(--sans, Inter, sans-serif); cursor:pointer; background:transparent; color:#6B7480}
-.mi-seg button[aria-checked="true"]{background:#fff; color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.mi-seg button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
-#magnetPic svg{display:block; width:100%; height:auto; margin:6px 0 4px}
-.mi-key{display:flex; justify-content:center; gap:16px; font-size:12px; color:#4A525C; margin-bottom:6px}
-.mi-key i{display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:-1px; margin-right:5px}
-.mi-note{text-align:center; font-size:12px; color:#6B7480; margin:0 0 10px}
-.magnet-info ul{margin:0; padding-left:18px}
-#magnetPart.magnets-off #magnetBtn{opacity:.55; cursor:not-allowed}
-#magnetPic{position:relative}
 
 .scheme .nm .pr{display:block; margin-top:1px; font-size:11.5px; font-weight:600; color:var(--heading)}
 
@@ -1042,6 +1021,36 @@ body:not(.none) :is(#extraTiles, #lookTiles) .xtile.on, :is(#extraTiles, #lookTi
 body:not(.none) :is(#extraTiles, #lookTiles) .xtile.on .pr{background:var(--panel-2)}
 :is(#extraTiles, #lookTiles) .xtile:disabled{opacity:.55; cursor:default}
 #panelView .block.x-empty{display:none !important}
+/* ---------- an added extra opens its section in a box under the tiles ----------
+   Tapping an added tile opens its section in a box right under the row, the tiles' gap below them;
+   tapping it again closes it. The open tile and the box share one outline, drawn as a single shape
+   (svg.x-outline) with curved corners where the tile meets the box. Each added tile has a bin. */
+#extrasBlock{position:relative}
+#extraTiles .xtile{position:relative; z-index:1}
+#panelView .block.x-shut{display:none !important}
+#extrasBlock > svg.x-outline{position:absolute; left:0; top:0; overflow:visible; pointer-events:none; z-index:0}
+#extrasBlock > svg.x-outline path{fill:var(--panel-2); stroke:var(--accent)}
+body:not(.none) #extraTiles .xtile.open, #extraTiles .xtile.open{background:transparent !important; border-color:transparent !important}
+#extraTiles .xtile.open::before{background-color:var(--panel) !important}
+body:not(.none) #extraTiles .xtile.open .pr, #extraTiles .xtile.open .pr{background:var(--panel) !important}
+#extraTiles .xtile .xchev{display:inline-block; width:6px; height:6px; border-right:1.8px solid currentColor; border-bottom:1.8px solid currentColor;
+  transform:rotate(45deg); margin:0 0 3px 7px; transition:transform .15s}
+#extraTiles .xtile.open .xchev{transform:rotate(-135deg); margin-bottom:-1px}
+#extraTiles .xtile .bin{position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; display:grid; place-items:center;
+  background:var(--panel); color:var(--muted); box-shadow:0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); cursor:pointer; z-index:2}
+#extraTiles .xtile .bin:hover, #extraTiles .xtile .bin:focus-visible{color:#B3261E; outline:none; box-shadow:0 0 0 1.5px #B3261E}
+#extraTiles .xtile .bin[hidden]{display:none}
+#extrasBlock .block.x-box{position:relative; z-index:1; margin:8px 0 0 !important; padding:14px 16px 8px !important; border:0 !important; background:transparent !important; box-shadow:none !important}
+#extrasBlock .block.x-box > h2{display:flex; align-items:center; gap:10px; margin:0 0 8px; font-size:15px}
+#extrasBlock .block.x-box > h2 .sec-toggle{flex:1; min-width:0; pointer-events:none}
+#extrasBlock .block.x-box > h2 .chev{display:none}
+/* the add or change button in a box's heading: a small pill on the right */
+.xpill{flex:none; display:inline-flex; align-items:center; gap:5px; border:1.5px solid var(--accent) !important; background:var(--panel) !important; color:var(--accent) !important;
+  border-radius:99px !important; padding:5px 12px 5px 10px !important; font:600 13px/1.2 inherit !important; width:auto !important; min-width:0 !important; margin:0 !important;
+  box-shadow:none !important; cursor:pointer; letter-spacing:0 !important}
+.xpill b{font-size:16px; line-height:1; font-weight:600}
+.xpill:disabled{opacity:.5; cursor:default}
+.xpill small{display:none !important}
 /* Relief: the name, the slider and its number on one slim bar */
 /* the grey bar lines up with the sections' contents: the block's side padding becomes a clear border */
 body:not(.none) #panelView #shapeBlock{display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; background:var(--panel-2);
@@ -1198,7 +1207,7 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
     </div>
 
     <div class="block" id="routeBlock">
-      <h2>Route</h2>
+      <h2>Route<button type="button" class="xpill" data-keep id="changeRoute">Change route</button></h2>
       <div id="findGpx">
         <div id="dropZone" tabindex="0" role="button" aria-label="Choose a GPX file">
           <b>Choose a .gpx file</b><br>or drop one here <small class="opt">(optional)</small><span class="pr" id="routePrice"></span>
@@ -1287,7 +1296,7 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
     </div>
 
     <div class="block" id="frameBlock">
-      <h2>Frame<button class="head-btn" data-keep id="frameBtn">Add frame<small>A border with engraved text <small class="opt">(optional)</small></small></button></h2>
+      <h2>Frame<div class="head-btn" data-keep id="frameBtn" role="button" tabindex="0">Add frame<small>A border with engraved text <small class="opt">(optional)</small></small></div></h2>
       <!-- The tick box is the one record of whether there is a frame; the button in the title is
            how it is set, and the only thing that touches it. -->
       <input type="checkbox" id="showFrame" data-gate-master="frame" hidden>
@@ -1315,32 +1324,11 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
            to put text, so this goes altogether; anything already written is kept and comes back
            with the frame. -->
       <div id="frameTextPart">
-        <button class="primary wide" id="addFrameText" style="margin-top:12px">Add text to frame</button>
+        <button type="button" class="xpill" id="addFrameText"><b>+</b> Add text</button>
         <ul class="design-list" id="frameTextList" aria-live="polite"></ul>
         <div class="readout" id="ftSizeRow" hidden><span id="ftSizeNote"></span><span></span></div>
       </div>
 
-      <!-- Magnets hidden in the frame's walls, to join models side by side. Offered on the three
-           smaller sizes only: the Misogi is too heavy for them. -->
-      <div id="magnetPart" hidden>
-        <button type="button" class="head-btn" id="magnetBtn">Add magnets</button>
-        <button type="button" class="info-link" id="magnetInfoBtn" aria-expanded="false" aria-controls="magnetInfo"></button>
-        <div class="magnet-info" id="magnetInfo" hidden>
-          <div class="mi-head"><span>Magnets: what they do</span>
-            <div class="mi-seg" role="radiogroup" aria-label="Frame shape">
-              <button type="button" role="radio" data-mshape="square">Square</button><button type="button" role="radio" data-mshape="hex">Hexagon</button>
-            </div></div>
-          <div id="magnetPic" aria-hidden="true"></div>
-          <div class="mi-key"><span><i style="background:#D8342B"></i>North</span><span><i style="background:#2F6FB0"></i>South</span></div>
-          <p class="mi-note">Seen from above. Each wall has a north and a south, so any side meets any side: opposite colours pull together.</p>
-          <ul>
-            <li>Small magnets hidden inside the frame walls pull your models together, side by side and lined up.</li>
-            <li>They join frames of the same size and shape, on any side.</li>
-            <li id="magnetCountLine"></li>
-            <li>They hold models in line on a shelf or table. They're not strong enough to lift a row or hang it on a wall.</li>
-          </ul>
-        </div>
-      </div>
       </div>
     </div>
 
@@ -5716,8 +5704,7 @@ function setMode(mode) {
   syncMapTools();
   // one set of layer controls, shown in whichever side panel is visible
   if (mode === "view") {                            // order = the order of the walk-through
-    $("panelView").insertBefore($("routeBlock"), $("shapeBlock"));
-    $("panelView").insertBefore($("iconsBlock"), $("treesBlock"));
+    placeExtras();
   } else {
     /* Turning is done on the map itself now, so Rotation belongs to Customise alone — where it is
        still the place to type an exact angle. */
@@ -5898,17 +5885,15 @@ bindPair("frameD", "frameDNum", 0, 40, (v) => { frameVals.d = v; queueFrame(); }
 
 function syncFrameBtn() {
   const on = $("showFrame").checked, b = $("frameBtn");
-  if (b) {                                           // two lines, so the whole button is rebuilt
-    const sub = document.createElement("small");
-    sub.textContent = on ? "Tap to remove" : "Engraved text";
-    b.replaceChildren(on ? "Remove frame" : "Add frame", sub);
-    if (EXTRA_PRICE && EXTRA_PRICE.frame) { const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.frame; b.append(pr); }
-    b.classList.toggle("on", on);
+  if (b) {                                           // the Frame tile: added, it says what's on the frame, and opens it
+    const fc = $("frameColour"), colour = fc && fc.selectedOptions[0] ? fc.selectedOptions[0].textContent : "Black";
+    const n = typeof frameTexts !== "undefined" ? frameTexts.length : 0;
+    dressTile(b, on, on ? "Frame" : "Add frame", on ? colour + " · " + (n ? n + (n === 1 ? " line" : " lines") : "no text yet") : "Engraved text",
+              (EXTRA_PRICE && EXTRA_PRICE.frame) || "", "frame");
   }
   const part = $("frameTextPart");
   if (part) part.hidden = !on;                       // no frame, nothing to letter: the list goes too
   if (!on) closeTextPopup();
-  if (typeof syncMagnets === "function" && $("magnetBtn")) syncMagnets();
   syncExtras();
 }
 /* A section for the route, the icons or the frame shows only once there's one to show. */
@@ -5917,93 +5902,18 @@ function syncExtras() {
   set("routeBlock", typeof route !== "undefined" && !!route);
   set("iconsBlock", typeof icons !== "undefined" && icons.length > 0);
   set("frameBlock", $("showFrame").checked);
+  if (typeof syncExtraBoxes === "function") syncExtraBoxes();
 }
 $("showFrame").addEventListener("change", () => { syncGates(); syncFrameBtn(); queueFrame(); renderPrintSlots();
   if (exagOff()) { setExag(exagWanted); rebuild(); } });   // the frame's depth counts toward the height limit
-$("frameBtn").addEventListener("click", () => {
+$("frameBtn").addEventListener("click", () => {       // no frame yet: adds one and opens it; with one, opens or closes it
   const box = $("showFrame");
-  box.checked = !box.checked;
+  if (box.checked) { toggleExtra("frame"); return; }
+  wantOpen = "frame";
+  box.checked = true;
   box.dispatchEvent(new Event("change"));
-  toast(box.checked ? "Frame added." : "Frame removed.");
+  toast("Frame added.");
 });
-
-/* ---------- magnets in the frame's walls ----------
-   Two a wall, halfway between the pin and each corner; four a wall on the 250, evenly along it; none
-   on the Misogi, which is too heavy for them. Seen from outside, each wall's left half holds north
-   faces out and its right half south, so any wall meets any other north to south. The print file,
-   the price and the order email all count them from the same rule (magnetsFor in the price list). */
-var frameMagnets = false;
-var magnetInfoShape = null;                          // the picture's shape; null follows the model's
-const MAGNET = { d: 10, h: 2, clr: 0.1, skin: 1.2, zc: 7 };   // a 10 × 2 mm disc, standing on edge, 1.2 mm in from the face:
-                                                               // three wall lines, so the slicer's outer walls never meet the pocket and it can't show through
-function magnetPerWall(mm = frameVals.modelMM) { return mm >= PRINT_PARTS.MISOGI_MM ? 0 : mm >= 250 ? 4 : 2; }
-function magnetsOn() { return frameMagnets && $("showFrame").checked && magnetPerWall() > 0; }
-/* Where along a wall they go, as fractions of its outside length from its middle: halfway to each
-   corner for two, evenly spread for four. The first half are the north ones, seen from outside. */
-function magnetSpots(n) { return n === 4 ? [-3 / 8, -1 / 8, 1 / 8, 3 / 8] : n === 2 ? [-1 / 4, 1 / 4] : []; }
-/* Two frames of a shape side by side, seen from above, every magnet drawn where it goes, in its colour. */
-function magnetPicture(shape, perWall) {
-  const RED = "#D8342B", BLUE = "#2F6FB0", parts = [];
-  const frame = (cx, R) => {
-    const pts = shape === "hex" ? [0, 1, 2, 3, 4, 5].map((k) => [cx + R * Math.cos((30 + 60 * k) * Math.PI / 180), R * Math.sin((30 + 60 * k) * Math.PI / 180)])
-                                : [[cx - R, -R], [cx + R, -R], [cx + R, R], [cx - R, R]];   // anticlockwise, y up
-    const k = shape === "hex" ? 0.8 : 0.82, P = (q) => q.map(([x, y]) => x.toFixed(1) + "," + (-y).toFixed(1)).join(" ");
-    parts.push(`<polygon points="${P(pts)}" fill="#3A3F45"/>`, `<polygon points="${P(pts.map(([x, y]) => [cx + (x - cx) * k, y * k]))}" fill="#CFD8E0"/>`);
-    pts.forEach((a, i) => {
-      const b = pts[(i + 1) % pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
-      const out = [u[1], -u[0]], left = [out[1], -out[0]];               // seen from outside, looking in: left
-      const mid = [(a[0] + b[0]) / 2 - out[0] * 4.2, (a[1] + b[1]) / 2 - out[1] * 4.2];
-      magnetSpots(perWall).forEach((f, j, all) => {
-        const along = -f * L * (perWall > 2 ? 0.86 : 1), x = mid[0] + left[0] * along, y = mid[1] + left[1] * along;   // (drawn a touch in from the corners, so neighbours don't touch)
-        parts.push(`<circle cx="${x.toFixed(1)}" cy="${(-y).toFixed(1)}" r="${perWall > 2 ? 2.6 : 3.1}" fill="${j < all.length / 2 ? RED : BLUE}" stroke="#fff" stroke-width="0.8"/>`);
-      });
-    });
-  };
-  if (shape === "hex") { const R = 38, ap = R * Math.cos(Math.PI / 6); frame(-ap - 2.5, R); frame(ap + 2.5, R); }
-  else { frame(-37, 34); frame(37, 34); }
-  return `<svg viewBox="-84 -41 168 82" role="img">${parts.join("")}</svg>`;
-}
-function syncMagnets() {
-  const part = $("magnetPart"); if (!part) return;
-  const framed = $("showFrame").checked, per = magnetPerWall(), offered = per > 0;
-  part.hidden = !framed;
-  const b = $("magnetBtn"), on = magnetsOn(), sides = modelOutline === "hex" ? 6 : 4;
-  const sub = document.createElement("small");
-  sub.textContent = !offered ? "Not available for the Misogi" : (on ? sides * per + " hidden in the frame walls " : "Join your models side by side ");
-  if (offered) { const opt = document.createElement("small"); opt.className = "opt"; opt.textContent = "(optional)"; sub.append(opt); }
-  b.replaceChildren(on ? "Remove magnets" : "Add magnets", sub);
-  if (offered && EXTRA_PRICE && EXTRA_PRICE.magnetSide) {
-    const pr = document.createElement("small"); pr.className = "pr"; pr.textContent = EXTRA_PRICE.magnetSide(sides * EXTRA_PRICE.magnetUnit * per / 2); b.append(pr);
-  }
-  b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
-  b.dataset.stayOff = offered ? "" : "1"; b.disabled = !offered || !framed;   // the frame's gate keeps it off too
-  part.classList.toggle("magnets-off", !offered);
-  // on the Misogi there is nothing to explain: the info and its link go
-  $("magnetInfoBtn").hidden = !offered;
-  if (!offered) $("magnetInfo").hidden = true;
-  const open = !$("magnetInfo").hidden;
-  $("magnetInfoBtn").textContent = (open ? "ⓘ  Hide magnet info" : "ⓘ  What are magnets for?");
-  $("magnetInfoBtn").setAttribute("aria-expanded", String(open));
-  const shape = magnetInfoShape || modelOutline;
-  document.querySelectorAll("#magnetInfo [data-mshape]").forEach((x) => x.setAttribute("aria-checked", String(x.dataset.mshape === shape)));
-  const pic = $("magnetPic");
-  pic.innerHTML = magnetPicture(shape, per || 2);
-  pic.dataset.shape = shape; pic.dataset.perWall = String(per);
-  const n = (shape === "hex" ? 6 : 4) * (per || 2);
-  $("magnetCountLine").textContent = per === 4 ? "Four in each wall on the 250 mm, " + n + " in all." : "Two in each wall, " + n + " in all (four a wall on the 250 mm).";
-}
-$("magnetBtn").addEventListener("click", () => {
-  if (magnetPerWall() === 0) return;
-  frameMagnets = !frameMagnets; syncMagnets(); queueFrame();
-  if (current) checkDirty();
-  toast(frameMagnets ? "Magnets added." : "Magnets removed.");
-});
-$("magnetInfoBtn").addEventListener("click", () => {
-  const box = $("magnetInfo"); box.hidden = !box.hidden;
-  if (!box.hidden) magnetInfoShape = null;          // it opens on the model's own shape
-  syncMagnets();
-});
-document.querySelectorAll("#magnetInfo [data-mshape]").forEach((x) => x.addEventListener("click", () => { magnetInfoShape = x.dataset.mshape; syncMagnets(); }));
 
 /* ---------- text on the frame: a list, the way the icons are ----------
    The panel takes the words and keeps the list. How a piece looks — its side, where along it, the
@@ -6100,7 +6010,8 @@ function syncAddButton() {
   const b = $("addFrameText"); if (!b) return;
   const full = freeSide() === undefined;
   b.disabled = full;
-  b.textContent = full ? "Text already added to every side" : "Add text to frame";
+  b.innerHTML = full ? "Every side has text" : "<b>+</b> Add text";      // the pill in the Frame box
+  b.title = full ? "Text already added to every side" : "";
 }
 $("addFrameText").addEventListener("click", () => {
   const free = freeSide();
@@ -6375,7 +6286,6 @@ function setModelSize(mm) {
   setTimeout(syncRoadSize, 0);                       // raised roads come and go with the printed size
 
   document.querySelectorAll("#sizeSeg button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.mm === mm)));
-  syncMagnets();                                     // two a wall, four on the 250, none on the Misogi
   clearTimeout(sizeTimer);                           // one rebuild for the lot, not a frame pass and then the rest
   sizeTimer = setTimeout(resizeRebuild, 60);
 }
@@ -6596,8 +6506,8 @@ const SHARED = [];
 const STAGES = [
   { key: "select", label: "Select", map: true, blocks: [] },      // choosing the place, on the map step
   { key: "customise", label: "Customise",
-    blocks: ["sizeBlock", "extrasBlock", "lookBlock", "routeBlock", "shapeBlock", "iconsBlock",
-             "treesBlock", "snowBlock", "frameBlock", "printColBlock"], open: "sizeBlock" },
+    blocks: ["sizeBlock", "extrasBlock", "routeBlock", "iconsBlock", "frameBlock", "lookBlock", "shapeBlock",
+             "treesBlock", "snowBlock", "printColBlock"], open: "sizeBlock" },
   { key: "print", label: "Print", blocks: ["printBlock"] }
 ];
 let stageKey = "select";
@@ -6640,7 +6550,6 @@ document.querySelectorAll("#groundSeg button").forEach((b) => b.addEventListener
 document.querySelectorAll("[data-outline]").forEach((b) => b.addEventListener("click", () => {
   modelOutline = b.dataset.outline;
   syncShapeButtons();
-  magnetInfoShape = null; syncMagnets();            // the magnets picture follows the model's shape
   syncTextControls();                   // the sides on offer changed: reseat or drop the texts
   renderTextList();                     // and the Add button follows the sides now free or full
   drawSelection();
@@ -6700,20 +6609,22 @@ function updateGapReadout() { $("gapOut").textContent = "≈ " + (gapMetres / se
 /* A route is loaded from the first screen now; this section just reports what's loaded. */
 function syncFindPanels() {
   const dz = $("dropZone");                          // the Route tile: added, it names the route and changes it
-  dz.classList.toggle("on", !!route);
-  if (dz.dataset.x) { dz.querySelector("b").textContent = route ? "Change route" : "Add route";
-    dz.querySelector("small").textContent = route ? (route.name || "Route added") : "A GPX file"; }
+  if (dz.dataset.x) dressTile(dz, !!route, route ? "Route" : "Add route", route ? (route.name || "Route added") : "A GPX file", null, "route");
   $("gpxInfo").hidden = !route;
   syncExtras();
   $("findSearch").hidden = false;
 }
 
-$("dropZone").addEventListener("click", () => $("gpxFile").click());
-$("dropZone").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("gpxFile").click(); } });
+/* The Route tile: no route yet, it asks for a file (and opens the route once it's in); with one, it
+   opens or closes the route's box. "Change route" in the box asks for another file. */
+const routeTileTap = () => { if (route) toggleExtra("route"); else { wantOpen = "route"; $("gpxFile").click(); } };
+$("dropZone").addEventListener("click", routeTileTap);
+$("dropZone").addEventListener("keydown", (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); routeTileTap(); } });
+$("changeRoute").addEventListener("click", () => { wantOpen = "route"; $("gpxFile").click(); });
 $("gpxFile").addEventListener("change", (e) => loadGpxFile(e.target.files[0]));
 ["dragenter", "dragover"].forEach((ev) => $("dropZone").addEventListener(ev, (e) => { e.preventDefault(); $("dropZone").classList.add("over"); }));
 ["dragleave", "drop"].forEach((ev) => $("dropZone").addEventListener(ev, () => $("dropZone").classList.remove("over")));
-$("dropZone").addEventListener("drop", (e) => { e.preventDefault(); loadGpxFile(e.dataTransfer.files[0]); });
+$("dropZone").addEventListener("drop", (e) => { e.preventDefault(); wantOpen = "route"; loadGpxFile(e.dataTransfer.files[0]); });
 
 /* ---------- route style ---------- */
 let routeTimer = null;
@@ -8646,10 +8557,11 @@ let MAX_ICONS = 3;                                   // the admin page can chang
 function syncAddIcon() {
   const b = $("addIcon"); if (!b) return;
   const full = icons.length >= MAX_ICONS;
-  b.disabled = full;
-  b.firstChild.textContent = full ? "Three icons added" : "Add icon";
-  b.classList.toggle("on", icons.length > 0);
-  const sub = b.querySelector("small:not(.pr)"); if (sub) sub.textContent = icons.length ? icons.length + " of " + MAX_ICONS + " added" : "Drag into place";
+  b.disabled = full;                                 // the pill in the Icons box
+  b.innerHTML = full ? (MAX_ICONS + " of " + MAX_ICONS + " added") : "<b>+</b> Add icon";
+  b.title = full ? "A model can carry up to " + MAX_ICONS + " icons" : "";
+  const t = $("iconTile");                           // the Icons tile: added, it says how many, and opens them
+  if (t) dressTile(t, icons.length > 0, icons.length ? "Icons" : "Add icon", icons.length ? icons.length + " added" : "Drag into place", null, "icon");
   syncExtras();
 }
 function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = null; iconsChanged(); }
@@ -8716,6 +8628,7 @@ function initIconControls() {           // run at start-up, once every helper it
   bindPair("iconH", "iconHNum", 0, 20, (v) => { iconStyle.h = v; iconControlChanged(); });
   $("addIcon").addEventListener("click", () => {
     if (icons.length >= MAX_ICONS) { toast("A model can carry up to " + MAX_ICONS + " icons."); return; }
+    wantOpen = "icon";
     // New icons spiral out from the middle until they find a clear spot: never on top of another.
     const stepDeg = (sel.size * 0.06) / 111320;
     let la = sel.lat, ln = sel.lng;
@@ -9154,7 +9067,8 @@ const PRINT_PARTS = {
   STOP: { w: 0.8, depth: 0.4, from: 5.7, len: 2.2 },
   MISOGI_MM: 500, MISOGI_T: 15, T: 10,
   LAP_Z: 5.5, LAP_LEN: 24, WRAP: 0.10,
-  RIDGE: { z0: 6.5, z1: 10.5, depth: 3 },
+  RIDGE: { z0: 6.5, z1: 10.5, depth: 3, minEdge: 1 },   // the lip's underside slopes at 45° down to the wall (from 23 Nov), and the
+                                                         // tile's edge under the groove is never thinner than minEdge
   DOWEL: { r: 3, len: 20, holeR: 3.2, holeLen: 20.8, up: 5, at: [0.35, 0.7] }
 };
 const isMisogi = () => frameVals.modelMM >= PRINT_PARTS.MISOGI_MM;
@@ -9235,6 +9149,15 @@ const outlineCS = (S, W, grow = 0) => {
   const cs = S(new manifoldLib.CrossSection([outlineMM(W)], "Positive"));
   return grow ? S(cs.offset(grow, "Miter", 4)) : cs;
 };
+/* The outline grown by g1 at height z1, shrinking (or growing) evenly to g2 at z2: a tapered block.
+   The outline is a regular square or hexagon round the middle, so growing it by g is the same as
+   scaling it about the middle, which is what an extrusion's taper does. Used for the 45° faces. */
+function taperOf(S, W, g1, z1, g2, z2) {
+  const ring = outlineMM(W), m = W / 2, a = ring[0], b = ring[1];
+  const apo = Math.abs((b[0] - a[0]) * (a[1] - m) - (b[1] - a[1]) * (a[0] - m)) / Math.hypot(b[0] - a[0], b[1] - a[1]);   // middle to a side
+  const k = (apo + g2) / (apo + g1);
+  return S(S(S(S(outlineCS(S, W, g1).translate([-m, -m])).extrude(z2 - z1, 0, 0, [k, k])).translate([m, m, z1])));
+}
 
 /* A closed block whose top follows a height field: nx by ny points, the top at z(i, j), a flat
    bottom at zb, and four upright walls. The bottom is a fan from its middle, so no triangle in it
@@ -9421,7 +9344,7 @@ function pinPlaces(W, t) {
 }
 
 /* The frame, whole: walls, ledge, lettering, the Misogi's ridge, and every pin hole. */
-function frameSolid(S, W, t, Ht, d) {
+function frameSolid(S, W, t, Ht, d, staples = true) {   // (staples false: the frame without its staple holes, for checking)
   const c = PRINT_PARTS.CLR, inner = outlineCS(S, W, c), outer = outlineCS(S, W, c + t);
   // the ledge and the ridge each start half a millimetre inside the wall, so they overlap it rather
   // than merely touching it, and the lettering stands just inside the wall's faces: nothing here
@@ -9430,8 +9353,11 @@ function frameSolid(S, W, t, Ht, d) {
   const parts = [prismOf(S, S(outer.subtract(inner)), 0, Ht),
                  prismOf(S, S(intoWall.subtract(outlineCS(S, W, -LEDGE_MM))), 0, d)];
   if (isMisogi()) {
-    const R = PRINT_PARTS.RIDGE;
-    parts.push(prismOf(S, S(intoWall.subtract(outlineCS(S, W, c - R.depth))), R.z0, R.z1));
+    // the lip: a flat top and an upright inner face, R.depth out from the wall, and an underside that
+    // slopes at 45° down to the wall (a flat one printed as a bridge); so it meets the wall R.depth lower
+    const R = PRINT_PARTS.RIDGE, band = S(intoWall.subtract(outlineCS(S, W, c - R.depth))), zb = R.z0 - R.depth;
+    parts.push(prismOf(S, band, R.z0, R.z1),
+               S(prismOf(S, band, zb, R.z0).subtract(taperOf(S, W, c, zb, c - R.depth, R.z0))));
   }
   parts.push(...frameTextBlocks(S, W, t, Ht));
   let m = unionOf(S, parts);
@@ -9439,37 +9365,64 @@ function frameSolid(S, W, t, Ht, d) {
     m = S(m.subtract(pinCutter(S, p.x, p.y, p.dir)));
     m = S(m.subtract(stopLines(S, p.x, p.y, p.dir, p.inLen, p.outLen)));
   }
-  if (magnetsOn()) for (const q of magnetPlaces(W, t)) m = S(m.subtract(magnetCutter(S, q)));
+  if (staples && staplesOn(W)) for (const q of staplePlaces(W, t)) m = S(m.subtract(stapleCutter(S, q)));
   return m;
 }
-/* Where the magnets go, in print millimetres: on each side, measured along the frame's outside face
-   from its middle (where the pin is), with the way along (u) and the way out (o). Seen from outside,
-   the ones on the left (toward -u) face north out, the rest south. */
-function magnetPlaces(W, t) {
-  const ring = outlineMM(W), n = ring.length, off = PRINT_PARTS.CLR + t, per = magnetPerWall(W), out = [];
+/* ---------- staples: join framed models side by side ----------
+   Every frame on the three smaller sizes (not the Misogi) has two staple holes in each wall, halfway
+   between the pin and each corner, coming up from underneath. A printed U-shaped staple pushes up
+   into the holes of two frames standing side by side, one leg in each, and holds them in line. Its
+   bridge lies in a shallow channel across the join, so the frames still sit flat. Version B of the
+   test print (19 Nov): plain straight legs 2.3 mm thick in 2.4 mm holes, tips tapered 0.3 mm, each
+   leg's centre 3.5 mm in from the outside face, so the staple never pushes the frames apart. One hole
+   of each pair (the one toward the wall's start, seen along the ring) also has a round tweezer pocket
+   round it, to pull a staple out again; frames meeting face to face meet that way round, so every
+   staple has exactly one pocket under it. The print file carries one staple for each wall. */
+const STAPLE = { leg: 2.3, hole: 2.4, legIn: 3.5, along: 2.8, holeAlong: 3.3, legTop: 8.2, roofTop: 9.35,
+                 bridgeH: 2, chanH: 2.3, chanIn: 4.8, chanAlong: 3.5, span: 4.6,
+                 pocketR: 3, pocketTop: 4, pocketRoofR: 1.7, pocketRoofTop: 5.3 };
+const staplesOn = (W = frameVals.modelMM) => W < PRINT_PARTS.MISOGI_MM;
+/* One staple for each wall: two frames side by side share a wall's two staples. */
+const stapleCount = (W = frameVals.modelMM, outline = modelOutline) => (staplesOn(W) ? (outline === "hex" ? 6 : 4) : 0);
+function stapleSpots() { return [-1 / 4, 1 / 4]; }
+/* Where the staples go, in print millimetres: on each side, measured along the frame's outside face
+   from its middle (where the pin is), with the way along (u), the way out (o) and the point on the
+   outside face itself. */
+function staplePlaces(W, t) {
+  const ring = outlineMM(W), n = ring.length, off = PRINT_PARTS.CLR + t, out = [];
+  if (!staplesOn(W)) return out;
   for (let s = 0; s < n; s++) {
     const a = ring[s], b = ring[(s + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], o = [u[1], -u[0]];
     const Lo = L + 2 * off * Math.tan(Math.PI / n);  // the outside face, longer by the corners
-    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    magnetSpots(per).forEach((f) => out.push({ x: mid[0] + u[0] * f * Lo, y: mid[1] + u[1] * f * Lo, u, o, off, side: s,
-                                                along: +(f * Lo).toFixed(2), pole: f < 0 ? "N" : "S" }));
+    const mid = [(a[0] + b[0]) / 2 + o[0] * off, (a[1] + b[1]) / 2 + o[1] * off];
+    stapleSpots().forEach((f) => out.push({ x: mid[0] + u[0] * f * Lo, y: mid[1] + u[1] * f * Lo, u, o, side: s,
+                                            along: +(f * Lo).toFixed(2), pocket: f < 0 }));
   }
   return out;
 }
-/* The pocket a magnet drops into, standing on edge: round at the bottom, 0.1 mm bigger than the magnet so
-   it settles centred, straight up the sides to a flat roof printed over it after a pause, 0.2 mm wider
-   than it is thick, and MAGNET.skin (1.2 mm) in from the outside face. Nothing in it overhangs but that 2.2 mm bridge. */
-function magnetCutter(S, q) {
-  const { CrossSection } = manifoldLib, r = MAGNET.d / 2 + MAGNET.clr, w = MAGNET.h + 2 * MAGNET.clr;
-  const U = S(CrossSection.union([S(S(CrossSection.circle(r, 64)).translate([0, MAGNET.zc])), S(CrossSection.square([2 * r, magnetPauseZ() - MAGNET.zc], false).translate([-r, MAGNET.zc]))]));
-  // across the wall: extruded w deep, stood up (z up, the depth running toward -y), set so -y is the way out
-  const slot = S(S(S(U.extrude(w)).rotate([90, 0, 0])).translate([0, -(q.off - MAGNET.skin - w), 0]));
-  const th = Math.atan2(q.u[1], q.u[0]) * 180 / Math.PI;   // x along the side; -y, once turned, is outward
-  return S(S(slot.rotate([0, 0, th])).translate([q.x, q.y, 0]));
+/* Everything one staple spot takes out of a frame, drawn with x outward (the wall is x < 0, its
+   outside face at x = 0), y along the wall and z up from the frame's underside: the leg's hole with
+   a roof that narrows to a ridge (no bridge), the bridge's channel, and maybe the tweezer pocket. */
+function stapleCutter(S, q) {
+  const { Manifold } = manifoldLib, T = STAPLE;
+  const box = (x0, x1, y0, y1, z0, z1) => S(S(Manifold.cube([x1 - x0, y1 - y0, z1 - z0])).translate([x0, y0, z0]));
+  const hx0 = -(T.legIn + T.hole / 2), hx1 = -(T.legIn - T.hole / 2), ha = T.holeAlong / 2, mid = -T.legIn;
+  const parts = [box(hx0, hx1, -ha, ha, -1, T.legTop),
+                 S(Manifold.hull([box(hx0, hx1, -ha, ha, T.legTop - 0.1, T.legTop), box(mid - 0.05, mid + 0.05, -ha, ha, T.roofTop - 0.05, T.roofTop)])),
+                 box(-T.chanIn, 1, -T.chanAlong / 2, T.chanAlong / 2, -1, T.chanH)];
+  if (q.pocket) parts.push(S(S(Manifold.cylinder(T.pocketTop + 1, T.pocketR, T.pocketR, 48)).translate([mid, 0, -1])),
+                           S(S(Manifold.cylinder(T.pocketRoofTop - T.pocketTop, T.pocketR, T.pocketRoofR, 48)).translate([mid, 0, T.pocketTop])));
+  const th = Math.atan2(q.u[1], q.u[0]) * 180 / Math.PI;   // turned so +x is outward and +y along the wall
+  return S(S(S(Manifold.union(parts)).rotate([0, 0, th - 90])).translate([q.x, q.y, 0]));
 }
-/* The height the print pauses at, to drop the magnets in: the top of their pockets. */
-function magnetPauseZ() { return +(MAGNET.zc + MAGNET.d / 2 + MAGNET.clr).toFixed(2); }
+/* The staple, lying flat to print: the bridge along x, the legs rising in y, STAPLE.along thick. */
+function staplePart(S) {
+  const { CrossSection } = manifoldLib, T = STAPLE, h = T.leg / 2, c = T.legIn, top = T.legTop - 0.2;
+  const pts = [[-(c + h), 0], [c + h, 0], [c + h, top - 0.6], [c + h - 0.3, top], [c - h + 0.3, top], [c - h, top - 0.6], [c - h, T.bridgeH],
+               [-(c - h), T.bridgeH], [-(c - h), top - 0.6], [-(c - h) - 0.3, top], [-(c + h) + 0.3, top], [-(c + h), top - 0.6]];
+  return S(S(new CrossSection([pts], "Positive")).extrude(T.along));
+}
 /* The Misogi's frame in sections: section k runs from just past corner k, along side k and round
    corner k + 1, to just past it. Below the lap line its ends sit a half-lap further on, above it a
    half-lap further back, so at each join the next section's top half lies over this one's bottom. */
@@ -9507,9 +9460,15 @@ function modelSolid(S, data, W, z0, baseMM, mmPerM, liftMM, withFrame, t, cells)
   m = S(m.subtract(backStamp(S, W, z0, backArtCentre(W))));
   if (withFrame) {
     if (isMisogi()) {
-      const R = PRINT_PARTS.RIDGE, c = PRINT_PARTS.CLR;
+      // the groove the lip sits in: the lip grown by the gap all round, its underside at 45° too
+      const R = PRINT_PARTS.RIDGE, c = PRINT_PARTS.CLR, zb = R.z0 - R.depth, s2 = c * Math.SQRT2;
       const groove = S(outlineCS(S, W, 1).subtract(outlineCS(S, W, c - R.depth - c)));
+      const zLow = z0 - 1, g = (z) => c - (z - zb + s2);   // the sloping face's place at height z, out from the model's side
       m = S(m.subtract(prismOf(S, groove, R.z0 - c, R.z1 + c)));
+      m = S(m.subtract(S(prismOf(S, groove, zLow, R.z0 - c).subtract(taperOf(S, W, g(zLow), zLow, g(R.z0 - c), R.z0 - c)))));
+      // under the slope the tile's edge thins to nothing; where it would be thinner than R.minEdge, it goes
+      const gEdge = g(z0 + R.minEdge);
+      if (gEdge > -R.depth) m = S(m.subtract(prismOf(S, S(outlineCS(S, W, 1).subtract(outlineCS(S, W, gEdge))), zLow, z0 + R.minEdge + 0.01)));
     } else {
       for (const p of pinPlaces(W, t)) m = S(m.subtract(pinCutter(S, p.x, p.y, p.dir)));
     }
@@ -10096,6 +10055,12 @@ async function buildPrintFile(opts) {
       const pin = trisOf(pinPart(S)), np = pinPlaces(W, t).length, gap = 2 * PRINT_PARTS.PIN.headR + 4;
       groups.push({ name: "pins", bodies: [...Array(np).keys()].map((i) => ({ name: "pin " + (i + 1), colour: frameColour,
         tris: pin.map((v, j) => (j % 3 === 0 ? v + i * gap : v)) })) });
+      const ns = stapleCount(W);
+      if (ns) {
+        const st = trisOf(staplePart(S)), sg = 2 * (STAPLE.legIn + STAPLE.leg / 2) + 4;
+        groups.push({ name: "staples", bodies: [...Array(ns).keys()].map((i) => ({ name: "staple " + (i + 1), colour: frameColour,
+          tris: st.map((v, j) => (j % 3 === 0 ? v + i * sg : v)) })) });
+      }
     }
     } finally { S.free(); }
     // as they fit together, for checking; then laid out apart on the bed for printing
@@ -10120,7 +10085,7 @@ async function buildPrintFile(opts) {
     const tri = bodies.reduce((s2, b) => s2 + b.tris.length / 9, 0);
     lastStl = { bodies, assembled: bodies.assembled, groups: groups.map((g) => ({ name: g.name, placed: g.placed })),
                 size: Mx.map((v, a) => v - mx[a]), triangles: tri, volumeMM3: vol, bytes: blob.size,
-                pins: withFrame ? pinPlaces(W, frameVals.t).length : 0, dowels: isMisogi() ? dowelPlaces(W, z0).length : 0 };
+                pins: withFrame ? pinPlaces(W, frameVals.t).length : 0, staples: withFrame ? stapleCount(W) : 0, dowels: isMisogi() ? dowelPlaces(W, z0).length : 0 };
     $("stlSize").textContent = lastStl.size.map((v) => v.toFixed(0)).join(" × ") + " mm";
     $("stlInfo").textContent = (blob.size / 1048576).toFixed(1) + " MB";
     return { blob, name: slug() + (as3mf ? ".3mf" : ".stl") };
@@ -10278,8 +10243,8 @@ function orderFacts(st) {
   const out = [(f.outline === "hex" ? "Hexagon" : "Square") + ", " + ((st.sel.size || 0) / 1000).toFixed(1) + " km of ground across",
                "Colours: " + (sc ? sc.label : "Plain")];
   if (f.show) out.push("Frame" + (texts.length ? ", engraved: " + texts.join(" · ") : ""));
-  const per = f.show && f.magnets === true ? magnetPerWall(f.modelMM) : 0;
-  if (per) out.push("Magnets: " + (f.outline === "hex" ? 6 : 4) * per + " hidden in the frame walls");
+  const ns = f.show ? stapleCount(f.modelMM, f.outline) : 0;
+  if (ns) out.push(ns + " staples to join it to your other framed models of the same size and shape");
   if (st.route) out.push("Route: " + (st.route.name || "your route"));
   if ((st.icons || []).length) out.push(st.icons.length + (st.icons.length === 1 ? " icon" : " icons"));
   out.push("Your web address on the back: www.misogimodel.com");
@@ -10435,7 +10400,7 @@ function collectState() {
     print: { on: printCols.on, scheme: printCols.scheme, ...(schemeBy(printCols.scheme) ? { label: schemeBy(printCols.scheme).label } : {}),
              count: printCols.count, colours: printCols.colours.slice(), assign: Object.assign({}, printCols.assign) },
     frame: Object.assign({ show: chk("showFrame"),
-                           outline: modelOutline, colour: $("frameColour").value, magnets: frameMagnets,
+                           outline: modelOutline, colour: $("frameColour").value,
                            texts: frameTexts.map((x) => ({ text: x.text, side: x.side, font: x.font, pt: x.pt,
                                                            align: x.align, ...(x.flip ? { flip: true } : {}) })) }, frameVals),
     interval: $("interval").value,
@@ -10497,8 +10462,7 @@ async function applyState(st, origin, opts) {
   setPairUI("lift", "liftNum", frameVals.lift);
   $("showFrame").checked = dflt(F.show, true); syncFrameBtn();
   modelOutline = F.outline === "hex" ? "hex" : "square";
-  frameMagnets = F.magnets === true; magnetInfoShape = null;
-  syncShapeButtons(); syncMagnets();
+  syncShapeButtons();
   syncOutlineShape();
   const P = st.print || {};
   const assign = {};
@@ -10693,14 +10657,141 @@ setPlaceChosen(true);        // open on the default place, ready to build
 })();
 
 setMode("map");
-$("panelView").insertBefore($("iconsBlock"), $("treesBlock"));   // icons belong to the 3D step only
+/* The Customise panel's order: Print Dimensions, then the Extras tiles with the route, icons and frame
+   each added from them straight underneath (each shows once it's been added), then Look, then Relief. */
+function placeExtras() {
+  const keep = typeof openExtra !== "undefined" && openExtra && EXTRA[openExtra].block;   // the open one sits in its box, under the tiles
+  $("extrasBlock").after(...["routeBlock", "iconsBlock", "frameBlock"].filter((id) => id !== keep).map($), $("lookBlock"));
+  if (keep) $("extrasBlock").append($(keep));          // straight after the tiles, inside the Extras section
+}
+/* ---------- the Extras tiles open their sections ----------
+   openExtra: the one open in the box under the tiles (route, icon or frame), or none. wantOpen: the one
+   just asked for, opened as soon as it's there (a route once its file has loaded, say). Something
+   added another way (a route from the map step, a design opened from a link) stays shut. */
+var openExtra = null, wantOpen = null;
+var EXTRA = { route: { tile: "dropZone", block: "routeBlock" }, icon: { tile: "iconTile", block: "iconsBlock" }, frame: { tile: "frameBtn", block: "frameBlock" } };
+function hasExtra(k) { return (k === "route" ? !!route : k === "icon" ? icons.length > 0 : k === "frame" ? $("showFrame").checked : false); }
+function toggleExtra(k) { openExtra = openExtra === k ? null : k; syncExtraBoxes(); }
+function syncExtraBoxes() {
+  if (!EXTRA) return;                                // (early on, before the tiles are set up)
+  if (wantOpen && hasExtra(wantOpen)) { openExtra = wantOpen; wantOpen = null; }
+  if (openExtra && !hasExtra(openExtra)) openExtra = null;
+  for (const [k, x] of Object.entries(EXTRA)) {
+    const t = $(x.tile), b = $(x.block); if (!t || !b) continue;
+    const open = openExtra === k;
+    t.classList.toggle("open", open);
+    if (hasExtra(k)) t.setAttribute("aria-expanded", String(open)); else t.removeAttribute("aria-expanded");
+    b.classList.toggle("x-shut", !open); b.classList.toggle("x-box", open);
+    if (open) setCollapsed(b);
+  }
+  if ($("extrasBlock") && $("lookBlock")) placeExtras();
+  drawExtrasOutline();
+}
+/* One tile's face. Not added: "Add route" and what it is. Added: its name with a small arrow (it opens
+   and closes), what's on it, and a bin that takes it off. The price pill (pr) stays as it is. */
+function dressTile(t, added, title, sub, price, k) {
+  const TILE_BIN = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 2.5h4M2.5 4.5h11M4.5 4.5l.7 8.2a1 1 0 0 0 1 .8h3.6a1 1 0 0 0 1-.8l.7-8.2M6.6 7v4M9.4 7v4"/></svg>';
+  const EXTRA_WORD = { route: "route", icon: "icons", frame: "frame" };
+  if (!t.dataset.dressed) {                          // first time: clear the words it came with, keeping its price
+    const keepPr = t.querySelector(":scope > .pr"); t.replaceChildren(...(keepPr ? [keepPr] : [])); t.dataset.dressed = "1";
+  }
+  let b = t.querySelector(":scope > b"), s = t.querySelector(":scope > small:not(.pr)"), pr = t.querySelector(":scope > .pr"), bin = t.querySelector(":scope > .bin");
+  if (!b) { b = document.createElement("b"); t.prepend(b); }
+  if (!s) { s = document.createElement("small"); b.after(s); }
+  if (!pr) { pr = document.createElement("small"); pr.className = "pr"; s.after(pr); }
+  if (!bin) {
+    bin = document.createElement("span"); bin.className = "bin"; bin.setAttribute("role", "button"); bin.tabIndex = 0; bin.innerHTML = TILE_BIN;
+    bin.setAttribute("aria-label", "Remove the " + EXTRA_WORD[k]); bin.title = "Remove the " + EXTRA_WORD[k];
+    const go = (e) => { e.stopPropagation(); e.preventDefault(); removeExtra(k); };
+    bin.addEventListener("click", go);
+    bin.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") go(e); });
+    t.append(bin);
+  }
+  b.replaceChildren(title, ...(added ? [Object.assign(document.createElement("span"), { className: "xchev" })] : []));
+  s.textContent = sub;
+  if (price != null) pr.textContent = price;
+  bin.hidden = !added;
+  t.classList.toggle("on", added);
+}
+/* The bin on a tile: off it comes, with Undo in the message, as for one icon or one line of text. */
+function removeExtra(k) {
+  if (k === "route") { if (route) clearRoute(); }
+  else if (k === "icon") {
+    if (!icons.length) return;
+    pushUndo("Remove icons");
+    if (typeof closeIconPopup === "function") closeIconPopup();
+    setIcons([]); toast("Icons removed.", false, undoAction());
+  } else {
+    const box = $("showFrame"); if (!box.checked) return;
+    pushUndo("Remove frame");
+    box.checked = false; box.dispatchEvent(new Event("change"));
+    toast("Frame removed.", false, undoAction());
+  }
+}
+/* The outline of the open tile and its box, as one shape: down the tile's sides, curving out into the
+   box's top edge (square where the tile sits at the box's own edge), round the box, and back. Each curve
+   out is drawn round the same centre as the neighbouring tile's corner beside it, the gap further out,
+   so the gap between them stays even all the way round the bend (23 Nov: a tighter curve the gap's own
+   size, next to the neighbour's larger corner, pinched it). */
+function drawExtrasOutline() {
+  if (!EXTRA) return;
+  const host = $("extrasBlock"); if (!host) return;
+  let svg = host.querySelector(":scope > svg.x-outline");
+  const x = openExtra && EXTRA[openExtra], t = x && $(x.tile), b = x && $(x.block);
+  const T = t && t.getBoundingClientRect(), P = b && b.getBoundingClientRect();
+  if (!x || !T || !T.width || !P.width || !host.offsetParent) { if (svg) svg.remove(); return; }
+  const H = host.getBoundingClientRect(), cs = getComputedStyle(t), bw = parseFloat(cs.borderTopWidth) || 2, h = bw / 2;
+  const r = Math.max(0, (parseFloat(cs.borderTopLeftRadius) || 12) - h), R = 14;
+  const tx0 = T.left - H.left + h, tx1 = T.right - H.left - h, ty0 = T.top - H.top + h;
+  const x0 = P.left - H.left + h, x1 = P.right - H.left - h, y0 = P.top - H.top + h, y1 = P.bottom - H.top - h;
+  const L = tx0 - x0 > 2, Rt = x1 - tx1 > 2;
+  const tiles = [...$("extraTiles").children], i = tiles.indexOf(t);
+  // the neighbour's corner beside the join: its centre, and the curve's radius out to the open tile's side
+  const corner = (n, side) => {
+    const N = n && n.getBoundingClientRect(), gap = P.top - T.bottom;
+    const nr = N ? parseFloat(getComputedStyle(n)[side === "left" ? "borderBottomRightRadius" : "borderBottomLeftRadius"]) || 12 : 12;
+    if (!N || !N.width) {                                // no neighbour to follow: a curve as wide as the gap and the tile's corner together
+      const rr = gap + nr; return side === "left" ? { cx: tx0 - rr, cy: y0 - rr, rr } : { cx: tx1 + rr, cy: y0 - rr, rr };
+    }
+    const cx = side === "left" ? N.right - H.left - nr : N.left - H.left + nr, cy = N.bottom - H.top - nr;
+    return { cx, cy, rr: side === "left" ? tx0 - cx : cx - tx1 };
+  };
+  let d = `M ${tx0} ${ty0 + r} A ${r} ${r} 0 0 1 ${tx0 + r} ${ty0} L ${tx1 - r} ${ty0} A ${r} ${r} 0 0 1 ${tx1} ${ty0 + r}`;
+  if (Rt) { const c = corner(tiles[i + 1], "right");
+    d += ` L ${tx1} ${c.cy} A ${c.rr} ${c.rr} 0 0 0 ${c.cx} ${y0} L ${x1 - R} ${y0} A ${R} ${R} 0 0 1 ${x1} ${y0 + R}`; }
+  d += ` L ${x1} ${y1 - R} A ${R} ${R} 0 0 1 ${x1 - R} ${y1} L ${x0 + R} ${y1} A ${R} ${R} 0 0 1 ${x0} ${y1 - R}`;
+  if (L) { const c = corner(tiles[i - 1], "left");
+    d += ` L ${x0} ${y0 + R} A ${R} ${R} 0 0 1 ${x0 + R} ${y0} L ${c.cx} ${y0} A ${c.rr} ${c.rr} 0 0 0 ${tx0} ${c.cy} Z`; }
+  else d += " Z";
+  if (!svg) { svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.classList.add("x-outline"); svg.setAttribute("aria-hidden", "true");
+    svg.append(document.createElementNS("http://www.w3.org/2000/svg", "path")); host.prepend(svg); }
+  svg.setAttribute("width", Math.ceil(H.width)); svg.setAttribute("height", Math.ceil(Math.max(H.height, P.bottom - H.top + bw)));
+  const path = svg.firstChild; path.setAttribute("d", d); path.setAttribute("stroke-width", bw);
+}
+// the outline follows the box as its contents change, and the panel as it's resized
+if (typeof ResizeObserver === "function") {
+  const ro = new ResizeObserver(() => drawExtrasOutline());
+  for (const id of ["extrasBlock", "routeBlock", "iconsBlock", "frameBlock"]) if ($(id)) ro.observe($(id));
+}
+window.addEventListener("resize", () => drawExtrasOutline());
+placeExtras();                                       // icons belong to the 3D step only
 (function extraTiles() {                             // the route, icon and frame buttons become the Extras tiles
   const host = $("extraTiles"), dz = $("dropZone"), ai = $("addIcon"), fb = $("frameBtn");
-  dz.dataset.x = "route"; ai.dataset.x = "icon"; fb.dataset.x = "frame";
+  const it = document.createElement("div"); it.id = "iconTile"; it.setAttribute("role", "button"); it.tabIndex = 0;
+  dz.dataset.x = "route"; it.dataset.x = "icon"; fb.dataset.x = "frame";
   dz.innerHTML = '<b>Add route</b><small>A GPX file</small><span class="pr" id="routePrice"></span>';
-  ai.innerHTML = 'Add icon<small>Drag into place</small><small class="pr" id="iconPrice"></small>';
-  for (const b of [dz, ai, fb]) { b.classList.add("xtile"); host.append(b); }
-  $("extrasBlock").after($("lookBlock"));            // Look follows Extras
+  it.innerHTML = '<b>Add icon</b><small>Drag into place</small><small class="pr" id="iconPrice"></small>';
+  for (const b of [dz, it]) { b.classList.add("xtile"); host.append(b); }
+  fb.classList.add("xtile"); host.append(fb);
+  // Icons: no icon yet, the tile adds one (and opens them); with some, it opens or closes them
+  const iconTap = () => { if (icons.length) toggleExtra("icon"); else ai.click(); };
+  it.addEventListener("click", iconTap);
+  it.addEventListener("keydown", (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); iconTap(); } });
+  fb.addEventListener("keydown", (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fb.click(); } });
+  ai.className = "xpill"; ai.removeAttribute("data-keep");
+  $("iconsBlock").querySelector(":scope > h2").append(ai);
+  $("frameBlock").querySelector(":scope > h2").append($("addFrameText"));
+  placeExtras();                                     // what's added from the tiles sits right under them, then Look
   const so = $("sizeOut"); if (so) { so.classList.add("relief-size"); $("shapeBlock").append(so); }   // the model's size, under the Relief bar
   syncFrameBtn(); syncAddIcon(); syncFindPanels();
 })();
@@ -10717,12 +10808,11 @@ var EXTRA_PRICE = null;                              // filled once the price li
 siteSettings().then(applySiteSettings);
 pricingModule().then(({ PRICING, money, schemePrice }) => {
   const plus = (p) => (p > 0 ? "+ " + money(p, PRICING.currency) : "Included");
-  EXTRA_PRICE = { route: plus(PRICING.extras.route.price), frame: plus(PRICING.extras.frame.price), schemes: {},
-                  magnetUnit: PRICING.extras.magnets ? PRICING.extras.magnets.price : 0, magnetSide: plus };   // per side, by the pair
+  EXTRA_PRICE = { route: plus(PRICING.extras.route.price), frame: plus(PRICING.extras.frame.price), schemes: {} };
   for (const sc of COLOUR_SCHEMES) { const p = schemePrice(sc.key, PRICING); if (p != null) EXTRA_PRICE.schemes[sc.key] = plus(p); }
   $("routePrice").textContent = EXTRA_PRICE.route;
   if ($("iconPrice") && PRICING.extras.icon) $("iconPrice").textContent = plus(PRICING.extras.icon.price) + " each";
-  syncFrameBtn(); syncMagnets(); renderPrintSlots();
+  syncFrameBtn(); renderPrintSlots();
   document.querySelectorAll("#sizeSeg button").forEach((b) => {
     const sz = PRICING.sizes[+b.dataset.mm];
     if (!sz) { b.disabled = true; b.title = "Not available just now"; return; }   // switched off on the admin page

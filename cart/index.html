@@ -125,16 +125,18 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
 .box-chev{flex:none;width:12px;height:12px;border-right:2.5px solid #0B0E12;border-bottom:2.5px solid #0B0E12;transform:translateY(-3px) rotate(45deg);transition:transform .25s ease}
 .box[open] .box-chev{transform:translateY(3px) rotate(-135deg)}
 .box-sub{margin:22px 0 0;font-size:16px;color:#5B6470}
-.box-parts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:28px}
+.box-parts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:28px}
 .part{background:#F5F5F7;border-radius:20px;padding:20px 22px 24px;display:flex;flex-direction:column}
 .part-pic{display:block;width:100%;height:auto;aspect-ratio:712/475;border-radius:12px;margin:-4px 0 8px}
 .part h3{margin:8px 0 0;font-size:18px;letter-spacing:-.02em}
 .part p{margin:10px 0 0;font-size:14.5px;line-height:1.55;color:#3A424C}
-.part-list{margin:12px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.5;color:#3A424C;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}   /* Square on the left, Hexagon on the right */
-.part-list li{position:relative;padding-left:16px}
+.part-list{margin:12px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.5;color:#3A424C;display:grid;grid-template-columns:max-content max-content;gap:4px 14px}   /* Square on the left, Hexagon on the right */
+.part-list li{position:relative;padding-left:16px;white-space:nowrap}
 .part-list li::before{content:"";position:absolute;left:1px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--accent,#E4572E)}
 .part-list:empty{display:none}
-/* the cards keep the same size however many show: three to a row, and a lone model card is one of three */
+/* the cards keep the same size however many show: four to a row (model, frame, pins, staples), and a
+   lone model card is one of four; two to a row on middling screens, one on a phone */
+@media (max-width:1100px) and (min-width:761px){ .box-parts{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:760px){
   .box{margin-top:28px}
   .box-q{font-size:18px}
@@ -207,6 +209,10 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   <article class="part" id="boxPins">
     <img class="part-pic" src="/images/box/pin.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
     <h3>Locking pins</h3><p class="part-text"></p>
+  </article>
+  <article class="part" id="boxStaples">
+    <img class="part-pic" src="/images/box/staple.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3>Staples</h3><p class="part-text"></p>
   </article>
 </div>
 </details>
@@ -412,7 +418,8 @@ function render() {
 }
 
 /* What's in the box?: built from what's actually in the basket. The models always; the frame card
-   and the pins only when at least one model has a frame, counted from the basket. */
+   and the pins only when at least one model has a frame, and the staples only when one of the
+   framed models is on a smaller size (the Misogi has none), all counted from the basket. */
 function renderBox(items) {
   const n = items.length, framed = items.filter((x) => x.item && x.item.frame);
   const hex = (x) => /^Hexagon\b/i.test((x.facts || [])[0] || "");
@@ -434,11 +441,6 @@ function renderBox(items) {
       + ", with your own words along its sides. The frame\u2019s ledge supports the model and is secured in place with locking pins.";
     const bigF = framed.filter(big).length;
     if (bigF) ft += bigF === 1 ? " The Misogi\u2019s frame comes in sections that lock together." : " The Misogi frames come in sections that lock together.";
-    // magnets, counted from the basket: built into the walls, so they are part of the frame, not loose
-    const mags = framed.reduce((t, x) => t + ((x.item && x.item.magnets) | 0), 0), magF = framed.filter((x) => x.item && x.item.magnets > 0).length;
-    if (mags) ft += " " + (magF === 1 && f === 1 ? "Its walls hold " + mags + " hidden magnets" : magF === f ? "Their walls hold " + mags + " hidden magnets"
-                                                   : magF === 1 ? "One of them has " + mags + " hidden magnets in its walls" : magF + " of them have " + mags + " hidden magnets between them")
-                  + ", so models of the same size and shape snap together side by side.";
     set("boxFrame", f + (f === 1 ? " custom frame" : " custom frames"), ft);
     $("boxFrame").querySelector("img").alt = "A square frame and a hexagon frame";
     const list = $("boxFrame").querySelector(".part-list"); list.innerHTML = "";
@@ -448,7 +450,14 @@ function renderBox(items) {
     set("boxPins", pins + " locking pins", "One on each side of the frame. Push into the frame, give it a quarter turn to the line, and it locks the frame to the model.");
     $("boxPins").querySelector("img").alt = "Two locking pins, one standing up and one lying on its side";
   }
-  $("boxParts").dataset.n = 1 + (f ? 2 : 0);
+  // staples: one for each wall of a frame on the smaller sizes, as the print file makes them
+  const staples = framed.reduce((t, x) => t + (x.item && !big(x) ? (hex(x) ? 6 : 4) : 0), 0);
+  $("boxStaples").hidden = !staples;
+  if (staples) {
+    set("boxStaples", staples + " staples", "Join framed models of the same size and shape side by side: push a staple up into the two holes under the join. Tweezers in the round pocket pull one out again.");
+    $("boxStaples").querySelector("img").alt = "Two staples, one standing up and one lying flat";
+  }
+  $("boxParts").dataset.n = 1 + (f ? 2 : 0) + (staples ? 1 : 0);
 }
 
 async function checkout() {

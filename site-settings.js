@@ -14,9 +14,25 @@
 
    Amounts are in pence: 4900 is £49.00. */
 
-export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices", "text", "faqs"];
+export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices", "text", "faqs", "emails"];
 export const SECTION_NAMES = { parts: "Model parts", filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
-  iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices", text: "Titles and text", faqs: "Questions" };
+  iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices", text: "Titles and text", faqs: "Questions", emails: "Emails" };
+
+/* The emails the site sends, and what the admin page can change about each: whether it goes at all,
+   and up to three more addresses to copy it to (cc on the emails to you; bcc on the ones to customers,
+   so they never see who else got it). The new order and the contact message to you always go: without
+   them an order or a question could be missed. Where the emails go to you, and who they come from,
+   stays in Cloudflare's settings, so nobody can move them from this page.
+   [key, name, to: "you" | "customer", when, always on] */
+export const EMAILS = [
+  ["newOrder", "New order", "you", "When a customer's payment goes through", true],
+  ["contactMessage", "Contact message", "you", "When someone sends the contact form", true],
+  ["contactReply", "We've got your message", "customer", "Straight after a contact message, to the person who wrote", false],
+  ["welcome", "Newsletter welcome", "customer", "When someone new joins the mailing list", false],
+  ["signupNote", "New sign-up note", "you", "When someone new joins the mailing list", false],
+];
+export const MAX_COPIES = 3;
+export const EMAIL_RE = /^[^\s@<>",;]{1,64}@[^\s@<>",;]{1,190}\.[a-z]{2,}$/i;
 
 /* The words the admin page can change: the homepage's titles and the lines under them, and the
    studio's section names and their grey lines. Each page keeps these words as written (so it reads
@@ -105,12 +121,14 @@ export const DEFAULT_SETTINGS = {
   prices: {
     placeholder: true,                                 // the basket's "example prices" note
     sizes: { 100: { price: 3500, on: true }, 150: { price: 4900, on: true }, 250: { price: 8900, on: true }, 500: { price: 19900, on: true } },
-    extras: { route: 200, frame: 800, icon: 100, magnets: 100 },
+    extras: { route: 200, frame: 800, icon: 100 },
     maxIcons: 3,
     colours: { 1: 0, 2: 500, 3: 750, 4: 1000 },
     shipping: [{ id: "uk-standard", price: 395, on: true }, { id: "uk-express", price: 795, on: true }],
     freeDelivery: { on: false, threshold: 7500, shippingId: "uk-standard" },
   },
+  /* Each email: whether it's sent, and who else gets a copy (see EMAILS). */
+  emails: Object.fromEntries(EMAILS.map(([k]) => [k, { on: true, copy: [] }])),
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -151,6 +169,7 @@ export function sanitise(input) {
   // the homepage's questions: null means it reads its own faq.txt as before
   out.faqs = Array.isArray(s.faqs) ? s.faqs.filter((f) => f && typeof f === "object")
     .map((f) => ({ q: textOf(f.q, 200, false), a: textOf(f.a, 3000, true) })).filter((f) => f.q && f.a).slice(0, MAX_FAQS) : null;
+  out.emails = emailsOf(s.emails);
   out.filaments = fil;
   const ids = new Set(fil.map((f) => f.id));
 
@@ -278,6 +297,21 @@ export function applyToPricing(P, view) {
   return P;
 }
 
+/* The emails' settings, tidied: on or off (the always-on ones stay on), and the copy addresses in
+   lower case, each a proper address, no repeats, at most MAX_COPIES. */
+const addrOf = (v) => String(v == null ? "" : v).trim().toLowerCase();
+function emailsOf(given) {
+  const g = given && typeof given === "object" ? given : {};
+  return Object.fromEntries(EMAILS.map(([k, , , , always]) => { const e = g[k] && typeof g[k] === "object" ? g[k] : {};
+    const copy = [...new Set((Array.isArray(e.copy) ? e.copy : []).map(addrOf).filter((a) => EMAIL_RE.test(a)))].slice(0, MAX_COPIES);
+    return [k, { on: always ? true : bool(e.on, true), copy }]; }));
+}
+/* What the server needs to send one email: whether it goes, and who gets a copy. */
+export function emailSetting(settings, key) {
+  const e = emailsOf(settings && settings.emails)[key];
+  return e || { on: true, copy: [] };
+}
+
 /* What stops the admin page saving: one plain sentence each, with the section it's in. Run on the
    settings as edited, before they're tidied (tidying would quietly paper over these). */
 export function checkSettings(input) {
@@ -309,6 +343,16 @@ export function checkSettings(input) {
     if (!textOf(f && f.a, 3000, true)) add("faqs", "Question " + (i + 1) + " needs an answer.");
   });
   if (Array.isArray(s.faqs) && s.faqs.length > MAX_FAQS) add("faqs", "That's more than " + MAX_FAQS + " questions.");
+  const em = s.emails && typeof s.emails === "object" ? s.emails : {};
+  for (const [k, name] of EMAILS) {
+    const list = Array.isArray(em[k] && em[k].copy) ? em[k].copy : [], seenA = new Set();
+    list.forEach((a) => { const v = addrOf(a);
+      if (!v) add("emails", name + ": one of the copy addresses is empty. Fill it in or remove it.");
+      else if (!EMAIL_RE.test(v)) add("emails", name + ": \u201c" + String(a).trim().slice(0, 60) + "\u201d isn't an email address.");
+      else if (seenA.has(v)) add("emails", name + ": " + v + " is in the copies twice.");
+      seenA.add(v); });
+    if (list.length > MAX_COPIES) add("emails", name + ": that's more than " + MAX_COPIES + " copy addresses.");
+  }
   return out;
 }
 
@@ -353,5 +397,91 @@ export function unavailableIn(design, view) {
   const offIcons = (d.icons || []).filter((ic) => ic && ic.colour && !offered(v.iconColours, ic.colour, ic.finish)).length;
   if (offIcons) out.push(offIcons === 1 ? "One of your icons' colours isn't available at the moment." : offIcons + " of your icons' colours aren't available at the moment.");
   if (f.show && f.colour && !(v.frameFinishes || []).includes(f.colour)) out.push("The " + (FINISH_NAMES[f.colour] || f.colour) + " frame isn't available at the moment.");
+  return out;
+}
+
+/* ---- the history: what changed between two versions of the settings, in plain words ----
+   One line per change, each with its section, e.g. { section: "prices", text: "15 cm: £49.00 → £55.00" }.
+   The admin page's History tab shows these for every save and copy. Both versions are tidied first,
+   so only real changes show. A section that changed in a way these rules don't name still gets a
+   line ("changed"), so nothing is ever missed. */
+const gbp = (p) => "£" + (p / 100).toFixed(2);
+const onOff = (v) => (v ? "switched on" : "switched off");
+const q = (t) => "“" + String(t).slice(0, 60) + (String(t).length > 60 ? "…" : "") + "”";
+const SHIP_LABEL = { "uk-standard": "UK standard delivery", "uk-express": "UK express delivery" };
+const COUNT_LABEL = { 1: "One colour", 2: "Two colours", 3: "Three colours", 4: "Four colours" };
+export function describeChanges(beforeIn, afterIn) {
+  const A = sanitise(beforeIn), B = sanitise(afterIn), out = [], add = (section, text) => out.push({ section, text });
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const filName = (S, id) => { const f = S.filaments.find((x) => x.id === id); return f ? f.name : id; };
+  // model parts
+  for (const k of Object.keys(PARTS)) if (A.parts[k] !== B.parts[k]) add("parts", PARTS[k] + " " + onOff(B.parts[k]));
+  // filaments, by their id
+  const fa = Object.fromEntries(A.filaments.map((f) => [f.id, f])), fb = Object.fromEntries(B.filaments.map((f) => [f.id, f]));
+  for (const f of B.filaments) { const o = fa[f.id];
+    if (!o) { add("filaments", "Added " + f.name + " (" + f.hex + ", " + FINISHES[f.finish].toLowerCase() + ")"); continue; }
+    if (o.name !== f.name) add("filaments", "Renamed " + o.name + " to " + f.name);
+    if (o.hex !== f.hex) add("filaments", f.name + ": colour " + o.hex + " → " + f.hex);
+    if (o.finish !== f.finish) add("filaments", f.name + ": " + FINISHES[o.finish].toLowerCase() + " → " + FINISHES[f.finish].toLowerCase());
+    if (o.on !== f.on) add("filaments", f.name + " " + onOff(f.on)); }
+  for (const f of A.filaments) if (!fb[f.id]) add("filaments", "Removed " + f.name);
+  if (!out.some((x) => x.section === "filaments") && !same(A.filaments.map((f) => f.id), B.filaments.map((f) => f.id))) add("filaments", "Put in a new order");
+  // colour ways, by their key
+  const wa = Object.fromEntries(A.colourWays.map((c) => [c.key, c])), wb = Object.fromEntries(B.colourWays.map((c) => [c.key, c]));
+  for (const c of B.colourWays) { const o = wa[c.key];
+    if (!o) { add("colourWays", "Added " + c.label + " (" + c.slots.map((id) => filName(B, id)).join(", ") + ")"); continue; }
+    if (o.label !== c.label) add("colourWays", "Renamed " + o.label + " to " + c.label);
+    if (o.on !== c.on) add("colourWays", c.label + " " + onOff(c.on));
+    if (!same(o.slots, c.slots)) add("colourWays", c.label + ": colours " + o.slots.map((id) => filName(A, id)).join(", ") + " → " + c.slots.map((id) => filName(B, id)).join(", "));
+    if (!same(o.assign, c.assign)) {
+      const parts = [...new Set([...Object.keys(o.assign), ...Object.keys(c.assign)])].filter((p) => o.assign[p] !== c.assign[p]);
+      add("colourWays", c.label + ": " + parts.map((p) => (PARTS[p] || p) + " " + (c.assign[p] ? "in colour " + c.assign[p] : "in the ground colour")).join(", ")); } }
+  for (const c of A.colourWays) if (!wb[c.key]) add("colourWays", "Removed " + c.label);
+  if (!out.some((x) => x.section === "colourWays") && !same(A.colourWays.map((c) => c.key), B.colourWays.map((c) => c.key))) add("colourWays", "Put in a new order");
+  // route and icon colours
+  for (const [key, what] of [["routeColours", "Route colours"], ["iconColours", "Icon colours"]]) {
+    if (same(A[key], B[key])) continue;
+    const ia = A[key].map((c) => c.filament), ib = B[key].map((c) => c.filament);
+    for (const c of B[key]) { const o = A[key].find((x) => x.filament === c.filament);
+      if (!o) add(key, "Added " + filName(B, c.filament)); else if (o.on !== c.on) add(key, filName(B, c.filament) + " " + onOff(c.on)); }
+    for (const c of A[key]) if (!ib.includes(c.filament)) add(key, "Removed " + filName(A, c.filament));
+    if (!out.some((x) => x.section === key)) add(key, what + " put in a new order");
+  }
+  // frame finishes
+  for (const f of B.frameFinishes) { const o = A.frameFinishes.find((x) => x.key === f.key); if (o && o.on !== f.on) add("frameFinishes", f.name + " frames " + onOff(f.on)); }
+  // prices
+  const pa = A.prices, pb = B.prices;
+  for (const k of Object.keys(pb.sizes)) { const o = pa.sizes[k], n = pb.sizes[k], name = (SIZE_LABEL[k] || k + " mm");
+    if (o.price !== n.price) add("prices", name + ": " + gbp(o.price) + " → " + gbp(n.price));
+    if (o.on !== n.on) add("prices", name + " size " + onOff(n.on)); }
+  for (const k of Object.keys(pb.extras)) if (pa.extras[k] !== pb.extras[k]) add("prices", { route: "Route", frame: "Frame", icon: "Each icon" }[k] + ": " + gbp(pa.extras[k]) + " → " + gbp(pb.extras[k]));
+  for (const k of Object.keys(pb.colours)) if (pa.colours[k] !== pb.colours[k]) add("prices", COUNT_LABEL[k] + ": " + gbp(pa.colours[k]) + " → " + gbp(pb.colours[k]));
+  if (pa.maxIcons !== pb.maxIcons) add("prices", "Most icons on a model: " + pa.maxIcons + " → " + pb.maxIcons);
+  if (pa.placeholder !== pb.placeholder) add("prices", "“Example prices” note " + onOff(pb.placeholder));
+  for (const s of pb.shipping) { const o = pa.shipping.find((x) => x.id === s.id); const name = SHIP_LABEL[s.id] || s.id;
+    if (o && o.price !== s.price) add("prices", name + ": " + gbp(o.price) + " → " + gbp(s.price));
+    if (o && o.on !== s.on) add("prices", name + " " + onOff(s.on)); }
+  const da = pa.freeDelivery, db = pb.freeDelivery;
+  if (da.on !== db.on) add("prices", "Free delivery " + onOff(db.on) + (db.on ? " (over " + gbp(db.threshold) + ")" : ""));
+  else if (db.on && (da.threshold !== db.threshold || da.shippingId !== db.shippingId)) add("prices", "Free delivery: over " + gbp(da.threshold) + " → over " + gbp(db.threshold) + (da.shippingId !== db.shippingId ? ", on " + (SHIP_LABEL[db.shippingId] || db.shippingId) : ""));
+  // the site's words
+  for (const t of TEXT) { const o = A.text[t.key], n = B.text[t.key]; if (o === n) continue;
+    add("text", t.page + ", " + t.group + ", " + t.label.toLowerCase() + ": " + (n ? (o ? q(o) + " → " : "now ") + q(n) : "back to " + q(t.text))); }
+  // questions
+  if (!same(A.faqs, B.faqs)) {
+    if (!A.faqs) add("faqs", "The homepage now uses the questions from this page (" + B.faqs.length + ")");
+    else if (!B.faqs) add("faqs", "The homepage is back to faq.txt");
+    else { const qa = A.faqs.map((f) => f.q), qb = B.faqs.map((f) => f.q);
+      for (const f of B.faqs) { const o = A.faqs.find((x) => x.q === f.q); if (!o) add("faqs", "Added " + q(f.q)); else if (o.a !== f.a) add("faqs", "New answer to " + q(f.q)); }
+      for (const f of A.faqs) if (!qb.includes(f.q)) add("faqs", "Removed " + q(f.q));
+      if (!out.some((x) => x.section === "faqs")) add("faqs", "Questions put in a new order"); }
+  }
+  // emails
+  for (const [k, name] of EMAILS) { const o = A.emails[k], n = B.emails[k];
+    if (o.on !== n.on) add("emails", name + " " + onOff(n.on));
+    for (const a of n.copy) if (!o.copy.includes(a)) add("emails", name + ": copy to " + a + " added");
+    for (const a of o.copy) if (!n.copy.includes(a)) add("emails", name + ": copy to " + a + " removed"); }
+  // anything else: never miss a section
+  for (const k of SECTIONS) if (!same(A[k], B[k]) && !out.some((x) => x.section === k)) add(k, SECTION_NAMES[k] + " changed");
   return out;
 }
