@@ -12,7 +12,8 @@
     const t = (v && v.text) || {};
     document.querySelectorAll("[data-text]").forEach((el) => {
       const w = t[el.dataset.text];
-      if (typeof w === "string" && w.trim()) el.textContent = w;
+      if (w === "") { if (!/^H\d$/.test(el.tagName)) el.hidden = true; }   // a grey line switched off on the admin page (never a title)
+      else if (typeof w === "string" && w.trim()) el.textContent = w;
     });
   };
   got.then((v) => { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => put(v)); else put(v); });

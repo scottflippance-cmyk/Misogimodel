@@ -74,7 +74,8 @@ export const TEXT = [
   ["studio.colours.sub", "Studio", "Colours", "Grey line", "Pick your favourite."],
   ["studio.order.title", "Studio", "Order", "Section name", "Order"],
   ["studio.order.sub", "Studio", "Order", "Grey line", "Printed and posted to you."],
-].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011") }));
+].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011"),
+  optional: label === "Under the title" || label === "Grey line" }));   // the grey lines can be switched off: stored as ""
 const TEXT_BY_KEY = Object.fromEntries(TEXT.map((t) => [t.key, t]));
 export const MAX_FAQS = 30;
 
@@ -165,7 +166,9 @@ export function sanitise(input) {
   // the words: only those changed from what the page says already
   out.text = {};
   const gt = s.text && typeof s.text === "object" ? s.text : {};
-  for (const t of TEXT) { const v = textOf(gt[t.key], 400, false); if (v && v !== t.text) out.text[t.key] = v; }
+  for (const t of TEXT) { const v = textOf(gt[t.key], 400, false);
+    if (t.optional && gt[t.key] === "") out.text[t.key] = "";        // a grey line switched off
+    else if (v && v !== t.text) out.text[t.key] = v; }
   // the homepage's questions: null means it reads its own faq.txt as before
   out.faqs = Array.isArray(s.faqs) ? s.faqs.filter((f) => f && typeof f === "object")
     .map((f) => ({ q: textOf(f.q, 200, false), a: textOf(f.a, 3000, true) })).filter((f) => f.q && f.a).slice(0, MAX_FAQS) : null;
@@ -466,7 +469,8 @@ export function describeChanges(beforeIn, afterIn) {
   else if (db.on && (da.threshold !== db.threshold || da.shippingId !== db.shippingId)) add("prices", "Free delivery: over " + gbp(da.threshold) + " → over " + gbp(db.threshold) + (da.shippingId !== db.shippingId ? ", on " + (SHIP_LABEL[db.shippingId] || db.shippingId) : ""));
   // the site's words
   for (const t of TEXT) { const o = A.text[t.key], n = B.text[t.key]; if (o === n) continue;
-    add("text", t.page + ", " + t.group + ", " + t.label.toLowerCase() + ": " + (n ? (o ? q(o) + " → " : "now ") + q(n) : "back to " + q(t.text))); }
+    add("text", t.page + ", " + t.group + ", " + t.label.toLowerCase() + ": " + (n === "" ? "hidden"
+      : n ? (o ? q(o) + " → " : o === "" ? "shown again, " : "now ") + q(n) : o === "" ? "shown again" : "back to " + q(t.text))); }
   // questions
   if (!same(A.faqs, B.faqs)) {
     if (!A.faqs) add("faqs", "The homepage now uses the questions from this page (" + B.faqs.length + ")");

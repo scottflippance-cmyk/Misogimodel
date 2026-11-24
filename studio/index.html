@@ -4592,11 +4592,14 @@ function buildSummit(data) {
 const TREE_BASE = 1.35;    // bigger than life, so a wood reads as a canopy; the sliders scale from here
 /* Trees are a set size on the print, whatever the area: the smallest is TREE_MIN_MM across, so a
    bigger print shows more, smaller-looking trees over the same ground and a smaller one fewer,
-   chunkier ones, each still big enough to print. No tree stands taller than TREE_MAX_H_MM, and each
-   has a real trunk TREE_TRUNK_MM thick, so it prints as a tree on a stalk, not a crumb. */
+   chunkier ones, each still big enough to print. No tree stands taller than TREE_MAX_H_MM.
+   As tree test 4 (24 Nov): no trunks (too thin to print well); each crown sits straight on the ground,
+   its lowest point TREE_SINK_MM into it, and the trees stand on a loose hexagonal grid TREE_APART_MM
+   apart (test 1's 4 mm with 50% more trees), each nudged up to 0.3 of that from its spot. */
 const TREE_MIN_MM = 2;
 const TREE_MAX_H_MM = 5;
-const TREE_TRUNK_MM = 0.7;
+const TREE_APART_MM = 4 / Math.sqrt(1.5);    // 3.27 mm
+const TREE_SINK_MM = 0.15;
 const treeBaseMul = 1;     // Tree scale, fixed
 const treePackMul = 0.3;   // Amount of trees, fixed
 const treeScale = 1;  // tree height, fixed
@@ -4711,6 +4714,26 @@ let lastScatter = { asked: 0, used: 0, capped: false }, treesCapped = false;
 /* Set while the model's own surface is being painted, so the same styling can treat the map and
    the model differently: roads help you find your way on a map, but are a choice on a model. */
 let paintingModel = false;
+/* Trees on a hexagonal grid, anchored to the model so they don't move as the area is rebuilt: rows
+   0.87 of the spacing apart, every other row shifted half a step, each tree nudged up to 0.3 of the
+   spacing either way. Returns [x, z, rnd] like scatter(). */
+function hexScatter(polys, sp) {
+  const used = new Set(), pts = [], H = WORLD / 2, dz = sp * 0.87;
+  for (const p of polys) {
+    const b = bbox(p.outer), inside = fastPoly(p);
+    for (let row = Math.floor((b.z0 + H) / dz) - 1; row <= Math.ceil((b.z1 + H) / dz) + 1; row++) {
+      const off = (row & 1) ? sp / 2 : 0;
+      for (let col = Math.floor((b.x0 + H - off) / sp) - 1; col <= Math.ceil((b.x1 + H - off) / sp) + 1; col++) {
+        const key = col + "," + row;
+        if (used.has(key)) continue;
+        const x = -H + off + col * sp + (hash01(col, row, 1) * 2 - 1) * 0.3 * sp, z = -H + row * dz + (hash01(col, row, 2) * 2 - 1) * 0.3 * sp;
+        if (Math.abs(x) > H || Math.abs(z) > H || x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1 || !inside(x, z)) continue;
+        used.add(key); pts.push([x, z, hash01(col, row, 3)]);
+      }
+    }
+  }
+  return pts;
+}
 function scatter(polys, maxCount, minSpacing) {
   let area = 0;
   for (const p of polys) area += Math.abs(ringArea(p.outer)) - p.holes.reduce((s, h) => s + Math.abs(ringArea(h)), 0);
@@ -4771,8 +4794,8 @@ const leafPart = (g, o) => {
   return { geo: g, role: "leaf" };
 };
 /* Each tree, as plain numbers in a unit box (1 across, 1 tall before its height ratio hr), so the
-   screen and the print are made from the same shapes. "trunk" is how high the bare trunk shows
-   before the crown starts; the trunk itself is TREE_TRUNK_MM thick on the print whatever the tree's size. */
+   screen and the print are made from the same shapes. "trunk" is only used by the bare winter trees on
+   screen; leafy trees have no trunk: the crown sits on the ground. */
 const TREE_SHAPES = {
   conifer:   { hr: 2.4, trunk: 0.07, crowns: [{ cone: [1, 0.62], y: 0.34 }, { cone: [0.72, 0.5], y: 0.66 }] },
   pine:      { hr: 2.6, trunk: 0.07, crowns: [{ cone: [1, 0.42], y: 0.24 }, { cone: [0.8, 0.36], y: 0.46 },
@@ -4785,14 +4808,12 @@ const TREE_SHAPES = {
 };
 /* how high each shape reaches in its unit box: its crown's top */
 const treeTop = (sh) => Math.max(...sh.crowns.map((c) => c.cone ? c.y + c.cone[1] / 2 : c.y + c.s[1]));
-/* the trunk runs from just under the ground up into the crown, so the two print as one piece */
-const trunkReach = (sh) => sh.trunk + 0.1;
-/* the trunk on screen: a unit cylinder, scaled to TREE_TRUNK_MM across with a matrix of its own */
-const stemPart = (sh) => { const g = new THREE.CylinderGeometry(1, 1, trunkReach(sh), 7); g.translate(0, trunkReach(sh) / 2, 0); return { geo: g, role: "trunk", stem: true }; };
+/* how far up its unit box each shape's crown begins: it is lowered by this so it sits on the ground */
+const treeLow = (sh) => Math.min(...sh.crowns.map((c) => c.cone ? c.y - c.cone[1] / 2 : c.y - c.s[1]));
 const crownGeo = (c) => c.cone ? new THREE.ConeGeometry(c.cone[0], c.cone[1], 10)
   : c.sphere ? new THREE.SphereGeometry(1, 16, 12) : new THREE.IcosahedronGeometry(1, c.ico);
 const TREE_STYLES = Object.fromEntries(Object.entries(TREE_SHAPES).map(([key, sh]) => [key, { hr: sh.hr, shape: sh,
-  parts: () => [stemPart(sh), ...sh.crowns.map((c) => leafPart(crownGeo(c), c))] }]));
+  parts: () => sh.crowns.map((c) => leafPart(crownGeo(c), c)) }]));
 /* Winter: deciduous styles lose their leaves. Branches are small tapered cylinders,
    tilted out from the trunk and spun round it. */
 const DEG = Math.PI / 180;
@@ -4850,7 +4871,7 @@ function plantTrees(pts, s, styleKey, data, vS) {
     for (let i = 0; i < pos.count; i++) reach = Math.max(reach, Math.hypot(pos.getX(i), pos.getZ(i)));
   }
   reach = reach || 1;
-  const mStem = new THREE.Matrix4(), trunkU = (TREE_TRUNK_MM / 2) * WORLD / frameVals.modelMM;
+  const sinkU = TREE_SINK_MM * WORLD / frameVals.modelMM, lowU = M.shape ? treeLow(M.shape) : 0;
   const topU = M.shape ? treeTop(M.shape) : 1, hCap = TREE_MAX_H_MM * WORLD / frameVals.modelMM / topU;
   pts.forEach(([x, z, rnd], i) => {
     const base = TREE_BASE * treeBaseMul;
@@ -4865,18 +4886,16 @@ function plantTrees(pts, s, styleKey, data, vS) {
       st.treeMM.min = Math.min(st.treeMM.min, w); st.treeMM.max = Math.max(st.treeMM.max, w); st.treeMM.sum += w; st.treeMM.n++;
       st.treeMM.tallest = Math.max(st.treeMM.tallest || 0, hT * topU * frameVals.modelMM / WORLD);
     }
-    p.set(x, three.geom.groundY(x, z) - 0.03, z);
+    p.set(x, three.geom.groundY(x, z) - 0.03 - (bare ? 0 : lowU * hT + sinkU), z);   // the crown on the ground, a little into it
     q.setFromAxisAngle(up, rnd * 6.283);
     sc.set(r, hT, r);
     m.compose(p, q, sc);
-    sc.set(trunkU, hT, trunkU);
-    mStem.compose(p, q, sc);
     if (three.treeList) three.treeList.push({ style: styleKey, x, z, y: p.y, r, h: hT, a: rnd * 6.283 });
     const u = (x + WORLD / 2) / WORLD, v = (z + WORLD / 2) / WORLD;
     const frost = snowAt(data, u, v, gridAt(data.grid, data.n, u, v)) * 0.88;   // snow-laden: mostly white, a little green in the shadows
     leaf.copy(pal[Math.floor(hash01(Math.floor(rnd * 1e6), 11, 5) * pal.length)]).multiplyScalar(0.85 + 0.3 * rnd).lerp(white, frost);
     bark.copy(trunkC).lerp(white, bare ? frost * 0.4 : 0);   // snow lies along bare branches
-    parts.forEach((pt, j) => { meshes[j].setMatrixAt(i, pt.stem ? mStem : m); meshes[j].setColorAt(i, pt.role === "trunk" ? bark : leaf); });
+    parts.forEach((pt, j) => { meshes[j].setMatrixAt(i, m); meshes[j].setColorAt(i, pt.role === "trunk" ? bark : leaf); });
   });
   meshes.forEach((mesh) => { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; });
   return meshes;
@@ -4934,8 +4953,9 @@ async function buildFeatures3D(data) {
     // trees quietly does nothing: the scatter spaces them to fit the cap instead
     // Room for the Amount slider at its top setting with density full, with a ceiling the browser
     // can still draw. When the ceiling binds, the readout says so rather than quietly thinning out.
-    const { pts: full } = scatter(polysOf("wood"), 600000, apart);
-    treesCapped = lastScatter.capped;                // note it now: the shrubs scatter next and overwrite it
+    void apart;                                      // the old close scatter's spacing, kept for the readout's sums
+    const full = hexScatter(polysOf("wood"), TREE_APART_MM * WORLD / frameVals.modelMM);
+    treesCapped = false;
     const s = sizeS;
     const canopy = s * 0.55 * 1.25 * Math.sqrt(treeScale);   // widest a tree here can be
     const fpT = iconFootprints();
@@ -9909,8 +9929,8 @@ function filamentNumbers(bodies) {
 let lastStl = null;
 /* The print file. Customers don't download it: it is built when they order, and goes to the
    workshop with the order (see the order section below). */
-/* The trees on the print: the same shapes as on screen, built as solids. Each is its crown on a
-   TREE_TRUNK_MM trunk that starts 0.4 mm under the ground, so it stands in the model rather than on it. */
+/* The trees on the print: the same shapes as on screen, built as solids. Each is its crown alone, sat
+   on the ground with its lowest point TREE_SINK_MM into it (the ground is cut away from it later). */
 function treesSolid(S, toSTL, k) {
   const list = (three && three.treeList) || [];
   if (!list.length) return null;
@@ -9918,12 +9938,11 @@ function treesSolid(S, toSTL, k) {
   const crownOf = (key) => unit[key] || (unit[key] = unionOf(S, TREE_SHAPES[key].crowns.map((c) => c.cone
     ? S(S(M.cylinder(c.cone[1], c.cone[0], 0, 12)).translate([0, 0, c.y - c.cone[1] / 2]))
     : S(S(S(M.sphere(1, c.sphere ? 16 : 12)).scale([c.s[0], c.s[2], c.s[1]])).translate([c.x || 0, -(c.z || 0), c.y])))));
-  const pieces = [], rT = TREE_TRUNK_MM / 2, sink = 0.4;
+  const pieces = [];
   for (const tr of list) {
     const sh = TREE_SHAPES[tr.style] || TREE_SHAPES.broadleaf, [X, Y, Z] = toSTL(tr.x, three.geom.groundY(tr.x, tr.z) - 0.03, tr.z);   // the ground as it is now
     const rMM = tr.r * k, hMM = tr.h * k;
-    pieces.push(S(S(S(crownOf(TREE_SHAPES[tr.style] ? tr.style : "broadleaf").scale([rMM, rMM, hMM])).rotate([0, 0, tr.a * 180 / Math.PI])).translate([X, Y, Z])));
-    pieces.push(S(S(M.cylinder(trunkReach(sh) * hMM + sink, rT, rT, 12)).translate([X, Y, Z - sink])));
+    pieces.push(S(S(S(crownOf(TREE_SHAPES[tr.style] ? tr.style : "broadleaf").scale([rMM, rMM, hMM])).rotate([0, 0, tr.a * 180 / Math.PI])).translate([X, Y, Z - treeLow(sh) * hMM - TREE_SINK_MM])));
   }
   return unionOf(S, pieces);
 }
@@ -10169,7 +10188,9 @@ function applyStudioText(t) {
     const title = t["studio." + k + ".title"], sub = t["studio." + k + ".sub"];
     if (typeof title === "string" && title.trim() && sp.firstChild && sp.firstChild.nodeType === 3) { sp.firstChild.nodeValue = title; sp.dataset.label = title; }
     const ss = sp.querySelector(".sec-sub");
-    if (ss && typeof sub === "string" && sub.trim()) { const tn = [...ss.childNodes].find((n) => n.nodeType === 3); if (tn) tn.nodeValue = " " + sub; }
+    const tn = ss && [...ss.childNodes].find((n) => n.nodeType === 3);
+    if (tn && sub === "") tn.nodeValue = "";            // switched off on the admin page: the name and its full stop alone
+    else if (tn && typeof sub === "string" && sub.trim()) tn.nodeValue = " " + sub;
   }
 }
 function applySiteSettings(v) {
