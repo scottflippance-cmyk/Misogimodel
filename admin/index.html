@@ -121,7 +121,8 @@ section{background:var(--card);border:1px solid var(--line);border-radius:14px;p
 .trow > span{color:var(--muted);font-size:12.5px;padding-top:7px}
 .trow.changed > span{color:var(--ink);font-weight:600}
 .trow.changed > span::after{content:" •";color:var(--acc)}
-.tin{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--soft);font:inherit;line-height:1.4;resize:vertical}
+.tin{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--soft);font:inherit;line-height:1.4;resize:none;overflow:hidden;display:block}
+textarea.tin{min-height:calc(1.4em + 14px)}
 .tin:focus{outline:none;border-color:var(--ink);background:#fff}
 .reset{border:0;background:none;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;padding:7px 0 0;text-align:left}
 .reset[hidden]{display:none}
@@ -352,6 +353,7 @@ function showArea(key, scrollTo) {
   $("nav").replaceChildren(...(area === "history" ? [] : [el("small", {}, "On this tab")]), ...(area === "history" ? [] : ids).flatMap((id) => [el("a", { href: "#" + id }, S.SECTION_NAMES[id]),
     ...(NAV_EXTRA[id] || []).map(([x, name]) => el("a", { href: "#" + x, class: "in" }, name))]));
   historyTimer(area === "history");
+  requestAnimationFrame(growAll);
   if (scrollTo && $(scrollTo)) requestAnimationFrame(() => $(scrollTo).scrollIntoView({ block: "start" }));
   else window.scrollTo(0, 0);
 }
@@ -753,7 +755,11 @@ function renderPreview() {
 }
 
 /* ---- the site's words ---- */
-function grow(t) { t.style.height = "auto"; t.style.height = Math.min(320, t.scrollHeight + 2) + "px"; }
+// a box's height follows its words: measured only while it's showing (a hidden tab measures 0), and again when a tab opens or the window changes width
+function grow(t) { if (!t.isConnected || !t.getClientRects().length) return; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
+function growAll() { document.querySelectorAll("textarea.tin").forEach(grow); }
+const oneLine = (t) => t.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });   // titles and questions wrap but stay one paragraph
+let growTimer = 0; window.addEventListener("resize", () => { clearTimeout(growTimer); growTimer = setTimeout(growAll, 60); });
 function renderText() {
   const sec = $("text"); sec.replaceChildren(...head("text", "Titles and text", "The homepage's titles and the lines under them, and the studio's section names. Leave one as it is, or empty, to keep the words the page already has."));
   let page = null, box = null, group = null;
@@ -761,18 +767,18 @@ function renderText() {
     if (t.page !== page) { page = t.page; sec.append(el("div", { class: "tpage" }, page)); group = null; }
     if (t.group !== group) { group = t.group; box = el("div", { class: "tgroup" }, el("b", {}, group)); sec.append(box); }
     const has = typeof work.text[t.key] === "string";
-    const long = t.text.length > 60;
-    const input = el(long ? "textarea" : "input", { class: "tin", "aria-label": page + ", " + group + ": " + t.label, maxlength: 400, rows: long ? 2 : null, "data-key": t.key });
+    const input = el("textarea", { class: "tin", "aria-label": page + ", " + group + ": " + t.label, maxlength: 400, rows: 1, "data-key": t.key });
+    oneLine(input);
     input.value = has ? work.text[t.key] : t.text;
     const row = el("div", { class: "trow" + (has ? " changed" : "") }, el("span", {}, t.label), input);
-    const reset = el("button", { class: "reset", hidden: !has, title: "Back to: " + t.text, onclick: () => { delete work.text[t.key]; input.value = t.text; if (long) grow(input); say(); refresh(); } }, "Reset");
+    const reset = el("button", { class: "reset", hidden: !has, title: "Back to: " + t.text, onclick: () => { delete work.text[t.key]; input.value = t.text; grow(input); say(); refresh(); } }, "Reset");
     row.append(reset);
     const say = () => { const on = typeof work.text[t.key] === "string"; row.classList.toggle("changed", on); reset.hidden = !on; };
     input.addEventListener("input", () => { const v = input.value.replace(/\s+/g, " ").trim();
       if (!v || v === t.text) delete work.text[t.key]; else work.text[t.key] = input.value.replace(/\n/g, " ");
-      if (long) grow(input); say(); refresh(); });
+      grow(input); say(); refresh(); });
     box.append(row);
-    if (long) requestAnimationFrame(() => grow(input));
+    requestAnimationFrame(() => grow(input));
   }
 }
 let fileFaqs = null;                                 // the questions in faq.txt, until some are saved here
@@ -802,14 +808,15 @@ function renderFaqs() {
   if (fromFile) sec.append(el("div", { class: "fromfile" }, list.length ? "These come from faq.txt for now. Change, add or remove one and save, and the homepage takes them from here instead." : "The homepage reads faq.txt for now. Add a question here and save, and it takes them from here instead."));
   const box = el("div", { id: "faqList" }), rerender = () => { renderFaqs(); refresh(); };
   list.forEach((f, i) => {
-    const q = el("input", { class: "tin q", value: f.q, maxlength: 200, "aria-label": "Question " + (i + 1), placeholder: "The question",
-      oninput: (e) => { own()[i].q = e.target.value; refresh(); } });
+    const q = el("textarea", { class: "tin q", rows: 1, maxlength: 200, "aria-label": "Question " + (i + 1), placeholder: "The question",
+      oninput: (e) => { own()[i].q = e.target.value.replace(/\n/g, " "); grow(e.target); refresh(); } });
+    q.value = f.q; oneLine(q);
     const a = el("textarea", { class: "tin a", maxlength: 3000, rows: 3, "aria-label": "Answer " + (i + 1), placeholder: "The answer",
       oninput: (e) => { own()[i].a = e.target.value; grow(e.target); refresh(); } });
     a.value = f.a;
     box.append(el("div", { class: "faq" }, el("span", { class: "drag", title: "Drag to reorder" }, "⋮⋮"), el("div", { class: "qa" }, q, a),
       el("button", { class: "x", title: "Remove", "aria-label": "Remove question " + (i + 1), onclick: () => { own().splice(i, 1); rerender(); } }, "✕")));
-    requestAnimationFrame(() => grow(a));
+    requestAnimationFrame(() => { grow(q); grow(a); });
   });
   sec.append(box);
   sortable(box, list, () => { own(); rerender(); }, ".faq");
