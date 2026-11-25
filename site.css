@@ -25,7 +25,9 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
   -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
 /* The hidden contours (banner-contours.js) lie under everything on the bar and never take a click. */
 .site-banner__contours{position:absolute;inset:0;pointer-events:none;z-index:0}
-.site-banner__inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:14px 24px;box-sizing:border-box;
+.site-banner__inner{position:relative;z-index:1;max-width:none;margin:0 auto;box-sizing:border-box;
+  /* (25 Nov) wider than the page: each side sits halfway between the page's edge and 32px from the screen's */
+  padding:14px max(24px, calc((100vw - 1200px) / 4 + 28px));
   min-height:70px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
 /* The mark, Puncak Jaya in two tones, cut from a photograph: the banner's ink where the rock is in
    shadow, and the banner itself where it catches the sun, so it reads in either look. It stands on

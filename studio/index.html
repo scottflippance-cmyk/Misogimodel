@@ -301,6 +301,7 @@ body:not(.none) #sizeSeg button small.tiles{font-size:10.5px}
 .paint-open{display:flex; align-items:center; gap:12px; width:100%; margin:10px 0 0; padding:10px 12px; border:2px solid transparent; border-radius:12px; background:var(--panel-2); font:inherit; text-align:left; color:var(--text); cursor:pointer}
 .paint-open[hidden]{display:none}
 .paint-open b{display:block; font-size:14px; color:var(--heading)} .paint-open small{display:block; font-size:12px; color:var(--muted)}
+.paint-open small[hidden]{display:none}
 .paint-open .ic, .paint-bar .pb-brush{width:40px; height:40px; border-radius:11px; background:var(--panel); display:flex; align-items:center; justify-content:center; flex:none; color:var(--text); border:2px solid transparent}
 .paint-open[aria-pressed="true"] .ic, .paint-open:hover .ic, .paint-bar .pb-brush[aria-pressed="true"]{border-color:var(--accent); color:var(--accent)}
 .paint-bar{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:40; display:flex; align-items:center; gap:12px; padding:10px 12px; background:#fff; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.16); color:#0B0E12; white-space:nowrap}
@@ -386,7 +387,7 @@ body:not(.none) #panelMap #buildBlock{padding-top:0}
 .start-loaded[hidden]{display:none}
 .start-loaded .ghost{margin-left:auto}
 .start-loaded small span + span{margin-left:12px}
-#findRoute .hint{margin:8px 2px 14px}
+#findRoute{margin-bottom:14px}
 /* Need some inspiration: three places stacked, each a row with its contour sketch, name, where it
    is and one line about it. The whole row is the button. */
 #inspoBlock .inspo-lead{margin:-8px 0 14px; font-size:14px; color:var(--muted)}
@@ -1131,8 +1132,17 @@ body:not(.none) #panelView #shapeBlock{display:flex; flex-wrap:wrap; align-items
 #panelView #shapeBlock .relief-cap{flex-basis:100%}
 /* Colour ways: two to a row, the colours on top, the name and price under them */
 #panelView .scheme-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+#panelView .scheme-grid .scheme[data-scheme="solid"]{grid-column:1 / -1}   /* (25 Nov) Solid on its own across the top, the colour ways two by two under it */
 body:not(.none) #panelView .scheme{flex-direction:column; align-items:stretch; gap:7px; padding:7px}
-body:not(.none) #panelView .scheme[aria-pressed="true"]{padding:6.5px}
+body:not(.none) #panelView .scheme[aria-pressed="true"]{padding:7px}
+/* (25 Nov) the colour ways dress like the Look tiles: grey with no border until picked, then white with the orange border */
+body:not(.none) #panelView .scheme, body:not(.none) #panelView .scheme:hover:not([aria-pressed="true"]){background:var(--panel-2); border:2px solid transparent; border-radius:12px; padding:7px}
+body:not(.none) #panelView .scheme:hover:not([aria-pressed="true"]){border-color:var(--accent); background:color-mix(in srgb, var(--accent) 6%, var(--panel-2))}
+body:not(.none) #panelView .scheme[aria-pressed="true"]{background:var(--panel); border:2px solid var(--accent)}
+body:not(.none) #panelView .scheme[aria-pressed="true"] .nm{color:var(--accent); font-weight:600}
+body:not(.none) #panelView .scheme .bar{border:1px solid rgba(0,0,0,.18)}
+body:not(.none) #panelView .scheme .nm .pr{background:var(--panel)}
+body:not(.none) #panelView .scheme[aria-pressed="true"] .nm .pr{background:var(--panel-2)}   /* white parts show on white */
 body:not(.none) #panelView .scheme .bar{flex:none; width:100%; height:34px; border-radius:8px}
 body:not(.none) #panelView .scheme .nm{flex:none; font-size:13px; padding:0 2px}
 #panelView #shapeBlock .relief-size{flex-basis:100%; font-size:11.5px; color:var(--muted); margin-top:-2px}
@@ -1215,7 +1225,6 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
           <span><b id="startName"></b><small id="startFacts"></small></span>
           <button type="button" class="ghost" id="startChange">Change</button>
         </div>
-        <p class="hint">We'll build the area around it. You can change the route and area in the preview.</p>
       </div>
       <div id="findSearch">
         <div class="q-wrap">
@@ -1428,7 +1437,7 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
       <div class="scheme-grid" id="schemeGrid" role="group" aria-label="Print colours"></div>
       <!-- Paint your own (25 Nov, option B): any colour way but Solid; the tools open in a bar under the model -->
       <button type="button" class="paint-open" id="paintOpen" aria-pressed="false" hidden>
-        <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L12 14.8l-3-3z"/><path d="M9 11.8c-2 0-3.5 1.5-3.5 3.5 0 1.6-1 2.7-2.5 3.2 1 1.3 2.8 2 4.5 2 3 0 5-2 5-4.5z"/></svg></span><span><b>Paint your own</b><small id="paintOpenSub">Brush your colours onto the model</small></span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L12 14.8l-3-3z"/><path d="M9 11.8c-2 0-3.5 1.5-3.5 3.5 0 1.6-1 2.7-2.5 3.2 1 1.3 2.8 2 4.5 2 3 0 5-2 5-4.5z"/></svg></span><span><b id="paintOpenTitle">Paint your own</b><small id="paintOpenSub">Brush your colours onto the model</small></span>
       </button>
     </div>
 
@@ -1576,8 +1585,8 @@ body.mode-view #mapTools{display:none !important}     /* on the model they'd onl
       </div>
       <label class="field" for="iconMMNum" style="margin-top:10px">Size on the model</label>
       <div class="slider-row">
-        <input type="range" id="iconMM" min="3" max="40" step="0.5" value="10" aria-label="Icon size (slider)">
-        <span class="numbox"><input type="number" id="iconMMNum" min="3" max="40" step="0.5" value="10" inputmode="decimal"><span>mm</span></span>
+        <input type="range" id="iconMM" min="10" max="40" step="0.5" value="10" aria-label="Icon size (slider)">
+        <span class="numbox"><input type="number" id="iconMMNum" min="10" max="40" step="0.5" value="10" inputmode="decimal"><span>mm</span></span>
       </div>
       <div class="seg" id="iconModeSeg" hidden><button data-imode="raised" aria-pressed="true">Raised</button></div>
       <div id="iconHRow" style="margin-top:10px">
@@ -2761,11 +2770,11 @@ function syncScrollRail() {
    Three places to start from. Each frames its area the way a search does (so frame text seeded
    from the place follows it), then builds the model and opens Customise. */
 const INSPIRATION = [
-  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania · 5,895 m", lat: -3.0674, lng: 37.3556, sizeM: 14000,
+  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania\u00a0\u00a0 5,895 m", lat: -3.0674, lng: 37.3556, sizeM: 14000,
     say: "Africa's highest peak. A volcano rising out of the plains." },
-  { key: "everest", name: "Everest", where: "Nepal & China · 8,849 m", lat: 27.9881, lng: 86.9250, sizeM: 10000,
+  { key: "everest", name: "Everest", where: "Nepal & China\u00a0\u00a0 8,849 m", lat: 27.9881, lng: 86.9250, sizeM: 10000,
     say: "The highest point in the world. The first documented ascent in 1953." },
-  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA · 1.8 km deep", lat: 36.0919, lng: -112.1035, sizeM: 16000,
+  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA\u00a0\u00a0 1.8 km deep", lat: 36.0919, lng: -112.1035, sizeM: 16000,
     say: "Carved by the Colorado River over millions of years." }
 ];
 /* Stills of each place's own model, rendered in the studio from the real ground in one plain
@@ -2793,10 +2802,10 @@ function renderInspiration() {
 /* More places to start from, offered in the empty cart's carousel (they open here as /studio/?inspire=key)
    but not on the Select page, which keeps its three. */
 const INSPIRATION_MORE = [
-  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia · 4,884 m", lat: -4.0833, lng: 137.1833, sizeM: 8000 },
-  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England · 978 m", lat: 54.4542, lng: -3.2116, sizeM: 6000 },
+  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia\u00a0\u00a0 4,884 m", lat: -4.0833, lng: 137.1833, sizeM: 8000 },
+  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England\u00a0\u00a0 978 m", lat: 54.4542, lng: -3.2116, sizeM: 6000 },
   { key: "yosemite", name: "Yosemite Valley", where: "California, USA", lat: 37.7300, lng: -119.5900, sizeM: 12000 },
-  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy · 1,281 m", lat: 40.8213, lng: 14.4261, sizeM: 8000 }
+  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy\u00a0\u00a0 1,281 m", lat: 40.8213, lng: 14.4261, sizeM: 8000 }
 ];
 function startFromInspiration(key) {
   const p = INSPIRATION.concat(INSPIRATION_MORE).find((x) => x.key === key); if (!p) return;
@@ -3717,7 +3726,7 @@ async function sampleLidar(b, n) {
     }
     said.push("and the worldwide tiles could not fill the rest");
   }
-  throw new Error(said.join(" · "));
+  throw new Error(said.join("\u00a0\u00a0 "));
 }
 async function sampleOneSource(def, b, n) {
   const corners = b.corners ? b.corners() : null;
@@ -4340,6 +4349,7 @@ function initThree() {
     if ($("spin").checked) { ctrl.theta += 0.0016; place(); }
     if (three && three.pinHeads) for (const h of three.pinHeads) h.rotation.y = Math.atan2(camera.position.x - h.userData.x, camera.position.z - h.userData.z);
     renderer.render(scene, camera);
+    drawSelOutline(renderer, scene, camera);           // the selected icon's orange outline, on screen only
   })();
 
   three = { renderer, scene, camera, group, ctrl, place };
@@ -4638,7 +4648,7 @@ function buildScene(data, exag) {
   buildFrame();
   buildFeatures3D(data);                          // async: appears once the map tiles arrive
 
-  $("contourOut").textContent = interval ? levels.length + " levels · " + interval + " m" : "No contours";
+  $("contourOut").textContent = interval ? levels.length + " levels\u00a0\u00a0 " + interval + " m" : "No contours";
   if ($("expContours")) $("expContours").disabled = !interval;
   updateSizeOut();                                 // the finished size, now the geometry is settled
   $("mMin").textContent = Math.round(data.min) + " m";
@@ -5197,6 +5207,8 @@ function applyPrintColours() {
    The bar's Undo and Redo step through strokes; Save keeps them (one step in the studio's own undo);
    closing without saving puts the paint back as it was. */
 var paintStrokes = [];
+/* its name and grey line, from the admin page's Titles and text (Studio, Paint your own); the grey line can be switched off */
+var PAINT_TEXT = { title: "Paint your own", sub: "Brush your colours onto the model" };
 const paintFrom = (a) => !Array.isArray(a) ? [] : a.filter((k) => k && Number.isInteger(k.c) && k.c >= 1 && k.c <= 4 && +k.r > 0 && Array.isArray(k.p))
   .map((k) => ({ c: k.c, r: +k.r, p: k.p.filter((q) => Array.isArray(q) && isFinite(q[0]) && isFinite(q[1])).map((q) => [+q[0], +q[1]]) }))
   .filter((k) => k.p.length).slice(0, 500);
@@ -5235,7 +5247,8 @@ function paintChips() {
 function syncPaintButtons() {
   $("paintUndo").disabled = !paintStrokes.length; $("paintRedo").disabled = !paintRedo.length;
   const n = paintStrokes.length;
-  $("paintOpenSub").textContent = n ? n + (n === 1 ? " stroke" : " strokes") + " of your own paint" : "Brush your colours onto the model";
+  const sub = n ? n + (n === 1 ? " stroke" : " strokes") + " of your own paint" : PAINT_TEXT.sub;
+  $("paintOpenSub").textContent = sub; $("paintOpenSub").hidden = !sub;
 }
 function syncPaintOpen() {
   if (!$("paintOpen")) return;
@@ -6128,7 +6141,7 @@ function syncFrameBtn() {
   if (b) {                                           // the Frame tile: added, it says what's on the frame, and opens it
     const fc = $("frameColour"), colour = fc && fc.selectedOptions[0] ? fc.selectedOptions[0].textContent : "Black";
     const n = typeof frameTexts !== "undefined" ? frameTexts.length : 0;
-    dressTile(b, on, on ? "Frame" : "Add frame", on ? colour + " · " + (n ? n + (n === 1 ? " line" : " lines") : "no text yet") : "Engraved text",
+    dressTile(b, on, on ? "Frame" : "Add frame", on ? colour + "\u00a0\u00a0 " + (n ? n + (n === 1 ? " line" : " lines") : "no text yet") : "Engraved text",
               (EXTRA_PRICE && EXTRA_PRICE.frame) || "", "frame");
   }
   const part = $("frameTextPart");
@@ -6221,7 +6234,7 @@ function renderTextList() {
     const nm = document.createElement("div"); nm.className = "dn";
     nm.textContent = "Custom text " + (k + 1) + ": " + (ft.text || "Click to edit");
     const sm = document.createElement("small");
-    sm.textContent = (names[ft.side] || "Front") + " · " + ft.pt + " pt · "
+    sm.textContent = (names[ft.side] || "Front") + "\u00a0\u00a0 " + ft.pt + " pt\u00a0\u00a0 "
                    + FONTS[ft.font][0];
     nm.append(sm);
     const edit = document.createElement("button"); edit.className = "ghost"; edit.textContent = "Edit";
@@ -6506,7 +6519,7 @@ function updateLiftReadout(L) {
   const mm = (x) => (x / L.u).toFixed(1).replace(/\.0$/, "") + " mm";
   const gap = L.topY - L.lift;                      // frame top minus lowest ground
   let txt = gap > 0.001 ? "Lowest ground " + mm(gap) + " below the frame top" : gap < -0.001 ? "Lowest ground " + mm(-gap) + " above the frame top" : "Lowest ground level with the frame top";
-  if (frameVals.lift * L.u < L.lo - 1e-9) txt += " · can't go lower (half the frame height)";
+  if (frameVals.lift * L.u < L.lo - 1e-9) txt += "\u00a0\u00a0 can't go lower (half the frame height)";
   $("liftOut").textContent = txt;
 }
 let liftTimer = null;
@@ -6909,7 +6922,7 @@ function restyleRoute() {
    two swatches can share a hex and differ only in finish. Older designs have no finish: any matches. */
 const sameSwatch = (b, hex, finish) => b.dataset.c.toLowerCase() === String(hex).toLowerCase() && (!finish || !b.dataset.f || b.dataset.f === finish);
 const FINISH_WORD = { matte: "Matte", standard: "Standard" };
-const swatchName = (b) => b ? (b.getAttribute("aria-label") || "") + (b.dataset.f ? " · " + FINISH_WORD[b.dataset.f] : "") : "";
+const swatchName = (b) => b ? (b.getAttribute("aria-label") || "") : "";   // (25 Nov) the colour's name alone, no finish
 function setRouteColour(hex, finish) {
   const b = [...document.querySelectorAll("#routeSwatches button")].find((x) => sameSwatch(x, hex, finish));
   routeStyle.colour = hex; routeStyle.finish = b && b.dataset.f || finish || undefined; routeStyle.colourName = b ? b.getAttribute("aria-label") : routeStyle.colourName;
@@ -8454,6 +8467,7 @@ const BADGES = {                                      // backgrounds, and where 
 };
 const icons = [];
 let iconSeq = 0, selIconId = null;
+const ICON_MIN_MM = 10;                              // (25 Nov) no icon smaller than this on the model
 /* h: how far the icon stands proud of the highest ground under it, in millimetres. At zero its
    top is level with that highest point. */
 const iconStyle = { shape: "heart", badge: "circle", colour: "#D8342B", finish: undefined, colourName: "Red", mm: 10, mode: "raised", h: 3 };
@@ -8599,6 +8613,52 @@ function smoothSides(g) {
   nor.array.set(out); nor.needsUpdate = true;
   return g;
 }
+/* (25 Nov) The selected icon wears an orange outline right round what can be seen of it, its foot
+   on the ground included. It is drawn over the finished picture each frame: the icon's visible
+   pixels are found by drawing the scene again off screen (everything black, then just that icon
+   white where nothing is in front of it), and the pixels just outside them are painted orange. It
+   is a marker, not part of the model: the basket picture and the print never have it. */
+let SEL_OUT = null;
+const SEL_STYLE = { width: 24, glow: 2 };  // (25 Nov, style E) a thick line with a big glow; in screen pixels; glow 0 a plain line, 1 a soft glow, 2 a line with a glow beyond
+function drawSelOutline(renderer, scene, camera) {
+  const t = three; if (!t || selIconId == null || !t.pinHits) return;
+  const parts = t.pinHits.filter((m) => m.userData.iconId === selIconId);
+  if (!parts.length) return;
+  const W = renderer.domElement.width, H = renderer.domElement.height; if (!W || !H) return;
+  if (!SEL_OUT) {
+    const O = SEL_OUT = { rt: new THREE.WebGLRenderTarget(W, H), black: new THREE.MeshBasicMaterial({ color: 0x000000 }),
+      white: new THREE.MeshBasicMaterial({ color: 0xffffff, depthFunc: THREE.LessEqualDepth }),
+      quad: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+    O.mat = new THREE.ShaderMaterial({
+      uniforms: { mask: { value: O.rt.texture }, px: { value: new THREE.Vector2() }, r: { value: 3 }, glow: { value: 0 }, col: { value: new THREE.Color() } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: "uniform sampler2D mask; uniform vec2 px; uniform float r; uniform float glow; uniform vec3 col; varying vec2 vUv;\n" +
+        "void main(){ if (texture2D(mask, vUv).r > 0.5) discard; float d = 99.0;\n" +
+        " for (int i = 0; i < 24; i++) { float a = float(i) * 0.26179939; for (int j = 1; j <= 8; j++) {\n" +
+        "  float k = float(j) / 8.0; if (texture2D(mask, vUv + vec2(cos(a), sin(a)) * px * r * k).r > 0.5) d = min(d, k); } }\n" +
+        " if (d > 1.0) discard; float al = glow > 0.5 ? pow(1.0 - d, 1.6) * 0.95 : 1.0;\n" +
+        " if (glow > 1.5 && d <= 0.34) al = 1.0;\n" +     // 2: a solid line with a glow beyond it
+        " gl_FragColor = vec4(col, al); }",
+      transparent: true,
+      depthTest: false, depthWrite: false });
+    O.quad.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), O.mat));
+  }
+  const O = SEL_OUT; if (O.rt.width !== W || O.rt.height !== H) O.rt.setSize(W, H);
+  const bg = scene.background, auto = renderer.autoClear, cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha();
+  try {
+    renderer.setRenderTarget(O.rt); renderer.setClearColor(0x000000, 1); renderer.clear();
+    scene.background = null; scene.overrideMaterial = O.black; renderer.render(scene, camera);
+    parts.forEach((m) => m.layers.enable(5)); camera.layers.set(5); scene.overrideMaterial = O.white; renderer.autoClear = false;
+    renderer.render(scene, camera);
+  } finally {
+    camera.layers.set(0); parts.forEach((m) => m.layers.disable(5)); scene.overrideMaterial = null; scene.background = bg;
+    renderer.setRenderTarget(null); renderer.setClearColor(cc, ca);
+  }
+  O.mat.uniforms.px.value.set(1 / W, 1 / H); O.mat.uniforms.r.value = SEL_STYLE.width * (renderer.getPixelRatio ? renderer.getPixelRatio() : 1); O.mat.uniforms.glow.value = SEL_STYLE.glow;
+  O.mat.uniforms.col.value.set(getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#E4572E");
+  renderer.render(O.quad, O.cam);
+  renderer.autoClear = auto; t.outlineDrawn = selIconId;
+}
 function buildIcons3D() {
   workStarted();
   try {
@@ -8628,7 +8688,7 @@ function buildIcons3D() {
       const slab = (outlines, d, colour, front) => {   // extrude upwards; the icon's top points to the model's top edge
         const g = extrudeOutlines(outlines, size, d); g.rotateX(-Math.PI / 2); g.translate(x, bottom + d / 2, z);
         const mat = new THREE.MeshStandardMaterial({ color: colour, roughness: 0.55 });
-        const m = new THREE.Mesh(g, mat); m.userData.iconId = ic.id; t.pinHits.push(m); return m;
+        const m = new THREE.Mesh(g, mat); m.userData.iconId = ic.id; if (front) m.userData.front = true; t.pinHits.push(m); return m;
       };
       if (B.d) {
         t.iconGroup.add(slab(outlinesFromPath(B.d), depth, srgb(colourFor("icons", ic.colour))));
@@ -8642,9 +8702,9 @@ function buildIcons3D() {
     const size = ic.mm * u, gy = t.geom.groundY(x, z), stemH = size * 1.3, plate = size * 0.14, proud = ICON_PROUD_MM * u;
     const B = BADGES[ic.badge] || BADGES.circle, S = ICON_SHAPES[ic.shape] || ICON_SHAPES.heart;
     const pin = new THREE.Group(); pin.position.set(x, gy, z); pin.userData.iconId = ic.id;
-    const solid = (geo, colour) => {
+    const solid = (geo, colour, front) => {
       const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: colour, roughness: 0.55 }));
-      m.userData.iconId = ic.id; t.pinHits.push(m); return m;
+      m.userData.iconId = ic.id; if (front) m.userData.front = true; t.pinHits.push(m); return m;
     };
     const foot = new THREE.CylinderGeometry(size * 0.16, size * 0.2, size * 0.05, 20); foot.translate(0, size * 0.02, 0);
     const stem = new THREE.CylinderGeometry(size * 0.045, size * 0.06, stemH, 12); stem.translate(0, stemH / 2, 0);
@@ -8876,7 +8936,7 @@ function syncAddIcon() {
 }
 function setIcons(list) { icons.length = 0; icons.push(...list); selIconId = null; iconsChanged(); }
 function selectIcon(id) {
-  selIconId = id;
+  const was = selIconId; selIconId = id;
   const ic = icons.find((x) => x.id === id);
   if (ic) { Object.assign(iconStyle, { shape: ic.shape, badge: ic.badge, colour: ic.colour, finish: ic.finish, colourName: ic.colourName, mm: ic.mm, mode: ic.mode, h: ic.h ?? 3 }); syncIconControls(); }
   renderIconList();
@@ -8898,7 +8958,7 @@ function renderIconList() {
     const nm = document.createElement("div"); nm.className = "dn";
     nm.textContent = ICON_SHAPES[ic.shape].label + " " + (k + 1);
     const sm = document.createElement("small");
-    sm.textContent = ic.mm + " mm · " + ((ic.h ?? 3) > 0 ? (ic.h ?? 3) + " mm proud" : "level with the ground");
+    sm.textContent = ic.mm + " mm\u00a0\u00a0 " + ((ic.h ?? 3) > 0 ? (ic.h ?? 3) + " mm proud" : "level with the ground");
     nm.append(sm);
     const name = nm.firstChild.textContent;
     const edit = document.createElement("button"); edit.className = "ghost"; edit.textContent = "Edit";
@@ -8934,7 +8994,7 @@ function initIconControls() {           // run at start-up, once every helper it
   $("iconBadge").addEventListener("change", (e) => { iconStyle.badge = e.target.value; iconControlChanged(); });
   document.querySelectorAll("#iconModeSeg button").forEach((b) => b.addEventListener("click", () => { iconStyle.mode = b.dataset.imode; iconControlChanged(); }));
   document.querySelectorAll("#iconSwatches button").forEach((b) => b.addEventListener("click", () => pickIconColour(b)));
-  bindPair("iconMM", "iconMMNum", 3, 40, (v) => { iconStyle.mm = v; iconControlChanged(); });
+  bindPair("iconMM", "iconMMNum", ICON_MIN_MM, 40, (v) => { iconStyle.mm = v; iconControlChanged(); });
   bindPair("iconH", "iconHNum", 0, 20, (v) => { iconStyle.h = v; iconControlChanged(); });
   $("addIcon").addEventListener("click", () => {
     if (icons.length >= MAX_ICONS) { toast("A model can carry up to " + MAX_ICONS + " icons."); return; }
@@ -10464,7 +10524,7 @@ function siteSettings() {
 }
 const SWATCH_HTML = (c) => { const b = document.createElement("button"); b.type = "button"; b.dataset.c = c.hex; b.style.background = c.hex;
   if (FINISH_WORD[c.finish]) b.dataset.f = c.finish;
-  b.setAttribute("aria-label", c.name); b.title = c.name + (FINISH_WORD[c.finish] ? " · " + FINISH_WORD[c.finish] : ""); b.setAttribute("aria-pressed", "false"); return b; };
+  b.setAttribute("aria-label", c.name); b.title = c.name; b.setAttribute("aria-pressed", "false"); return b; };
 const FINISH_NAMES = { black: "Black", white: "White" };
 /* Which parts of the model are offered at all (the admin page's Model parts). One that's off isn't
    drawn and its switch is hidden; one that's on is drawn as the studio would anyway. Roads and paths
@@ -10547,6 +10607,13 @@ function applySiteSettings(v) {
     if (v.prices && v.prices.maxIcons >= 0) MAX_ICONS = v.prices.maxIcons;
     if (v.text && typeof v.text === "object") applyStudioText(v.text);
     if (v.parts && typeof v.parts === "object") { for (const k of Object.keys(PARTS_ON)) if (typeof v.parts[k] === "boolean") PARTS_ON[k] = v.parts[k]; enforceParts(true); }
+    // Paint your own: its name and grey line (switched off: "")
+    if (v.text && typeof v.text === "object") {
+      if (typeof v.text["studio.paint.title"] === "string" && v.text["studio.paint.title"].trim()) PAINT_TEXT.title = v.text["studio.paint.title"];
+      if (typeof v.text["studio.paint.sub"] === "string") PAINT_TEXT.sub = v.text["studio.paint.sub"];
+      $("paintOpenTitle").textContent = PAINT_TEXT.title; $("paintBar").setAttribute("aria-label", PAINT_TEXT.title.replace(/\.\s*$/, ""));
+      syncPaintButtons();
+    }
     // snow on steep ground; a "Try it in the studio" link's numbers win in its tab
     if (v.snow && !snowTrial && setSnowSlope(v.snow) && current && three) rebuild();
   } catch (e) { console.error("settings", e); }
@@ -10634,7 +10701,7 @@ function orderFacts(st) {
   const sc = st.print && st.print.scheme && schemeBy(st.print.scheme);
   const fc = $("frameColour"), fcName = fc && fc.selectedOptions && fc.selectedOptions[0] ? fc.selectedOptions[0].textContent.trim() : "";
   const out = ["Shape: " + (f.outline === "hex" ? "Hexagon" : "Square"), "Colours: " + (sc ? sc.label : "Plain")];
-  if (f.show) out.push("Custom frame: " + [fcName, texts.length ? "engraved \u201c" + texts.join(" · ") + "\u201d" : ""].filter(Boolean).join(", "));
+  if (f.show) out.push("Custom frame: " + [fcName, texts.length ? "engraved \u201c" + texts.join("\u00a0\u00a0 ") + "\u201d" : ""].filter(Boolean).join(", "));
   if (st.route) out.push("Custom route: " + (st.route.name || "your route"));
   if ((st.icons || []).length) out.push("Icons: " + st.icons.length);
   return out;
@@ -10890,7 +10957,7 @@ async function applyState(st, origin, opts) {
   $("routeOutline").checked = routeStyle.outline; $("routeMarkers").checked = routeStyle.markers; $("routeOnMap").checked = routeStyle.onMap;
   showRouteInfo();
   setRouteColour(routeStyle.colour, routeStyle.finish);   // also redraws the route on the map
-  setIcons((st.icons || []).map((ic) => Object.assign({ id: ++iconSeq }, ic)));
+  setIcons((st.icons || []).map((ic) => Object.assign({ id: ++iconSeq }, ic, { mm: Math.max(ICON_MIN_MM, +ic.mm || 10) })));   // none smaller than 10 mm
   enforceParts(false);                               // what the admin page has switched off stays off, whatever the design says
   syncLegend(); syncProfileButtons(); syncGates();
   setPlaceChosen(true);

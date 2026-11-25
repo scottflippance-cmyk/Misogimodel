@@ -72,6 +72,8 @@ export const TEXT = [
   ["studio.frame.sub", "Studio", "Frame", "Grey line", "The engraving."],
   ["studio.colours.title", "Studio", "Colours", "Section name", "Colours."],
   ["studio.colours.sub", "Studio", "Colours", "Grey line", "Pick your favourite."],
+  ["studio.paint.title", "Studio", "Paint your own", "Name", "Paint your own"],
+  ["studio.paint.sub", "Studio", "Paint your own", "Grey line", "Brush your colours onto the model"],
   ["studio.order.title", "Studio", "Order", "Section name", "Order."],
   ["studio.order.sub", "Studio", "Order", "Grey line", "Printed and posted to you."],
 ].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011"),

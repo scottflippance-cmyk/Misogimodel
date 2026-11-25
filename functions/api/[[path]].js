@@ -417,7 +417,7 @@ export function coloursLine(d) {
 export function routeLine(d, named) {
   if (!d.route) return "No";
   const rs = d.routeStyle || {};
-  return ((named && d.route.name) || "Yes") + (rs.colour ? " · " + colourWords(rs.colourName, rs.colour, rs.finish) : "");
+  return ((named && d.route.name) || "Yes") + (rs.colour ? "\u00a0\u00a0 " + colourWords(rs.colourName, rs.colour, rs.finish) : "");
 }
 export function iconsLine(d) {
   const list = d.icons || []; if (!list.length) return "0";
@@ -431,7 +431,7 @@ export function sheetRow(rec, p, { short, i, n, modelUrl }) {
   return {
     "Order": short, "Model": (i + 1) + " of " + n, "Model name": rec.name || "",
     "Size": p.size.name + " (" + p.size.dims + ")", "Shape": f.outline === "hex" ? "Hexagon" : "Square",
-    "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join(" · ") : "",
+    "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join("\u00a0\u00a0 ") : "",
     "Route": routeLine(d),
     "Icons": iconsLine(d), "Colours": coloursLine(d),
     "Model price": money(p.subtotal, PRICING.currency), "Print file": modelUrl, "Studio link": rec.link || "", "Status": "To print",
@@ -466,7 +466,7 @@ function itemBlock(rec, p, origin, modelUrl, attached, tooBig) {
     ["Area", d.sel ? (d.sel.size / 1000).toFixed(2) + " km square" + (d.sel.rot ? ", turned " + d.sel.rot + "°" : "") : "—"],
     ["Shape", f.outline === "hex" ? "Hexagon" : "Square"],
     ["Colours", coloursLine(d)],
-    ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
+    ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join("\u00a0\u00a0 ") : "") : "No"],
     ["Loose parts", looseParts(f)],
     ["Route", routeLine(d, true)],
     ["Icons", iconsLine(d)],
@@ -476,7 +476,7 @@ function itemBlock(rec, p, origin, modelUrl, attached, tooBig) {
 <h3 style="margin:0 0 10px">${esc(rec.name || "A model")}</h3>
 <img src="${origin}/api/items/${rec.id}/preview.jpg" alt="" style="width:100%;max-width:420px;border-radius:12px">
 <table cellpadding="3" style="border-collapse:collapse;margin-top:8px">${facts}</table>
-<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : tooBig ? "Print file too big to attach (" + (tooBig / 1048576).toFixed(1) + " MB): download it from the link. " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? ` · <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
+<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : tooBig ? "Print file too big to attach (" + (tooBig / 1048576).toFixed(1) + " MB): download it from the link. " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? `&nbsp;&nbsp; <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
 </div>`;
 }
 async function webhook(request, env) {
@@ -521,7 +521,7 @@ async function webhook(request, env) {
   const n = order.items.length;
   const html = `<div style="font-family:Inter,Arial,sans-serif;color:#0B0E12;max-width:640px">
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
-<p style="margin:0 0 16px;color:#5B6470">Order <b style="color:#0B0E12">${esc(short)}</b> · ${esc(new Date().toUTCString())}<br><span style="font-size:12px">Reference ${esc(id)}</span></p>
+<p style="margin:0 0 16px;color:#5B6470">Order <b style="color:#0B0E12">${esc(short)}</b>&nbsp;&nbsp; ${esc(new Date().toUTCString())}<br><span style="font-size:12px">Reference ${esc(id)}</span></p>
 <h3>Send to</h3><p>${addr || "—"}<br>${esc(cd.email || "")}${cd.phone ? "<br>" + esc(cd.phone) : ""}</p>
 <p style="color:#5B6470">Wants updates by email: ${order.updates ? "yes" : "no"}</p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%">

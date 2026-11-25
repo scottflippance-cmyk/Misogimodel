@@ -268,13 +268,13 @@ function say(t, bad) { $("msg").textContent = t || ""; $("msg").classList.toggle
 
 /* Models to start from, shown under an empty cart. Each opens in the studio, framed and built. */
 const SUGGESTIONS = [
-  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania · 5,895 m", say: "Africa's highest peak. A volcano rising out of the plains." },
-  { key: "everest", name: "Everest", where: "Nepal & China · 8,849 m", say: "The highest point in the world. The first documented ascent in 1953." },
-  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA · 1.8 km deep", say: "Carved by the Colorado River over millions of years." },
-  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia · 4,884 m", say: "Oceania's highest peak. A limestone wall above the rainforest." },
-  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England · 978 m", say: "England's highest mountain, at the head of Wasdale." },
+  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania\u00a0\u00a0 5,895 m", say: "Africa's highest peak. A volcano rising out of the plains." },
+  { key: "everest", name: "Everest", where: "Nepal & China\u00a0\u00a0 8,849 m", say: "The highest point in the world. The first documented ascent in 1953." },
+  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA\u00a0\u00a0 1.8 km deep", say: "Carved by the Colorado River over millions of years." },
+  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia\u00a0\u00a0 4,884 m", say: "Oceania's highest peak. A limestone wall above the rainforest." },
+  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England\u00a0\u00a0 978 m", say: "England's highest mountain, at the head of Wasdale." },
   { key: "yosemite", name: "Yosemite Valley", where: "California, USA", say: "A glacier-carved valley between El Capitan and Half Dome." },
-  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy · 1,281 m", say: "The volcano that buried Pompeii in AD 79, above the Bay of Naples." },
+  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy\u00a0\u00a0 1,281 m", say: "The volcano that buried Pompeii in AD 79, above the Bay of Naples." },
 ];
 /* The row moves along one model every 3 seconds, round and round: a second set of the cards follows
    the first (hidden from screen readers and the keyboard), and once the row has moved a whole set
@@ -369,7 +369,7 @@ function render() {
     // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
     const facts = (it.facts || []).filter((f) => !/web address on the back|staples to join/i.test(f))   // older baskets carried these
       .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
-    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? " · " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
+    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? "\u00a0\u00a0 " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
     for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
     if (gone[it.id] && gone[it.id].length) {           // switched off since it went in the basket
       const g = document.createElement("p"); g.className = "gone"; g.textContent = gone[it.id].join(" ") + " ";

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Admin · misogimodel</title>
+<title>Admin&nbsp;&nbsp; misogimodel</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
 /* The admin page. Only you can open it: Cloudflare Access stands in front of /admin and /api/admin,
@@ -437,7 +437,7 @@ function renderHistory() {
     el("button", { class: hist.filter === k ? "on" : "", onclick: () => { hist.filter = k; renderHistory(); } }, t)));
   sec.replaceChildren(el("div", { class: "hd" }, el("h2", {}, "History")),
     el("p", { class: "sub" }, "Every save and copy, on either site, newest first: when, who, and what changed. It updates by itself while this tab is open."),
-    el("div", { class: "histbar" }, seg, el("span", {}, hist.err ? "Couldn't load: " + hist.err : hist.loaded ? "Up to date · " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "Loading…")));
+    el("div", { class: "histbar" }, seg, el("span", {}, hist.err ? "Couldn't load: " + hist.err : hist.loaded ? "Up to date\u00a0\u00a0 " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "Loading…")));
   if (hist.loaded && !shown.length) sec.append(el("p", { class: "sub" }, "Nothing yet. Changes appear here once they're saved."));
   for (const e of shown) {
     const what = e.action === "copy" ? "Copied " + (e.section === "all" ? "everything" : sectionName(e.section)) + " from Preview" : "Saved";
@@ -617,7 +617,7 @@ function renderColourWays() {
       el("span", { class: "nm" }, cw.label || "(no name)"),
       tog(cw.on, (v) => { cw.on = v; item.classList.toggle("off", !v); refresh(); }, cw.key === "solid", "Offer " + cw.label),
       el("span", { class: "bar", style: "background:" + fill(cols) }),
-      el("span", { class: "meta" }, el("span", { class: "tag" }, n + (n === 1 ? " colour" : " colours") + " · " + (price ? "+" + pounds(price) : "included")),
+      el("span", { class: "meta" }, el("span", { class: "tag" }, n + (n === 1 ? " colour" : " colours") + "\u00a0\u00a0 " + (price ? "+" + pounds(price) : "included")),
         el("span", { class: "warn" }), el("span", { style: "margin-left:auto", html: PEN_SVG })));
     list.append(item);
   });
@@ -789,7 +789,7 @@ function renderChecks(wrong, d) {
 }
 function renderPreview() {
   const box = $("preview"), v = S.publicView(S.sanitise(work)), p = v.prices;
-  const dots = (list) => el("div", { class: "dots" }, list.map((c) => el("span", { class: c.finish === "matte" ? "m" : "", style: "background:" + c.hex, title: c.name + " · " + S.FINISHES[c.finish] })));
+  const dots = (list) => el("div", { class: "dots" }, list.map((c) => el("span", { class: c.finish === "matte" ? "m" : "", style: "background:" + c.hex, title: c.name })));
   box.replaceChildren(el("h3", {}, "What the studio will offer"), el("p", { class: "sub", style: "margin:-4px 0 4px;font-size:12px" }, "Once saved. Only what's switched on."),
     el("div", { class: "lbl" }, "Colour ways"),
     el("div", { class: "tiles" }, v.colourWays.map((c) => { const n = c.colours.length, pr = p.colours[n];
