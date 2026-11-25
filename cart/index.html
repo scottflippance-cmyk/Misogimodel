@@ -367,7 +367,7 @@ function render() {
     li.querySelector("h2").textContent = it.name || "Your place";
     const what = li.querySelector(".what");
     // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
-    const facts = (it.facts || []).filter((f) => !/web address on the back/i.test(f))
+    const facts = (it.facts || []).filter((f) => !/web address on the back|staples to join/i.test(f))   // older baskets carried these
       .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
     const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? " · " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
     for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
@@ -422,7 +422,7 @@ function render() {
    framed models is on a smaller size (the Misogi has none), all counted from the basket. */
 function renderBox(items) {
   const n = items.length, framed = items.filter((x) => x.item && x.item.frame);
-  const hex = (x) => /^Hexagon\b/i.test((x.facts || [])[0] || "");
+  const hex = (x) => /^(Shape: )?Hexagon\b/i.test((x.facts || [])[0] || "");   // "Shape: Hexagon", or an older basket's "Hexagon, …"
   const big = (x) => x.item && x.item.sizeMM >= 500;
   const set = (card, h, text) => { const c = $(card); c.querySelector("h3").textContent = h; c.querySelector(".part-text").textContent = text; };
   // the model(s)

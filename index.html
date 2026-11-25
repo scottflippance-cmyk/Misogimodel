@@ -286,6 +286,7 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 .cw__img > .cw__bar{position:absolute;left:24px;right:24px;bottom:24px;height:14px;border-radius:7px;flex:none}
 .cw__ph{margin:0;font-size:13px;color:#5B6470;background:#FFFFFF;padding:8px 14px;border-radius:999px}
 .cw__photo{position:absolute;inset:0;background-size:cover;background-position:center}
+.cw__img.is-on{opacity:1}
 .cw:not(:has(.cw__opt:hover)):has(input[value=solid]:checked) .cw__img[data-cw=solid],
 .cw:has(.cw__opt[data-cw=solid]:hover) .cw__img[data-cw=solid]{opacity:1}
 .cw:not(:has(.cw__opt:hover)):has(input[value=land-water]:checked) .cw__img[data-cw=land-water],
@@ -336,6 +337,7 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
   #faq details p{margin-top:10px !important;font-size:14.5px !important;line-height:1.55 !important}}
 /* Under the swatch row on a phone, one line describes the colour way picked (or hovered). */
 .cw__caps{display:none}
+.cw .cw__cap.is-on{display:block}
 .cw__cap{display:none}
 .cw:not(:has(.cw__opt:hover)):has(input[value=solid]:checked) .cw__cap[data-cw=solid],.cw:has(.cw__opt[data-cw=solid]:hover) .cw__cap[data-cw=solid],
 .cw:not(:has(.cw__opt:hover)):has(input[value=land-water]:checked) .cw__cap[data-cw=land-water],.cw:has(.cw__opt[data-cw=land-water]:hover) .cw__cap[data-cw=land-water],
@@ -812,6 +814,38 @@ html::-webkit-scrollbar-thumb:hover{background:#C9461F content-box}
 </script>
 <!-- /banner-contours -->
 <script src="/site-text.js"></script>
+<script>
+/* "Pick your style" follows the admin page's colour ways (25 Nov): their names, colours (from the
+   filaments), the line under each name, and only those switched on, Solid first. The page is written
+   with the usual five, so it reads right before the settings arrive or if they can't be fetched.
+   The picture and caption shown are the hovered one, else the chosen one, for any colour way. */
+(() => {
+  const root = document.querySelector(".cw"); if (!root) return;
+  const IMG = { water: "land-water", green: "land-green" };   // the photos' file names for the first five
+  const mk = (tag, attrs, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); e.append(...kids.filter((k) => k != null)); return e; };
+  const bar = (cols) => mk("span", { class: "cw__bar", "aria-hidden": "true" }, ...cols.map((c) => { const s = mk("span"); s.style.background = c; return s; }));
+  const show = () => {
+    const hov = root.querySelector(".cw__opt:hover"), chk = root.querySelector(".cw__opt input:checked");
+    const k = hov ? hov.dataset.cw : chk ? chk.value : null;
+    root.querySelectorAll(".cw__img, .cw__cap").forEach((e) => e.classList.toggle("is-on", e.dataset.cw === k));
+  };
+  root.addEventListener("change", show); root.addEventListener("mouseover", show); root.addEventListener("mouseleave", show);
+  const build = (v) => {
+    const ways = v && Array.isArray(v.colourWays) ? v.colourWays.filter((c) => c && c.key && Array.isArray(c.colours) && c.colours.length) : [];
+    if (!ways.length) return show();
+    const list = root.querySelector(".cw__list"), caps = root.querySelector(".cw__caps"), view = root.querySelector(".cw__view");
+    const was = (root.querySelector(".cw__opt input:checked") || {}).value, keyOf = (k) => IMG[k] || k;
+    const pick = ways.some((c) => keyOf(c.key) === was) ? was : ways.some((c) => c.key === "natural") ? "natural" : keyOf(ways[0].key);
+    list.replaceChildren(...ways.map((c) => { const k = keyOf(c.key), inp = mk("input", { type: "radio", name: "colourway", value: k }); inp.checked = k === pick;
+      return mk("label", { class: "cw__opt", "data-cw": k }, inp, bar(c.colours), mk("span", { class: "cw__text" }, mk("span", { class: "cw__name" }, c.label), c.note ? mk("span", { class: "cw__note" }, c.note) : null)); }));
+    caps.replaceChildren(...ways.map((c) => mk("p", { class: "cw__cap", "data-cw": keyOf(c.key) }, mk("b", {}, c.label + "."), c.note ? " " + c.note : "")));
+    view.replaceChildren(...ways.map((c) => { const k = keyOf(c.key), ph = mk("div", { class: "cw__photo" }); ph.style.backgroundImage = "url('/images/colourways/" + k + ".jpg')";
+      return mk("div", { class: "cw__img", "data-cw": k, role: "img", "aria-label": "A print in the " + c.label + " colour way" }, bar(c.colours), mk("p", { class: "cw__ph" }, "[PHOTO: a print in " + c.label + "]"), ph); }));
+    show();
+  };
+  (window.MISOGI_SITE || Promise.resolve(null)).then((v) => { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => build(v)); else build(v); });
+})();
+</script>
 <script>
 /* The homepage's two moving parts.
    1. (The footer's mountain logo used to rise as the page reached its end; it stands still now.)

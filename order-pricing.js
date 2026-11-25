@@ -15,9 +15,9 @@ export const PRICING = {
     500: { name: "The Misogi",     dims: "50 cm × 50 cm", tiles: "Four interlocking tiles", price: 19900 },   // printed as four tiles that join
   },
   extras: {
-    route: { label: "Your route, raised on the model", short: "route", price: 200 },
-    frame: { label: "Frame with your engraved text", short: "frame", price: 800 },
-    icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
+    route: { label: "Custom 3D route", short: "route", price: 200 },
+    frame: { label: "Custom frame with engraved text", short: "frame", price: 800 },
+    icon:  { label: "Custom icon", short: "icon", price: 100 },  // charged per icon
   },
   /* Print colours, by how many filaments the scheme uses: one colour is included, more cost more. */
   colours: {

@@ -14,8 +14,8 @@
 
    Amounts are in pence: 4900 is £49.00. */
 
-export const SECTIONS = ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices", "text", "faqs", "emails"];
-export const SECTION_NAMES = { parts: "Model parts", filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
+export const SECTIONS = ["parts", "snow", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes", "prices", "text", "faqs", "emails"];
+export const SECTION_NAMES = { parts: "Model parts", snow: "Snow on steep ground", filaments: "Filaments", colourWays: "Colour ways", routeColours: "Route colours",
   iconColours: "Icon colours", frameFinishes: "Frame finishes", prices: "Prices", text: "Titles and text", faqs: "Questions", emails: "Emails" };
 
 /* The emails the site sends, and what the admin page can change about each: whether it goes at all,
@@ -57,22 +57,22 @@ export const TEXT = [
   ["home.faq.title", "Homepage", "Questions", "Title", "Questions."],
   ["home.news.title", "Homepage", "Newsletter", "Title", "Keep in the loop."],
   ["home.news.sub", "Homepage", "Newsletter", "Under the title", "Be the first to hear about new products, deals and updates."],
-  ["studio.size.title", "Studio", "Print size", "Section name", "Print Dimensions"],
+  ["studio.size.title", "Studio", "Print size", "Section name", "Print Dimensions."],
   ["studio.size.sub", "Studio", "Print size", "Grey line", "The size of your design once printed."],
-  ["studio.extras.title", "Studio", "Extras", "Section name", "Extras"],
+  ["studio.extras.title", "Studio", "Extras", "Section name", "Extras."],
   ["studio.extras.sub", "Studio", "Extras", "Grey line", "All optional."],
-  ["studio.look.title", "Studio", "Look", "Section name", "Look"],
+  ["studio.look.title", "Studio", "Look", "Section name", "Look."],
   ["studio.look.sub", "Studio", "Look", "Grey line", "Free to change."],
   ["studio.relief.title", "Studio", "Relief", "Section name", "Relief"],
-  ["studio.route.title", "Studio", "Route", "Section name", "Route"],
+  ["studio.route.title", "Studio", "Route", "Section name", "Route."],
   ["studio.route.sub", "Studio", "Route", "Grey line", "Your trail, on the model."],
-  ["studio.icons.title", "Studio", "Icons", "Section name", "Icons"],
+  ["studio.icons.title", "Studio", "Icons", "Section name", "Icons."],
   ["studio.icons.sub", "Studio", "Icons", "Grey line", "Drag them into place."],
-  ["studio.frame.title", "Studio", "Frame", "Section name", "Frame"],
+  ["studio.frame.title", "Studio", "Frame", "Section name", "Frame."],
   ["studio.frame.sub", "Studio", "Frame", "Grey line", "The engraving."],
-  ["studio.colours.title", "Studio", "Colours", "Section name", "Colours"],
+  ["studio.colours.title", "Studio", "Colours", "Section name", "Colours."],
   ["studio.colours.sub", "Studio", "Colours", "Grey line", "Pick your favourite."],
-  ["studio.order.title", "Studio", "Order", "Section name", "Order"],
+  ["studio.order.title", "Studio", "Order", "Section name", "Order."],
   ["studio.order.sub", "Studio", "Order", "Grey line", "Printed and posted to you."],
 ].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011"),
   optional: label === "Under the title" || label === "Grey line" }));   // the grey lines can be switched off: stored as ""
@@ -87,10 +87,25 @@ export const FINISHES = { matte: "Matte", standard: "Standard" };   // a filamen
 export const FINISH_KEYS = ["black", "white"];        // the frame
 const FINISH_NAMES = { black: "Black", white: "White" };
 
+/* the snow numbers, as the admin page and History name them */
+export const SNOW_NAMES = { thin: "Starts thinning at", mostly: "Mostly gone by", left: "Left by then", bare: "Bare from",
+  faceFrom: "Steep-looking faces: thinning from", faceBare: "Steep-looking faces: bare from" };
+/* whole degrees 0-90 (left: 0-100%), each one no lower than the one before it */
+function snowOf(g, d) {
+  g = g && typeof g === "object" ? g : {};
+  const n = (k, lo, hi) => { const v = Math.round(Number(g[k])); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d[k]; };
+  const o = { thin: n("thin", 0, 90), mostly: n("mostly", 0, 90), left: n("left", 0, 100), bare: n("bare", 0, 90), faceFrom: n("faceFrom", 0, 90), faceBare: n("faceBare", 0, 90) };
+  o.mostly = Math.max(o.mostly, o.thin); o.bare = Math.max(o.bare, o.mostly); o.faceBare = Math.max(o.faceBare, o.faceFrom);
+  return o;
+}
 export const DEFAULT_SETTINGS = {
   version: 3,
   /* Which parts the studio shows at all. Off: not drawn, and its switch hidden. */
   parts: { water: true, trees: true, trees3d: true, shrubs: true, paths: false, roads: false, snow: true },
+  /* (25 Nov) How steepness keeps snow off, on screen and in the print: it starts thinning at thin°, is
+     down to left% by mostly°, and is gone from bare°; and on the model, where the exaggerated relief makes
+     a face look near-vertical, it goes between faceFrom° and faceBare° of that drawn slope. */
+  snow: { thin: 35, mostly: 50, left: 20, bare: 60, faceFrom: 62, faceBare: 72 },
   filaments: [
     { id: "slate-grey", name: "Slate grey", hex: "#8A949E", on: true },
     { id: "bone", name: "Bone", hex: "#E4DCCB", on: true },
@@ -109,11 +124,12 @@ export const DEFAULT_SETTINGS = {
   /* Each colour way: its filaments in order (colour 1 is the ground), and which part takes which.
      Solid always comes first and is always on: its one filament is the model's plain colour. */
   colourWays: [
-    { key: "solid", label: "Solid", on: true, slots: ["slate-grey"], assign: {} },
-    { key: "water", label: "Land & water", on: true, slots: ["slate-grey", "slate"], assign: { water: 2 } },
-    { key: "green", label: "Land & green", on: true, slots: ["slate-grey", "moss"], assign: { trees: 2, trees3d: 2, shrubs: 2 } },
-    { key: "natural", label: "Natural", on: true, slots: ["slate-grey", "slate", "moss", "clay"], assign: { water: 2, trees: 3, trees3d: 3, shrubs: 3, paths: 4 } },
-    { key: "bold", label: "Bold", on: true, slots: ["charcoal", "slate-grey", "sand", "clay"], assign: { water: 2, paths: 3, trees: 4, trees3d: 4, shrubs: 4 } },
+    // note: the line under its name on the homepage's "Pick your style" (25 Nov)
+    { key: "solid", label: "Solid", note: "Every surface one quiet grey.", on: true, slots: ["slate-grey"], assign: {} },
+    { key: "water", label: "Land & water", note: "Ground in grey, lakes and sea in blue.", on: true, slots: ["slate-grey", "slate"], assign: { water: 2 } },
+    { key: "green", label: "Land & green", note: "Ground in grey, woods and fields in green.", on: true, slots: ["slate-grey", "moss"], assign: { trees: 2, trees3d: 2, shrubs: 2 } },
+    { key: "natural", label: "Natural", note: "Grey ground, blue water, green woods, your route in red.", on: true, slots: ["slate-grey", "slate", "moss", "clay"], assign: { water: 2, trees: 3, trees3d: 3, shrubs: 3, paths: 4 } },
+    { key: "bold", label: "Bold", note: "Dark ground with every feature picked out.", on: true, slots: ["charcoal", "slate-grey", "sand", "clay"], assign: { water: 2, paths: 3, trees: 4, trees3d: 4, shrubs: 4 } },
   ],
   /* Route and icon colours are filaments from the list above: their name, colour and finish come from there. */
   routeColours: ["red", "yellow", "blue", "purple", "white", "black"].map((filament) => ({ filament, on: true })),
@@ -163,6 +179,7 @@ export function sanitise(input) {
   if (!fil.length) fil.push(...clone(d.filaments));
   const gp = s.parts && typeof s.parts === "object" ? s.parts : {};
   out.parts = Object.fromEntries(Object.keys(PARTS).map((k) => [k, bool(gp[k], d.parts[k])]));
+  out.snow = snowOf(s.snow, d.snow);
   // the words: only those changed from what the page says already
   out.text = {};
   const gt = s.text && typeof s.text === "object" ? s.text : {};
@@ -194,12 +211,13 @@ export function sanitise(input) {
     // drop the colours nothing uses, numbering the rest again
     const used = [1, ...new Set(Object.values(assign))].sort((x, y) => x - y), keep = slots.filter((_, i) => used.includes(i + 1));
     for (const p of Object.keys(assign)) assign[p] = used.indexOf(assign[p]) + 1;
-    ways.push({ key, label: nameOf(g.label) || (def ? def.label : "Colour way"), on: key === "solid" ? true : bool(g.on, true), slots: keep, assign });
+    const note = g.note == null ? (def ? def.note : "") : textOf(g.note, 120, false).trim();   // "" is allowed: no line
+    ways.push({ key, label: nameOf(g.label) || (def ? def.label : "Colour way"), note, on: key === "solid" ? true : bool(g.on, true), slots: keep, assign });
     keys.add(key);
     if (ways.length >= MAX_COLOUR_WAYS) break;
   }
   const si = ways.findIndex((c) => c.key === "solid");
-  const solid = si >= 0 ? ways.splice(si, 1)[0] : { key: "solid", label: "Solid", on: true, slots: [ids.has("slate-grey") ? "slate-grey" : fil[0].id], assign: {} };
+  const solid = si >= 0 ? ways.splice(si, 1)[0] : { key: "solid", label: "Solid", note: d.colourWays[0].note, on: true, slots: [ids.has("slate-grey") ? "slate-grey" : fil[0].id], assign: {} };
   out.colourWays = [solid, ...ways].slice(0, MAX_COLOUR_WAYS);
 
   // route and icon colours: each a filament. Older settings kept a name, colour and finish here
@@ -261,11 +279,12 @@ export function publicView(settings) {
   const s = sanitise(settings), byId = Object.fromEntries(s.filaments.map((f) => [f.id, f]));
   const base = byId[s.colourWays[0].slots[0]];          // Solid's filament: the model's plain colour
   const colourWays = s.colourWays.filter((c, i) => i === 0 || (c.on && c.slots.every((id) => byId[id] && byId[id].on)))
-    .map((c) => ({ key: c.key, label: c.label, colours: c.slots.map((id) => byId[id].hex), assign: clone(c.assign) }));
+    .map((c) => ({ key: c.key, label: c.label, note: c.note || "", colours: c.slots.map((id) => byId[id].hex), assign: clone(c.assign) }));
   const p = s.prices;
   return {
     version: 3,
     parts: clone(s.parts),
+    snow: clone(s.snow),
     ground: base.hex,
     colourWays,
     routeColours: swatchesOn(s.routeColours, byId),
@@ -419,6 +438,7 @@ export function describeChanges(beforeIn, afterIn) {
   const filName = (S, id) => { const f = S.filaments.find((x) => x.id === id); return f ? f.name : id; };
   // model parts
   for (const k of Object.keys(PARTS)) if (A.parts[k] !== B.parts[k]) add("parts", PARTS[k] + " " + onOff(B.parts[k]));
+  for (const k of Object.keys(SNOW_NAMES)) if (A.snow[k] !== B.snow[k]) add("snow", SNOW_NAMES[k] + ": " + A.snow[k] + (k === "left" ? "%" : "°") + " → " + B.snow[k] + (k === "left" ? "%" : "°"));
   // filaments, by their id
   const fa = Object.fromEntries(A.filaments.map((f) => [f.id, f])), fb = Object.fromEntries(B.filaments.map((f) => [f.id, f]));
   for (const f of B.filaments) { const o = fa[f.id];
@@ -434,6 +454,7 @@ export function describeChanges(beforeIn, afterIn) {
   for (const c of B.colourWays) { const o = wa[c.key];
     if (!o) { add("colourWays", "Added " + c.label + " (" + c.slots.map((id) => filName(B, id)).join(", ") + ")"); continue; }
     if (o.label !== c.label) add("colourWays", "Renamed " + o.label + " to " + c.label);
+    if ((o.note || "") !== (c.note || "")) add("colourWays", c.label + ": description " + (c.note ? "now \u201c" + c.note + "\u201d" : "removed"));
     if (o.on !== c.on) add("colourWays", c.label + " " + onOff(c.on));
     if (!same(o.slots, c.slots)) add("colourWays", c.label + ": colours " + o.slots.map((id) => filName(A, id)).join(", ") + " → " + c.slots.map((id) => filName(B, id)).join(", "));
     if (!same(o.assign, c.assign)) {

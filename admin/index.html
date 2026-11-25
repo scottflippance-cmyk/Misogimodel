@@ -135,6 +135,7 @@ section{background:var(--card);border:1px solid var(--line);border-radius:14px;p
 .trow.changed > span::after, .trow.changed .lbl2 > span::after{content:" •";color:var(--acc)}
 .tin{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--soft);font:inherit;line-height:1.4;resize:none;overflow:hidden;display:block}
 textarea.tin{min-height:calc(1.4em + 14px)}
+.cw-note{margin:0 0 14px}
 .tin:focus{outline:none;border-color:var(--ink);background:#fff}
 .reset{border:0;background:none;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;padding:7px 0 0;text-align:left}
 .reset[hidden]{display:none}
@@ -184,6 +185,11 @@ textarea.tin{min-height:calc(1.4em + 14px)}
 .rule select{border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:#fff}
 .rule .eg{color:var(--muted);font-size:12.5px;margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
+.snowrow{display:grid;grid-template-columns:230px minmax(0,1fr) 74px;gap:12px;align-items:center;padding:6px 0}
+.snowrow input[type=range]{width:100%;accent-color:var(--acc)}
+.snowrow .num{display:flex;align-items:center;gap:4px}.snowrow .num input{width:52px}
+.snowrow.changed > span{font-weight:600;color:var(--ink)}
+.snowacts{display:flex;gap:8px;margin-top:10px}
 .pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
 .pcard{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .pcard div{flex:1;min-width:0}.pcard b{display:block}.pcard small{color:var(--muted);font-size:12px;line-height:1.3;display:block}
@@ -278,6 +284,7 @@ section{scroll-margin-top:calc(var(--hh,63px) + 66px)}
   <nav aria-label="Sections on this tab" id="nav"></nav>
   <div>
     <section id="parts"></section>
+    <section id="snow"></section>
     <section id="filaments"></section>
     <section id="colourWays"></section>
     <section id="routeColours"></section>
@@ -352,7 +359,7 @@ function gate(message, status) {
 /* ---- the areas: tabs across the top, each showing only its own sections, with a list of them down
    the left. The address keeps the tab (#colours, #shop, #site, #emails); a link to a section (#prices,
    from the checks on the right, say) opens its tab and goes to it. */
-const AREAS = [["colours", "Colours", ["parts", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes"]],
+const AREAS = [["colours", "Colours", ["parts", "snow", "filaments", "colourWays", "routeColours", "iconColours", "frameFinishes"]],
                ["shop", "Shop", ["prices"]], ["site", "Site", ["text", "faqs"]], ["emails", "Emails", ["emails"]], ["history", "History", ["history"]]];
 const NAV_EXTRA = { prices: [["delivery", "Delivery"]] };          // places inside a section worth a link of their own
 let area = "colours";
@@ -539,6 +546,28 @@ function renderParts() {
   }
   sec.append(box);
 }
+/* Snow on steep ground (25 Nov): the slopes where snow thins and goes, on screen and in the print.
+   Try it in the studio opens it with these numbers, unsaved, in that tab only. */
+const SNOW_ROWS = [["thin", "°", 0, 90, "On ground this steep, snow starts to thin"], ["mostly", "°", 0, 90, "By this steepness only some is left…"],
+  ["left", "%", 0, 100, "…this much of it"], ["bare", "°", 0, 90, "Bare from here up"],
+  ["faceFrom", "°", 0, 90, "On the model, where the raised relief makes a face look this steep, it thins"], ["faceBare", "°", 0, 90, "and is bare from here"]];
+function renderSnow() {
+  const sec = $("snow"); sec.replaceChildren(...head("snow", "Snow on steep ground", "How steepness keeps snow off: on screen and in the print. Each number is a slope in degrees (0 flat, 90 a cliff); each is at least the one above it. Try it in the studio to see it before you save."));
+  const D = S.DEFAULT_SETTINGS.snow, box = el("div");
+  for (const [k, unit, lo, hi, tip] of SNOW_ROWS) {
+    const rng = el("input", { type: "range", min: lo, max: hi, step: 1, value: work.snow[k], "aria-label": S.SNOW_NAMES[k] });
+    const num = el("input", { class: "tin", type: "number", min: lo, max: hi, step: 1, value: work.snow[k], "aria-label": S.SNOW_NAMES[k] + ", " + (unit === "%" ? "percent" : "degrees") });
+    const row = el("div", { class: "snowrow" + (work.snow[k] !== D[k] ? " changed" : ""), "data-snow": k, title: tip }, el("span", {}, S.SNOW_NAMES[k]), rng, el("span", { class: "num" }, num, unit));
+    const set = (v) => { work.snow[k] = Math.round(Number(v)); work.snow = S.sanitise({ ...work, snow: work.snow }).snow;   // keep them in order
+      for (const r of box.querySelectorAll(".snowrow")) { const kk = r.dataset.snow; r.querySelector("input[type=range]").value = work.snow[kk]; r.querySelector("input[type=number]").value = work.snow[kk]; r.classList.toggle("changed", work.snow[kk] !== D[kk]); }
+      refresh(); };
+    rng.addEventListener("input", () => set(rng.value)); num.addEventListener("change", () => set(num.value));
+    box.append(row);
+  }
+  const tryIt = el("a", { class: "btn sm", id: "snowTry", target: "_blank", rel: "noopener", href: "#", onclick: (e) => { e.currentTarget.href = "/studio/?snow=" + encodeURIComponent(JSON.stringify(work.snow)); } }, "Try it in the studio");
+  const reset = el("button", { class: "btn sm", onclick: () => { work.snow = { ...D }; renderSnow(); refresh(); } }, "Back to the usual");
+  sec.append(box, el("div", { class: "snowacts" }, tryIt, reset));
+}
 /* Matte or standard: one big pill, the dark half slides to the one chosen. Set on a filament; shown,
    but not changeable, wherever that filament is used. */
 function finishPill(get, set, name) {
@@ -604,7 +633,7 @@ function renderColourWays() {
 function addWay() {
   let n = 1; while (work.colourWays.some((c) => c.key === "cw-" + n)) n++;
   const ground = work.colourWays[0].slots[0], second = (work.filaments.find((f) => f.id !== ground && f.on) || work.filaments[0]).id;
-  work.colourWays.push({ key: "cw-" + n, label: "New colour way " + n, on: false, slots: [ground, second], assign: { trees: 2, trees3d: 2, shrubs: 2 } });
+  work.colourWays.push({ key: "cw-" + n, label: "New colour way " + n, note: "", on: false, slots: [ground, second], assign: { trees: 2, trees3d: 2, shrubs: 2 } });
   editing = "cw-" + n; renderColourWays(); renderFilaments(); refresh();
   toast("Added, switched off: turn it on once it's how you want it.");
 }
@@ -614,6 +643,12 @@ function editPanel(panel, cw) {
     el("input", { class: "t", value: cw.label, "aria-label": "Colour way name", maxlength: 40,
       oninput: (e) => { cw.label = e.target.value; const nm = document.querySelector('.way[data-key="' + cw.key + '"] .nm'); if (nm) nm.textContent = cw.label || "(no name)"; refresh(); } }),
     el("button", { class: "btn sm", onclick: () => { editing = null; renderColourWays(); refresh(); } }, "Done")));
+  // the line under its name on the homepage's "Pick your style"
+  const note = el("textarea", { class: "tin cw-note", rows: 1, maxlength: 120, "aria-label": cw.label + ": description on the homepage", placeholder: "A line under its name on the homepage (optional)",
+    oninput: (e) => { cw.note = e.target.value.replace(/\s+/g, " ").replace(/^ /, ""); grow(e.target); refresh(); } });
+  note.value = cw.note || ""; oneLine(note);
+  panel.append(el("label", { class: "sub", style: "display:block;margin:0 0 4px" }, "Description on the homepage"), note);
+  requestAnimationFrame(() => grow(note));
   if (solid) {
     panel.append(el("p", { class: "sub", style: "margin:0 0 10px" }, "Solid is the model in one colour. Its filament is the model's plain colour, so it's always offered."));
     panel.append(el("label", { class: "sub", style: "display:block;margin:0 0 4px" }, "Filament"), filamentPick(cw.slots[0], (id) => { cw.slots[0] = id; rer(); }, "Solid's filament"));
@@ -891,7 +926,7 @@ async function sendTest(key, btn) {
 }
 
 function renderAll() {
-  renderParts(); renderFilaments(); renderColourWays();
+  renderParts(); renderSnow(); renderFilaments(); renderColourWays();
   renderColourLists();
   renderFinishes(); renderPrices(); renderText(); renderFaqs(); renderEmails(); refresh();
 }
