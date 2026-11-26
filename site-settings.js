@@ -76,8 +76,11 @@ export const TEXT = [
   ["studio.paint.sub", "Studio", "Paint your own", "Grey line", "Brush your colours onto the model"],
   ["studio.order.title", "Studio", "Order", "Section name", "Order."],
   ["studio.order.sub", "Studio", "Order", "Grey line", "Printed and posted to you."],
+  ["basket.ack.title", "Basket", "Acknowledgements", "Pop-up title", "Acknowledgements"],
+  ["basket.ack.body", "Basket", "Acknowledgements", "Pop-up text (one point per line)", "Each model is printed to order for you, so small marks and layer lines are part of how it's made.\nThe ground is drawn from public map data, which can be out of date or simplified in places.\nBecause every model is made just for you, we can't take it back if you change your mind. If it arrives damaged or wrong, we'll put it right."],
 ].map(([key, page, group, label, text]) => ({ key, page, group, label, text: text.replace(/\\u2011/g, "\u2011"),
-  optional: label === "Under the title" || label === "Grey line" }));   // the grey lines can be switched off: stored as ""
+  optional: label === "Under the title" || label === "Grey line",
+  long: label.startsWith("Pop-up text") }));   // (26 Nov) a pop-up's text: several lines, up to 3000 characters   // the grey lines can be switched off: stored as ""
 const TEXT_BY_KEY = Object.fromEntries(TEXT.map((t) => [t.key, t]));
 export const MAX_FAQS = 30;
 
@@ -185,7 +188,7 @@ export function sanitise(input) {
   // the words: only those changed from what the page says already
   out.text = {};
   const gt = s.text && typeof s.text === "object" ? s.text : {};
-  for (const t of TEXT) { const v = textOf(gt[t.key], 400, false);
+  for (const t of TEXT) { const v = textOf(gt[t.key], t.long ? 3000 : 400, !!t.long);
     if (t.optional && gt[t.key] === "") out.text[t.key] = "";        // a grey line switched off
     else if (v && v !== t.text) out.text[t.key] = v; }
   // the homepage's questions: null means it reads its own faq.txt as before

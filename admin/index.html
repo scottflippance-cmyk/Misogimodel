@@ -810,14 +810,14 @@ function growAll() { document.querySelectorAll("textarea.tin").forEach(grow); }
 const oneLine = (t) => t.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });   // titles and questions wrap but stay one paragraph
 let growTimer = 0; window.addEventListener("resize", () => { clearTimeout(growTimer); growTimer = setTimeout(growAll, 60); });
 function renderText() {
-  const sec = $("text"); sec.replaceChildren(...head("text", "Titles and text", "The homepage's titles and the lines under them, and the studio's section names. Leave one as it is, or empty, to keep the words the page already has. Switch a grey line off to leave it out."));
+  const sec = $("text"); sec.replaceChildren(...head("text", "Titles and text", "The homepage's titles and the lines under them, the studio's section names, and the basket's acknowledgements. Leave one as it is, or empty, to keep the words the page already has. Switch a grey line off to leave it out."));
   let page = null, box = null, group = null;
   for (const t of S.TEXT) {
     if (t.page !== page) { page = t.page; sec.append(el("div", { class: "tpage" }, page)); group = null; }
     if (t.group !== group) { group = t.group; box = el("div", { class: "tgroup" }, el("b", {}, group)); sec.append(box); }
     const has = typeof work.text[t.key] === "string";
-    const input = el("textarea", { class: "tin", "aria-label": page + ", " + group + ": " + t.label, maxlength: 400, rows: 1, "data-key": t.key });
-    oneLine(input);
+    const input = el("textarea", { class: "tin", "aria-label": page + ", " + group + ": " + t.label, maxlength: t.long ? 3000 : 400, rows: 1, "data-key": t.key });
+    if (!t.long) oneLine(input);                       // a pop-up's text keeps its lines, one point each
     const off = work.text[t.key] === "";               // a grey line switched off: the page leaves it out
     input.value = has && !off ? work.text[t.key] : t.text; input.disabled = off;
     // a grey line can be switched off; a title can't
@@ -831,7 +831,8 @@ function renderText() {
     const say = () => { const on = typeof work.text[t.key] === "string", hid = work.text[t.key] === ""; row.classList.toggle("changed", on); row.classList.toggle("off", hid); reset.hidden = !on;
       const w = row.querySelector(".sw-word"); if (w) w.textContent = hid ? "Hidden" : "Shown"; };
     input.addEventListener("input", () => { const v = input.value.replace(/\s+/g, " ").trim();
-      if (!v || v === t.text) delete work.text[t.key]; else work.text[t.key] = input.value.replace(/\n/g, " ");
+      const keep = t.long ? input.value.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim() : input.value.replace(/\n/g, " ");
+      if (!v || v === t.text.replace(/\s+/g, " ").trim() && (!t.long || keep === t.text)) delete work.text[t.key]; else work.text[t.key] = keep;
       grow(input); say(); refresh(); });
     box.append(row);
     requestAnimationFrame(() => grow(input));

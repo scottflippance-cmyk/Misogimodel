@@ -25,25 +25,17 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .item .pic img{display:block;width:100%;height:100%;object-fit:cover}
 .item h2{margin:2px 0 6px;font-size:18px;letter-spacing:-0.01em}
 .item .what{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#3A424C}
-/* (26 Nov, option C) Shape and Colours as tags, as in the studio's Your model; under them a
-   Cost breakdown that folds out, its lines worded as there (Custom 3D route, Custom icons ×3…) */
-.item .tags{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.4}
-.item .tags li{background:#FFFFFF;border-radius:999px;padding:4px 10px;white-space:nowrap}
-.item .tags b{font-weight:600;color:#0B0E12}
-.item .bd{margin-top:10px}
-.item .bd summary{cursor:pointer;font-size:13.5px;font-weight:600;color:#0B0E12;width:max-content;list-style:none;display:flex;align-items:center;gap:6px}
-.item .bd summary::-webkit-details-marker{display:none}
-.item .bd summary::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s ease}
-.item .bd[open] summary::before{transform:rotate(90deg)}
-.item .bd summary:focus-visible{outline:2px solid #E4572E;outline-offset:2px;border-radius:4px}
-.item .bd table{width:100%;border-collapse:collapse;font-size:13.5px;color:#3A424C;margin-top:6px}
+/* (26 Nov) Under the name its cost lines, worded as in the studio (Custom 3D route, Custom icons ×3…);
+   Edit and the bin stay at the bottom of the card however long the list */
+.item .bd{margin-top:2px}
+.item .bd table{width:100%;border-collapse:collapse;font-size:13.5px;color:#3A424C}
 .item .bd td{padding:4px 0;border-bottom:1px solid rgba(0,0,0,.07)}
 .item .bd td:last-child{text-align:right;white-space:nowrap;padding-left:14px}
 .item .nosize{margin:8px 0 0;font-size:13.5px;color:#9B231C}
 /* Edit and a bin, the same pair the studio's lists use: a small outlined Edit button, then a grey
    bin that turns red under the pointer. */
 /* Price at the top right; Edit and the bin under it, their bottom level with the bottom of the picture. */
-.item .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;height:calc(148px * 3 / 4)}
+.item .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;align-self:stretch;min-height:calc(148px * 3 / 4)}
 .item .acts{display:flex;align-items:center;gap:4px;margin-right:-6px}
 .item .acts a.edit{font:inherit;font-size:13px;font-weight:500;color:#0B0E12;background:#FFFFFF;border:1px solid #D9DEE4;
   border-radius:6px;padding:4px 10px;cursor:pointer;text-decoration:none;transition:background .12s ease,border-color .12s ease}
@@ -71,6 +63,24 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 /* "Send me updates": ticked to start with; unticking it keeps them off the mailing list. */
 .updates{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
 .updates input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
+.updates{padding:0 12px;margin-top:12px}
+.updates small{display:block;font-size:12px;color:#8A93A1;margin-top:1px}
+/* (26 Nov) The acknowledgements: must be ticked to check out. Pressing Checkout without it turns the
+   box red and says so; the link opens them in a pop-up, their words set on the admin page. */
+.ack{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:10px 12px;border-radius:12px;background:#FFFFFF;border:2px solid transparent;
+  font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
+.ack input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
+.ack a{color:#C9461F;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.ack.need{border-color:#C9461F;background:#FDECEA}
+.ack-msg{margin:6px 2px 0;font-size:13px;color:#9B231C;font-weight:600}
+#ackDlg{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,14,18,.45)}
+#ackDlg[hidden]{display:none}
+#ackDlg .card{position:relative;background:#fff;border-radius:20px;padding:26px 28px 22px;width:min(520px,100%);max-height:calc(100vh - 48px);overflow:auto;
+  font-size:15px;line-height:1.55;color:#3A424C;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#ackDlg h2{margin:0 40px 12px 0;font-size:22px;color:#0B0E12}
+#ackDlg ul{margin:0 0 18px;padding-left:20px} #ackDlg li{margin:0 0 8px}
+#ackDlg .x{position:absolute;top:14px;right:14px;width:34px;height:34px;padding:0;border-radius:999px;border:0;background:#F2F3F5;font-size:20px;line-height:1;cursor:pointer}
+#ackDlg .ok{display:block;width:100%}
 #checkout{display:block;width:100%;margin-top:14px;font-size:16px;padding:13px 24px;cursor:pointer}
 #checkout:disabled{opacity:.6;cursor:progress}
 .msg{margin:10px 0 0;font-size:13.5px;color:#5B6470}
@@ -126,7 +136,9 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   .track{padding:12px 16px 36px;margin:-12px -16px -32px;scroll-padding-inline:16px}
   .item{grid-template-columns:96px minmax(0,1fr);gap:12px}
   .item .pic{width:96px}
-  .item .side{grid-column:2;grid-row:1;justify-self:end;height:72px}
+  .item .side{display:contents}                     /* price beside the picture; Edit and the bin under the lines, at the bottom */
+  .item .price{grid-column:2;grid-row:1;justify-self:end}
+  .item .acts{grid-column:1 / -1;grid-row:3;justify-self:end;margin-top:-4px}
   .item .price{font-size:15px}
   .item .body{grid-column:1 / -1}
 }
@@ -204,10 +216,20 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
       <tr><td id="shipLabel">Delivery</td><td id="shipping"></td></tr>
       <tr class="total"><td>Total</td><td id="total"></td></tr>
     </table>
-    <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases. You can unsubscribe at any time.</span></label>
+    <label class="ack" id="ackRow"><input type="checkbox" id="ack" aria-describedby="ackMsg"><span>I have read and accept the <a href="#" id="ackOpen">acknowledgements</a>.</span></label>
+    <p class="ack-msg" id="ackMsg" role="alert" hidden>Please tick to accept the acknowledgements before checking out.</p>
+    <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases.<small>You can unsubscribe at any time.</small></span></label>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
   </aside>
+</div>
+<div id="ackDlg" hidden role="dialog" aria-modal="true" aria-labelledby="ackTitle">
+  <div class="card">
+    <button class="x" id="ackClose" type="button" aria-label="Close">×</button>
+    <h2 id="ackTitle">Acknowledgements</h2>
+    <ul id="ackBody"></ul>
+    <button class="cta ok" id="ackOk" type="button">Got it</button>
+  </div>
 </div>
 <details id="box" class="box">
 <summary><span class="box-q">What's in the box?</span><span class="box-chev" aria-hidden="true"></span></summary>
@@ -263,6 +285,27 @@ try {
   if (view) (await import("/site-settings.js")).applyToPricing(PRICING, view);
 } catch (e) { /* keep the built-in prices */ }
 const $ = (id) => document.getElementById(id);
+/* The acknowledgements' words: the admin page's, else the page's own (each line one point). */
+const ACK = (async () => {                            // fetched alongside, never holding the page up
+  const S = await import("/site-settings.js"), row = (k) => S.TEXT.find((t) => t.key === k).text;
+  let t = {}; try { const v = await (window.MISOGI_SITE || Promise.resolve(null)); t = (v && v.text) || {}; } catch (e) { /* the page's own words */ }
+  if (!Object.keys(t).length) try { const v = window.MISOGI_SETTINGS || (!local && await fetch(origin + "/api/settings", { cache: "no-store" }).then((r) => r.ok ? r.json() : null)); t = (v && v.text) || {}; } catch (e) { /* as written */ }
+  const pick = (k) => (typeof t[k] === "string" && t[k].trim() ? t[k] : row(k));
+  return { title: pick("basket.ack.title"), points: pick("basket.ack.body").split("\n").map((x) => x.trim()).filter(Boolean) };
+})();
+async function openAck(e) {
+  if (e) e.preventDefault();
+  const A = await ACK;
+  $("ackTitle").textContent = A.title;
+  $("ackBody").replaceChildren(...A.points.map((x) => { const li = document.createElement("li"); li.textContent = x; return li; }));
+  $("ackDlg").hidden = false; $("ackOk").focus();
+}
+const closeAck = () => { $("ackDlg").hidden = true; $("ackOpen").focus(); };
+$("ackOpen").addEventListener("click", openAck);
+$("ackClose").addEventListener("click", closeAck); $("ackOk").addEventListener("click", closeAck);
+$("ackDlg").addEventListener("click", (e) => { if (e.target === $("ackDlg")) closeAck(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("ackDlg").hidden) closeAck(); });
+$("ack").addEventListener("change", () => { if ($("ack").checked) { $("ackRow").classList.remove("need"); $("ackMsg").hidden = true; } });
 const studioLink = (link) => {                       // the saved design, opened in this site's own studio
   const i = (link || "").indexOf("#design=");
   return "/studio/" + (i >= 0 ? link.slice(i) : "");
@@ -384,20 +427,12 @@ function render() {
     if (it.picture) { const img = document.createElement("img"); img.src = it.picture; img.alt = ""; li.querySelector(".pic").append(img); }
     // (26 Nov) a place picked from the inspiration tiles and left as it was keeps its name; any other is
     // a Custom model, numbered down the basket
-    li.querySelector("h2").textContent = it.inspired && it.name ? it.name : "Custom model " + (++customN);
-    // Shape and Colours as tags (an older basket's "Square, … of ground across" read as its shape); the
-    // route, frame and icons are in the cost breakdown, worded as in the studio, not listed again.
-    const tags = document.createElement("ul"); tags.className = "tags"; tags.setAttribute("aria-label", "What it is");
-    li.querySelector(".what").replaceWith(tags);
-    const facts = (it.facts || []).map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; })
-      .filter((f) => /^(Shape|Colours): /.test(f));
-    for (const f of facts) {
-      const x = document.createElement("li"), b = document.createElement("b"), k = f.indexOf(": ");
-      b.textContent = f.slice(0, k + 2); x.append(b, f.slice(k + 2)); tags.append(x);
-    }
+    li.querySelector("h2").textContent = it.inspired && it.name ? it.name : "Custom Model " + (++customN);
+    // (26 Nov) no tags: the name, then the Cost breakdown, worded as in the studio
+    li.querySelector(".what").remove();
     if (p) {
-      const bd = document.createElement("details"); bd.className = "bd";
-      bd.innerHTML = "<summary>Cost breakdown</summary><table></table>";
+      const bd = document.createElement("div"); bd.className = "bd";   // the cost lines, always shown, no heading (26 Nov)
+      bd.innerHTML = "<table aria-label=\"Cost breakdown\"></table>";
       for (const l of p.lines) {
         const tr = document.createElement("tr"); tr.dataset.key = l.key; tr.innerHTML = "<td></td><td></td>";
         tr.children[0].textContent = lineLabel(l);
@@ -500,6 +535,11 @@ function renderBox(items) {
 async function checkout() {
   const cart = readCart();
   if (!cart.items.length) return render();
+  if (!$("ack").checked) {                           // the acknowledgements must be ticked first
+    $("ackRow").classList.add("need"); $("ackMsg").hidden = false;
+    $("ackRow").scrollIntoView({ block: "nearest", behavior: "smooth" }); $("ack").focus();
+    return;
+  }
   if (!PRICING.shipping.some((s) => s.id === cart.shipping)) cart.shipping = PRICING.shipping[0].id;
   $("checkout").disabled = true; say("Off to the payment page…");
   try {
