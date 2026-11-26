@@ -25,6 +25,21 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .item .pic img{display:block;width:100%;height:100%;object-fit:cover}
 .item h2{margin:2px 0 6px;font-size:18px;letter-spacing:-0.01em}
 .item .what{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#3A424C}
+/* (26 Nov, option C) Shape and Colours as tags, as in the studio's Your model; under them a
+   Cost breakdown that folds out, its lines worded as there (Custom 3D route, Custom icons ×3…) */
+.item .tags{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.4}
+.item .tags li{background:#FFFFFF;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.item .tags b{font-weight:600;color:#0B0E12}
+.item .bd{margin-top:10px}
+.item .bd summary{cursor:pointer;font-size:13.5px;font-weight:600;color:#0B0E12;width:max-content;list-style:none;display:flex;align-items:center;gap:6px}
+.item .bd summary::-webkit-details-marker{display:none}
+.item .bd summary::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s ease}
+.item .bd[open] summary::before{transform:rotate(90deg)}
+.item .bd summary:focus-visible{outline:2px solid #E4572E;outline-offset:2px;border-radius:4px}
+.item .bd table{width:100%;border-collapse:collapse;font-size:13.5px;color:#3A424C;margin-top:6px}
+.item .bd td{padding:4px 0;border-bottom:1px solid rgba(0,0,0,.07)}
+.item .bd td:last-child{text-align:right;white-space:nowrap;padding-left:14px}
+.item .nosize{margin:8px 0 0;font-size:13.5px;color:#9B231C}
 /* Edit and a bin, the same pair the studio's lists use: a small outlined Edit button, then a grey
    bin that turns red under the pointer. */
 /* Price at the top right; Edit and the bin under it, their bottom level with the bottom of the picture. */
@@ -238,6 +253,8 @@ const local = location.protocol === "file:";
 const origin = local ? "https://misogimodel.com" : location.origin;
 const P = await import(local ? "/order-pricing.js" : "/order-pricing.js");
 const { PRICING, priceItem, priceCart, money, readCart, writeCart } = P;
+// a cost line worded as in the studio's Your model: "Custom icons ×3", anything else counted "2 × …"
+const lineLabel = (l) => l.key === "icon" ? (l.qty > 1 ? l.label + "s \u00d7" + l.qty : l.label) : l.qty > 1 ? l.qty + " \u00d7 " + l.label : l.label;
 /* The prices and delivery rules set on the admin page, folded into the price list before anything is
    shown. If they can't be fetched, the built-in list stands (the server would say so at checkout). */
 try {
@@ -358,19 +375,39 @@ function render() {
   catch (e) { bill = null; }
   const n = cart.items.length;
   const list = $("items"); list.innerHTML = "";
+  let customN = 0;
   cart.items.forEach((it, i) => {
     let p = null; try { p = priceItem(it.item, PRICING); } catch (e) { /* off the price list now */ }
     const li = document.createElement("li"); li.className = "item"; li.dataset.id = it.id;
     li.innerHTML = `<div class="pic"></div><div class="body"><h2></h2><ul class="what"></ul></div>
       <div class="side"><div class="price"></div><div class="acts"><a class="edit">Edit</a><button class="remove" type="button" aria-label="Remove this model" title="Remove this model"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Zm4 2v8h1.6v-8H10Zm2.4 0v8H14v-8h-1.6Z" fill="currentColor"/></svg></button></div></div>`;
     if (it.picture) { const img = document.createElement("img"); img.src = it.picture; img.alt = ""; li.querySelector(".pic").append(img); }
-    li.querySelector("h2").textContent = it.name || "Your place";
-    const what = li.querySelector(".what");
-    // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
-    const facts = (it.facts || []).filter((f) => !/web address on the back|staples to join/i.test(f))   // older baskets carried these
-      .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
-    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? "\u00a0\u00a0 " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
-    for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
+    // (26 Nov) a place picked from the inspiration tiles and left as it was keeps its name; any other is
+    // a Custom model, numbered down the basket
+    li.querySelector("h2").textContent = it.inspired && it.name ? it.name : "Custom model " + (++customN);
+    // Shape and Colours as tags (an older basket's "Square, … of ground across" read as its shape); the
+    // route, frame and icons are in the cost breakdown, worded as in the studio, not listed again.
+    const tags = document.createElement("ul"); tags.className = "tags"; tags.setAttribute("aria-label", "What it is");
+    li.querySelector(".what").replaceWith(tags);
+    const facts = (it.facts || []).map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; })
+      .filter((f) => /^(Shape|Colours): /.test(f));
+    for (const f of facts) {
+      const x = document.createElement("li"), b = document.createElement("b"), k = f.indexOf(": ");
+      b.textContent = f.slice(0, k + 2); x.append(b, f.slice(k + 2)); tags.append(x);
+    }
+    if (p) {
+      const bd = document.createElement("details"); bd.className = "bd";
+      bd.innerHTML = "<summary>Cost breakdown</summary><table></table>";
+      for (const l of p.lines) {
+        const tr = document.createElement("tr"); tr.dataset.key = l.key; tr.innerHTML = "<td></td><td></td>";
+        tr.children[0].textContent = lineLabel(l);
+        tr.children[1].textContent = (l.key === "size" ? "" : "+ ") + money(l.amount, PRICING.currency);
+        bd.querySelector("table").append(tr);
+      }
+      li.querySelector(".body").append(bd);
+    } else {
+      const x = document.createElement("p"); x.className = "nosize"; x.textContent = "This size is no longer offered."; li.querySelector(".body").append(x);
+    }
     if (gone[it.id] && gone[it.id].length) {           // switched off since it went in the basket
       const g = document.createElement("p"); g.className = "gone"; g.textContent = gone[it.id].join(" ") + " ";
       if (it.link) { const a = document.createElement("a"); a.href = studioLink(it.link); a.textContent = "Change it in the studio"; g.append(a, "."); }

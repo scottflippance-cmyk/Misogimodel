@@ -391,14 +391,15 @@ function fromHash() {
   else showArea(area);
 }
 window.addEventListener("hashchange", fromHash);
-// each tab says what's going on in it: things to put right, else unsaved changes, else how many sections
+// each tab says what's going on in it: things to put right, else unsaved changes, else nothing
 function markTabs(wrong) {
   for (const b of $("tabs").children) {
     const ids = AREAS.find((a) => a[0] === b.dataset.area)[2], n = b.querySelector(".n");
     if (b.dataset.area === "history") { n.hidden = true; continue; }
     const bad = wrong.filter((x) => ids.includes(x.section)).length, ch = ids.filter((k) => JSON.stringify(work[k]) !== JSON.stringify(saved[k])).length;
     n.className = "n" + (bad ? " bad" : ch ? " ch" : "");
-    n.textContent = bad ? bad + " to fix" : ch ? ch + (ch === 1 ? " change" : " changes") : String(ids.length);
+    n.textContent = bad ? bad + " to fix" : ch ? ch + (ch === 1 ? " change" : " changes") : "";
+    n.hidden = !bad && !ch;                      // (26 Nov) no count of sections: only something to fix, or unsaved changes
   }
 }
 

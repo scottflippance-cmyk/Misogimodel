@@ -90,7 +90,19 @@ body{
 .od-next{display:flex; gap:10px}
 .od-next > *{flex:1}
 .od-go{display:flex; align-items:center; justify-content:center; text-decoration:none}
-@media (max-width:640px){ .od-grid{grid-template-columns:1fr} #orderDlg .box{padding:20px 18px} .od-next{flex-direction:column} }
+/* (25 Nov, style C) the total sits at the foot of the costs, level with the bottom of the picture:
+   a small grey "This model" over a big price, both to the right */
+.od-grid{align-items:stretch}
+.od-side{display:flex; flex-direction:column}
+.od-side .od-total{margin:auto 0 0; flex-direction:column; align-items:flex-end; gap:2px; padding-top:12px; border-top:1px solid rgba(0,0,0,.12)}
+.od-side .od-total span{font-size:13px; color:var(--muted)}
+.od-side .od-total b{font-size:30px; letter-spacing:-0.02em; line-height:1.1}
+.od-side .od-note{margin:6px 0 0; text-align:right}
+/* the button 16 px under the tags, as the tags are under the picture; a message, when there is one, goes between */
+#odBefore{margin-top:16px}
+#odBefore .od-msg{min-height:0; margin:0}
+#odBefore .od-msg:not(:empty){margin:0 0 10px}
+@media (max-width:640px){ .od-grid{grid-template-columns:1fr} .od-side .od-total{margin-top:14px} #orderDlg .box{padding:20px 18px} .od-next{flex-direction:column} }
 #confirmDlg .box{background:var(--panel); border:1px solid var(--line); border-radius:12px;
   padding:18px 18px 14px; width:min(330px, calc(100vw - 48px)); box-shadow:0 18px 50px rgba(0,0,0,.45)}
 #confirmDlg p{margin:0 0 14px; font-size:13.5px; line-height:1.45}
@@ -2713,7 +2725,16 @@ function setPlaceChosen(v) {
   setTimeout(() => { map.invalidateSize(); drawSelection(); }, 30);
 }
 
+/* (26 Nov) Where the area came from: an inspiration tile, picked and left as it was, keeps its name in
+   the basket (Kilimanjaro); anything else (a search, a route, moving or resizing the area) is a Custom model. */
+let inspiredFrom = null;
+function stillInspired(st) {
+  const f = inspiredFrom;
+  return !!(f && !st.route && Math.abs(st.sel.lat - f.lat) < 2e-6 && Math.abs(st.sel.lng - f.lng) < 2e-6
+    && Math.abs(st.sel.size - f.size) < 1 && !(st.sel.rot || 0));
+}
 function pick(row) {
+  inspiredFrom = null;
   const wasName = sel.name;
   sel.lat = +row.lat; sel.lng = +row.lon;
   sel.name = row.display_name.split(", ").slice(0, 2).join(", ");
@@ -2812,6 +2833,7 @@ function startFromInspiration(key) {
   sel.rot = 0;
   sel.size = clamp(p.sizeM, MIN_SIZE, MAX_SIZE);
   pick({ lat: p.lat, lon: p.lng, display_name: p.name });
+  inspiredFrom = { key, lat: sel.lat, lng: sel.lng, size: sel.size };
   $("build").click();                                // builds, then the panel opens on Customise
 }
 renderInspiration();
@@ -8619,15 +8641,16 @@ function smoothSides(g) {
    white where nothing is in front of it), and the pixels just outside them are painted orange. It
    is a marker, not part of the model: the basket picture and the print never have it. */
 let SEL_OUT = null;
-const SEL_STYLE = { width: 24, glow: 2 };  // (25 Nov, style E) a thick line with a big glow; in screen pixels; glow 0 a plain line, 1 a soft glow, 2 a line with a glow beyond
+const SEL_STYLE = { width: 24, glow: 2, minPx: 40 };  // (25 Nov, style E) a thick line with a big glow; in screen pixels; glow 0 a plain line, 1 a soft glow, 2 a line with a glow beyond
 function drawSelOutline(renderer, scene, camera) {
   const t = three; if (!t || selIconId == null || !t.pinHits) return;
+  if ($("iconWin").hidden || popIconId !== selIconId) { t.outlineDrawn = null; return; }   // (26 Nov) only while its edit panel is open
   const parts = t.pinHits.filter((m) => m.userData.iconId === selIconId);
   if (!parts.length) return;
   const W = renderer.domElement.width, H = renderer.domElement.height; if (!W || !H) return;
   if (!SEL_OUT) {
-    const O = SEL_OUT = { rt: new THREE.WebGLRenderTarget(W, H), black: new THREE.MeshBasicMaterial({ color: 0x000000 }),
-      white: new THREE.MeshBasicMaterial({ color: 0xffffff, depthFunc: THREE.LessEqualDepth }),
+    const O = SEL_OUT = { rt: new THREE.WebGLRenderTarget(W, H), black: new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }),   // no fog: zoomed out, fog lightened the
+      white: new THREE.MeshBasicMaterial({ color: 0xffffff, depthFunc: THREE.LessEqualDepth, fog: false }),   // black model and it was outlined too
       quad: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
     O.mat = new THREE.ShaderMaterial({
       uniforms: { mask: { value: O.rt.texture }, px: { value: new THREE.Vector2() }, r: { value: 3 }, glow: { value: 0 }, col: { value: new THREE.Color() } },
@@ -8654,7 +8677,15 @@ function drawSelOutline(renderer, scene, camera) {
     camera.layers.set(0); parts.forEach((m) => m.layers.disable(5)); scene.overrideMaterial = null; scene.background = bg;
     renderer.setRenderTarget(null); renderer.setClearColor(cc, ca);
   }
-  O.mat.uniforms.px.value.set(1 / W, 1 / H); O.mat.uniforms.r.value = SEL_STYLE.width * (renderer.getPixelRatio ? renderer.getPixelRatio() : 1); O.mat.uniforms.glow.value = SEL_STYLE.glow;
+  // Zoomed out, the icon is small on screen: the glow goes and a plain line is left (25 Nov)
+  const bb = new THREE.Box3(); parts.forEach((m) => bb.expandByObject(m));
+  const cn = [], v = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) { v.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).project(camera); cn.push(v.x * W / 2, v.y * H / 2); }
+  const xs = cn.filter((_, i) => !(i & 1)), ys = cn.filter((_, i) => i & 1);
+  const onScreen = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));   // device pixels
+  const pr = renderer.getPixelRatio ? renderer.getPixelRatio() : 1, small = onScreen < SEL_STYLE.minPx * pr;
+  O.mat.uniforms.px.value.set(1 / W, 1 / H); O.mat.uniforms.r.value = (small ? 3 : SEL_STYLE.width) * pr; O.mat.uniforms.glow.value = small ? 0 : SEL_STYLE.glow;
+  t.outlineGlow = !small;
   O.mat.uniforms.col.value.set(getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#E4572E");
   renderer.render(O.quad, O.cam);
   renderer.autoClear = auto; t.outlineDrawn = selIconId;
@@ -10786,7 +10817,8 @@ async function addToCart() {
     if (pic) await sendJSON(base + "/preview" + q, { method: "PUT", headers: { "content-type": "image/jpeg" }, body: pic });
     const fresh = P.readCart();                       // read again: another tab may have changed it meanwhile
     fresh.items.push({ id: made.id, token: made.token, name: st.sel.name || "Your place", item: P.itemFromDesign(st),
-                       facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now() });
+                       facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now(),
+                       inspired: stillInspired(st) });        // the basket calls the rest Custom model 1, 2…
     if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your basket");
     const n = fresh.items.length;
     $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your basket";
