@@ -78,9 +78,8 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 #ackDlg .card{position:relative;background:#fff;border-radius:20px;padding:26px 28px 22px;width:min(520px,100%);max-height:calc(100vh - 48px);overflow:auto;
   font-size:15px;line-height:1.55;color:#3A424C;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 #ackDlg h2{margin:0 40px 12px 0;font-size:22px;color:#0B0E12}
-#ackDlg ul{margin:0 0 18px;padding-left:20px} #ackDlg li{margin:0 0 8px}
+#ackDlg ul{margin:0;padding-left:20px} #ackDlg li{margin:0 0 8px}
 #ackDlg .x{position:absolute;top:14px;right:14px;width:34px;height:34px;padding:0;border-radius:999px;border:0;background:#F2F3F5;font-size:20px;line-height:1;cursor:pointer}
-#ackDlg .ok{display:block;width:100%}
 #checkout{display:block;width:100%;margin-top:14px;font-size:16px;padding:13px 24px;cursor:pointer}
 #checkout:disabled{opacity:.6;cursor:progress}
 .msg{margin:10px 0 0;font-size:13.5px;color:#5B6470}
@@ -217,7 +216,7 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
       <tr class="total"><td>Total</td><td id="total"></td></tr>
     </table>
     <label class="ack" id="ackRow"><input type="checkbox" id="ack" aria-describedby="ackMsg"><span>I have read and accept the <a href="#" id="ackOpen">acknowledgements</a>.</span></label>
-    <p class="ack-msg" id="ackMsg" role="alert" hidden>Please tick to accept the acknowledgements before checking out.</p>
+    <p class="ack-msg" id="ackMsg" role="alert" hidden>Accept the above to check out</p>
     <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases.<small>You can unsubscribe at any time.</small></span></label>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
@@ -228,12 +227,10 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
     <button class="x" id="ackClose" type="button" aria-label="Close">×</button>
     <h2 id="ackTitle">Acknowledgements</h2>
     <ul id="ackBody"></ul>
-    <button class="cta ok" id="ackOk" type="button">Got it</button>
   </div>
 </div>
 <details id="box" class="box">
 <summary><span class="box-q">What's in the box?</span><span class="box-chev" aria-hidden="true"></span></summary>
-<p class="box-sub" id="boxSub">Printed to order for you, and put together by hand in a minute or two.</p>
 <div class="box-parts" id="boxParts">
   <article class="part" id="boxModel">
     <img class="part-pic" src="/images/box/model.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
@@ -298,17 +295,17 @@ async function openAck(e) {
   const A = await ACK;
   $("ackTitle").textContent = A.title;
   $("ackBody").replaceChildren(...A.points.map((x) => { const li = document.createElement("li"); li.textContent = x; return li; }));
-  $("ackDlg").hidden = false; $("ackOk").focus();
+  $("ackDlg").hidden = false; $("ackClose").focus();
 }
 const closeAck = () => { $("ackDlg").hidden = true; $("ackOpen").focus(); };
 $("ackOpen").addEventListener("click", openAck);
-$("ackClose").addEventListener("click", closeAck); $("ackOk").addEventListener("click", closeAck);
+$("ackClose").addEventListener("click", closeAck);
 $("ackDlg").addEventListener("click", (e) => { if (e.target === $("ackDlg")) closeAck(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("ackDlg").hidden) closeAck(); });
 $("ack").addEventListener("change", () => { if ($("ack").checked) { $("ackRow").classList.remove("need"); $("ackMsg").hidden = true; } });
-const studioLink = (link) => {                       // the saved design, opened in this site's own studio
-  const i = (link || "").indexOf("#design=");
-  return "/studio/" + (i >= 0 ? link.slice(i) : "");
+const studioLink = (link, id) => {                   // the saved design, opened in this site's own studio
+  const i = (link || "").indexOf("#design=");          // with its id, so saving it again replaces it here (26 Nov)
+  return "/studio/" + (id ? "?edit=" + encodeURIComponent(id) : "") + (i >= 0 ? link.slice(i) : "");
 };
 /* Models holding something switched off on the admin page since they went in the basket, by id. */
 let gone = {};
@@ -445,13 +442,13 @@ function render() {
     }
     if (gone[it.id] && gone[it.id].length) {           // switched off since it went in the basket
       const g = document.createElement("p"); g.className = "gone"; g.textContent = gone[it.id].join(" ") + " ";
-      if (it.link) { const a = document.createElement("a"); a.href = studioLink(it.link); a.textContent = "Change it in the studio"; g.append(a, "."); }
+      if (it.link) { const a = document.createElement("a"); a.href = studioLink(it.link, it.id); a.textContent = "Change it in the studio"; g.append(a, "."); }
       else g.append("Please remove it and design it again.");
       li.querySelector(".body").append(g);
     }
     li.querySelector(".price").textContent = p ? money(p.subtotal, PRICING.currency) : "—";
     const edit = li.querySelector(".edit");
-    if (it.link) edit.href = studioLink(it.link); else edit.remove();
+    if (it.link) edit.href = studioLink(it.link, it.id); else edit.remove();
     li.querySelector(".remove").addEventListener("click", () => {
       const c = readCart(); c.items = c.items.filter((x) => x.id !== it.id); writeCart(c);
       $("notice").hidden = true; say(""); render();
