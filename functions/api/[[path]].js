@@ -4,7 +4,7 @@
      Add to cart (studio), once per model:
        POST /api/items                     the design. Priced here, from order-pricing.js, never taken
                                            from the browser. Returns an item id and an upload token.
-       PUT  /api/items/:id/model?token=    the print file (a zip holding the STL), streamed into storage.
+       PUT  /api/items/:id/model?token=    the print file (a zip holding the 3MF, each colour its own part), streamed into storage.
        PUT  /api/items/:id/preview?token=  a picture of the model.
      Checkout (cart page), once for the whole cart:
        POST /api/checkout                  { items: [{ id, token }], shipping, updates }. Gives the order its number
@@ -27,7 +27,8 @@
 
    Files are only ever streamed, never read here: the free plan allows about 10 ms of work per
    request, which a model of tens of megabytes would blow through. That is also why the email asks
-   Resend to fetch each attachment from a private signed link rather than being handed it.
+   Resend to fetch each attachment from a private signed link rather than being handed it. On Preview, which sits
+   behind Cloudflare Access, /api/items needs a Bypass in Access for that to work (see the README).
 
    Settings (Cloudflare Pages → Settings → Variables and Secrets, and Bindings):
      ORDERS                 R2 bucket binding where items and orders are kept
@@ -45,11 +46,32 @@
                             sign-up gets a welcome from it, and you a note (with RESEND_API_KEY and
                             ORDER_EMAIL_TO), each from a Resend template you can edit there
      NEWS_WELCOME_TEMPLATE  optional; the welcome's template, default newsletter-welcome
-     NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note */
-import { PRICING, itemFromDesign, priceItem, priceCart, money } from "../../order-pricing.js";
+     NEWS_NOTE_TEMPLATE     optional; the note's template, default newsletter-signup-note
+     ACCESS_TEAM_DOMAIN     the admin page's lock: your Cloudflare Zero Trust team domain, e.g. you.cloudflareaccess.com
+     ACCESS_AUD             and the Access application's Audience (AUD) tag. Without both, every admin
+                            request is refused. Neither is secret.
+     ADMIN_EMAIL            optional; who may use the admin page (defaults to ORDER_EMAIL_TO)
+
+   Settings (the admin page, /admin):
+       GET  /api/settings                  what's on offer, for the studio and basket: only colours and options
+                                           switched on, and the prices. Anyone can read it.
+       GET  /api/admin/settings            everything, this site's and the other's, and which sections match.
+       PUT  /api/admin/settings            { settings } saves this site's.
+       POST /api/admin/copy                { section } (or "all"): Live only, copies that section from Preview.
+       POST /api/admin/test-email          { email }: a test of one email, to you alone.
+       GET  /api/admin/history             the history of saves and copies, newest first (?before=<key> for more).
+       POST /api/basket-check              { items: [{ id, token }] } -> which models hold something switched off
+                                           since they went in the basket (and so can't be checked out).
+     The admin ones need Cloudflare Access's signed pass for ADMIN_EMAIL, checked here as well as at the door. */
+import { PRICING, itemFromDesign, priceItem, priceCart, money, staplesFor } from "../../order-pricing.js";
+import { DEFAULT_SETTINGS, SECTIONS, sanitise, publicView, applyToPricing, sameSections, copySections, unavailableIn, checkSettings, emailSetting, EMAILS, describeChanges } from "../../site-settings.js";
 
 const MAX_MODEL = 80 * 1024 * 1024, MAX_PREVIEW = 3 * 1024 * 1024;
-const EMAIL_ATTACH_BUDGET = 28 * 1024 * 1024;           // Resend takes 40 MB per email after base64 (×4/3)
+/* How much print file goes into one email as attachments. An attachment travels base64-encoded, a
+   third bigger, and Gmail turns away any email over 25 MB (Outlook.com 20 MB) as a whole: the 28 MB
+   once allowed here, fine for Resend, made a 20 MB file bounce. 14 MB of files is under 19 MB as sent,
+   with room for the rest of the email. A model that doesn't fit is still in the email, as a download link. */
+export const EMAIL_ATTACH_BUDGET = 14 * 1024 * 1024;
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 const fail = (status, message) => json({ error: message }, status);
@@ -85,50 +107,63 @@ async function newsletter(request, env) {
    (how many are on the list and still subscribed, the new one included);
    the subject comes from the template. If a template is missing or unpublished, the plain built-in
    version below goes instead, so a sign-up is never left without its emails. */
-async function signupEmails(env, email, firstName, origin, source) {
-  const where = source === "checkout" ? "checkout, with an order" : "the website";
-  if (!env.RESEND_API_KEY) return;
-  const unsub = await unsubscribeLink(env, origin, email);
-  // the first name as typed, cut down to plain text: no markup, and & written as "and" (the templates print it as is)
-  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").replace(/&/g, " and ").replace(/\s+/g, " ").trim().slice(0, 60);
-  const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
-  const post = (msg) => fetch("https://api.resend.com/emails", {
-    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify(msg) });
-  // the template first; if Resend turns it down, the built-in version
-  const send = async (head, template, plain, what) => {
-    try {
-      const t = await post({ ...head, template });
-      if (t.ok) return;
-      console.log("newsletter: the " + what + " template wasn't used, Resend said " + t.status + "; sending the plain one");
-      const r = await post({ ...head, ...plain });
-      if (!r.ok) console.log("newsletter: the " + what + " wasn't sent, Resend said " + r.status);
-    } catch (e) { console.log("newsletter: the " + what + " wasn't sent"); }
-  };
-  // the unsubscribe link also goes in the headers, so mail apps can show their own one-tap button
-  const jobs = [send({ from, to: [email], ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
-      headers: { "List-Unsubscribe": "<" + unsub + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } },
-    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: first ? "Hi " + first + "," : "Hi,", UNSUBSCRIBE_URL: unsub } },
-    { subject: "You're on the list",
-      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+/* The plain built-in welcome and sign-up note, used when the Resend template isn't there (and for tests). */
+function welcomePlain(first, unsub) {
+  return { subject: "You're on the list",
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
 <p style="margin:0 0 12px">Hi${first ? " " + esc(first) : ""},</p>
 <p style="margin:0 0 12px">Thanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.</p>
 <p style="margin:0 0 12px">If you didn't sign up, or change your mind, you can unsubscribe at any time.</p>
 <p style="margin:0 0 20px">misogimodel</p>
 <p style="margin:0"><a href="${esc(unsub)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#F4F4F5;color:#5B6470;font-size:13px;text-decoration:none">Unsubscribe</a></p></div>`,
-      text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, you can unsubscribe at any time:\n" + unsub + "\n\nmisogimodel" },
-    "welcome")];
-  const count = env.ORDER_EMAIL_TO ? await countSubscribers(env) : null;
-  if (env.ORDER_EMAIL_TO) jobs.push(send({ from, to: [env.ORDER_EMAIL_TO] },
-    { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note",
-      variables: { SIGNUP_EMAIL: email, SIGNUP_NAME: first ? " (" + first + ")" : "", SIGNUP_SOURCE: where, ...(count ? { SUBSCRIBER_COUNT: count } : {}) } },
-    { subject: "New sign-up: " + email + (source === "checkout" ? " (at checkout)" : ""),
-      html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+    text: "Hi" + (first ? " " + first : "") + ",\n\nThanks for joining the misogimodel list. You'll be the first to hear about new products, deals and updates.\n\nIf you didn't sign up, or change your mind, you can unsubscribe at any time:\n" + unsub + "\n\nmisogimodel" };
+}
+function signupNotePlain(email, first, source, count) {
+  const where = source === "checkout" ? "checkout, with an order" : "the website";
+  return { subject: "New sign-up: " + email + (source === "checkout" ? " (at checkout)" : ""),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
 <p style="margin:0 0 8px"><b>${esc(email)}</b>${first ? " (" + esc(first) + ")" : ""} has joined the mailing list from ${where}.</p>${count ? `
 <p style="margin:0 0 8px">Active subscribers now: <b>${esc(count)}</b></p>` : ""}
 <p style="margin:0;color:#5B6470;font-size:13px">Everyone on the list is under Audience → Contacts in Resend.</p></div>`,
-      text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from " + where + ".\n\n" + (count ? "Active subscribers now: " + count + "\n\n" : "") + "Everyone on the list is under Audience → Contacts in Resend." },
-    "note to you"));
+    text: email + (first ? " (" + first + ")" : "") + " has joined the mailing list from " + where + ".\n\n" + (count ? "Active subscribers now: " + count + "\n\n" : "") + "Everyone on the list is under Audience → Contacts in Resend." };
+}
+/* Copies, as the admin page's Emails section sets them: cc on an email to you, bcc on one to a customer. */
+const copies = (e, toYou) => (e && e.copy && e.copy.length ? (toYou ? { cc: e.copy } : { bcc: e.copy }) : {});
+const resendPost = (env, msg) => fetch("https://api.resend.com/emails", {
+  method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" }, body: JSON.stringify(msg) });
+// a template first; if Resend turns it down, the built-in version
+async function sendTemplated(env, head, template, plain, what) {
+  try {
+    const t = await resendPost(env, { ...head, template });
+    if (t.ok) return true;
+    console.log("email: the " + what + " template wasn't used, Resend said " + t.status + "; sending the plain one");
+    const r = await resendPost(env, { ...head, ...plain });
+    if (!r.ok) console.log("email: the " + what + " wasn't sent, Resend said " + r.status);
+    return r.ok;
+  } catch (e) { console.log("email: the " + what + " wasn't sent"); return false; }
+}
+async function signupEmails(env, email, firstName, origin, source) {
+  if (!env.RESEND_API_KEY) return;
+  const settings = await loadSettings(env, siteOf(origin)), welcome = emailSetting(settings, "welcome"), note = emailSetting(settings, "signupNote");
+  if (!welcome.on && !(note.on && env.ORDER_EMAIL_TO)) return;     // both switched off on the admin page
+  const unsub = await unsubscribeLink(env, origin, email);
+  // the first name as typed, cut down to plain text: no markup, and & written as "and" (the templates print it as is)
+  const first = String(firstName || "").replace(/[<>"\u0000-\u001f]/g, "").replace(/&/g, " and ").replace(/\s+/g, " ").trim().slice(0, 60);
+  const from = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
+  const where = source === "checkout" ? "checkout, with an order" : "the website";
+  const jobs = [];
+  // the unsubscribe link also goes in the headers, so mail apps can show their own one-tap button
+  if (welcome.on) jobs.push(sendTemplated(env, { from, to: [email], ...copies(welcome, false), ...(env.ORDER_EMAIL_TO ? { reply_to: env.ORDER_EMAIL_TO } : {}),
+      headers: { "List-Unsubscribe": "<" + unsub + ">", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } },
+    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: first ? "Hi " + first + "," : "Hi,", UNSUBSCRIBE_URL: unsub } },
+    welcomePlain(first, unsub), "welcome"));
+  if (note.on && env.ORDER_EMAIL_TO) {
+    const count = await countSubscribers(env);
+    jobs.push(sendTemplated(env, { from, to: [env.ORDER_EMAIL_TO], ...copies(note, true) },
+      { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note",
+        variables: { SIGNUP_EMAIL: email, SIGNUP_NAME: first ? " (" + first + ")" : "", SIGNUP_SOURCE: where, ...(count ? { SUBSCRIBER_COUNT: count } : {}) } },
+      signupNotePlain(email, first, source, count), "note to you"));
+  }
   await Promise.all(jobs);
 }
 /* One address onto the mailing list in Resend (the newsletter box, and buyers who left the box at
@@ -251,8 +286,12 @@ async function createItem(request, env) {
   const design = body && body.design;
   if (!design || typeof design !== "object") return fail(400, "There was no design.");
   const item = itemFromDesign(design);
+  const view = await viewFor(env, request), P = await pricingFor(env, request, view);
   let price;
-  try { price = priceItem(item, PRICING); } catch (e) { return fail(400, e.message); }
+  try { price = priceItem(item, P); } catch (e) { return fail(400, e.message); }
+  // anything else switched off on the admin page since the studio was opened can't be ordered either
+  const gone = unavailableIn(design, view);
+  if (gone.length) return json({ error: gone.join(" "), unavailable: gone }, 409);
   const id = crypto.randomUUID();
   const link = typeof body.link === "string" && body.link.length < 20000 ? body.link : "";
   await writeJSON(env, itemKey(id), { id, created: new Date().toISOString(), status: "open", item, price, design, link,
@@ -273,12 +312,26 @@ async function upload(request, env, id, what) {
 }
 
 /* ---- checkout: the whole cart, one Stripe page ---- */
+/* The basket page asks, when it opens, whether anything in it has been switched off since it went in. */
+async function basketCheck(request, env) {
+  let body; try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
+  const list = (Array.isArray(body && body.items) ? body.items : []).slice(0, 50), view = await viewFor(env, request), out = [];
+  for (const it of list) {
+    const id = String((it && it.id) || "");
+    if (!ID.test(id) || !sameText(String(it.token || ""), await uploadToken(env, id))) continue;
+    const rec = await readJSON(env, itemKey(id));
+    if (rec) out.push({ id, problems: unavailableIn(rec.design, view) });
+  }
+  return json({ items: out });
+}
+
 async function checkout(request, env) {
   let body;
   try { body = await request.json(); } catch (e) { return fail(400, "The basket didn't come through properly."); }
   const list = Array.isArray(body && body.items) ? body.items : [];
   if (!list.length) return fail(400, "The basket is empty.");
-  if (list.length > PRICING.maxItems) return fail(400, "That's more models than one order can hold.");
+  const view = await viewFor(env, request), P = await pricingFor(env, request, view);
+  if (list.length > P.maxItems) return fail(400, "That's more models than one order can hold.");
   const items = [];
   for (const it of list) {
     const id = String((it && it.id) || "");
@@ -288,8 +341,11 @@ async function checkout(request, env) {
     if (!(await env.ORDERS.head("items/" + id + "/model.zip"))) return fail(409, "One of the models in the basket is missing its print file. Please remove it and add it again.");
     items.push(rec);
   }
+  // anything switched off since it went in the basket: named model by model, so the basket can show which
+  const flagged = items.map((rec) => ({ id: rec.id, problems: unavailableIn(rec.design, view) })).filter((x) => x.problems.length);
+  if (flagged.length) return json({ error: "Something in your basket isn't available at the moment. Please change it in the studio, or remove it.", unavailable: flagged }, 409);
   let price;
-  try { price = priceCart(items.map((r) => r.item), body.shipping, PRICING); } catch (e) { return fail(400, e.message); }
+  try { price = priceCart(items.map((r) => r.item), body.shipping, P); } catch (e) { return fail(400, e.message); }
   const origin = new URL(request.url).origin, ship = price.shipping, orderId = crypto.randomUUID();
   const updates = body.updates === true;       // the "send me updates" box on the basket page (ticked unless they untick it)
   let number;
@@ -325,25 +381,102 @@ async function checkout(request, env) {
   return json({ url: session.url, order: orderId, number });
 }
 
+/* What goes in the box besides the printed pieces, as the print file makes them: a pin for every
+   side of a frame (one per join on the Misogi), a staple for every wall of a frame on the smaller
+   sizes, and eight dowels for the Misogi's four tiles. */
+export function looseParts(f) {
+  const misogi = +(f && f.modelMM) >= 500, sides = f && f.outline === "hex" ? 6 : 4;
+  const pins = f && f.show ? sides : 0, staples = staplesFor(f), dowels = misogi ? 8 : 0;
+  const out = [];
+  if (pins) out.push(pins + " pins");
+  if (staples) out.push(staples + " staples");
+  if (dowels) out.push(dowels + " dowels");
+  return out.length ? out.join(", ") : "None";
+}
+
+/* ---- the order sheet: a Google Sheet, through a small script on it (order-sheet.gs). One row a model,
+   so each has its own status as it is printed. Every add-on is a column of its own. ---- */
+export const SHEET_COLUMNS = ["Order", "Model", "Date", "Site", "Payment", "Customer", "Email", "Phone",
+  "Model name", "Size", "Shape", "Frame", "Frame text", "Route", "Icons", "Colours",
+  "Model price", "Delivery", "Order total", "Address", "Updates", "Print file", "Studio link", "Status", "Tracking no.", "Notes"];
+// the preview branch (preview.misogimodel.pages.dev) and Cloudflare's per-upload addresses are a
+// label in front of the site's own pages.dev name; misogimodel.com and misogimodel.pages.dev are live
+export const siteOf = (origin) => { let h = ""; try { h = new URL(origin).hostname; } catch (e) {}
+  return /^[^.]+\.[^.]+\.pages\.dev$/.test(h) || /^(localhost|127\.)/.test(h) ? "Preview" : "Live"; };
+/* What to load in the printer, in words: the colour way and its filaments, the route's colour and the
+   icons', each with its finish (matte or standard) when the design says. */
+const finishWord = (f) => f === "matte" ? "matte" : f === "standard" ? "standard" : "";
+const colourWords = (name, hex, finish) => { const bits = [name, finishWord(finish)].filter(Boolean).join(", ");
+  return (bits ? bits + " " : "") + "(" + String(hex || "").toUpperCase() + ")"; };
+export function coloursLine(d) {
+  const pr = d.print || {};
+  if (!pr.on || !pr.scheme) return "plain";
+  const name = pr.label || pr.scheme, cols = Array.isArray(pr.colours) ? pr.colours.slice(0, pr.count || pr.colours.length) : [];
+  return cols.length ? name + ": " + cols.map((c) => String(c).toUpperCase()).join(", ") : name;
+}
+export function routeLine(d, named) {
+  if (!d.route) return "No";
+  const rs = d.routeStyle || {};
+  return ((named && d.route.name) || "Yes") + (rs.colour ? "\u00a0\u00a0 " + colourWords(rs.colourName, rs.colour, rs.finish) : "");
+}
+export function iconsLine(d) {
+  const list = d.icons || []; if (!list.length) return "0";
+  const counts = new Map();
+  for (const ic of list) { const k = colourWords(ic.colourName, ic.colour, ic.finish); counts.set(k, (counts.get(k) || 0) + 1); }
+  return list.length + ": " + [...counts].map(([k, n]) => (n > 1 ? n + " × " : "") + k).join("; ");
+}
+export function sheetRow(rec, p, { short, i, n, modelUrl }) {
+  const d = rec.design || {}, f = d.frame || {};
+  const texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text);
+  return {
+    "Order": short, "Model": (i + 1) + " of " + n, "Model name": rec.name || "",
+    "Size": p.size.name + " (" + p.size.dims + ")", "Shape": f.outline === "hex" ? "Hexagon" : "Square",
+    "Frame": f.show ? "Yes" : "No", "Frame text": f.show ? texts.join("\u00a0\u00a0 ") : "",
+    "Route": routeLine(d),
+    "Icons": iconsLine(d), "Colours": coloursLine(d),
+    "Model price": money(p.subtotal, PRICING.currency), "Print file": modelUrl, "Studio link": rec.link || "", "Status": "To print",
+  };
+}
+/* Sends the rows to the sheet's script: its web address and shared password are Cloudflare secrets
+   (ORDER_SHEET_URL, ORDER_SHEET_SECRET). Answers what happened, for the order's record. */
+export async function addToOrderSheet(env, rows) {
+  if (!rows.length) return "nothing to add";
+  if (!env.ORDER_SHEET_URL || !env.ORDER_SHEET_SECRET)
+    return "not set up on this deployment: " + [!env.ORDER_SHEET_URL && "ORDER_SHEET_URL", !env.ORDER_SHEET_SECRET && "ORDER_SHEET_SECRET"].filter(Boolean).join(" and ")
+         + " missing (add it in Cloudflare, then redeploy)";
+  try {
+    const r = await fetch(env.ORDER_SHEET_URL, { method: "POST", redirect: "follow", headers: { "content-type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ secret: env.ORDER_SHEET_SECRET, columns: SHEET_COLUMNS, rows }) });
+    const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
+    if (r.ok && j && j.ok) return "added " + j.added + (j.added === 1 ? " row" : " rows");
+    const why = j && j.error ? "the sheet said: " + j.error
+      : /accounts\.google\.com|ServiceLogin|sign in/i.test(t) || r.status === 401 || r.status === 403
+        ? "Google asked for a sign-in (deploy the web app with Execute as: Me and Who has access: Anyone)"
+        : "HTTP " + r.status + (r.status === 404 ? " (is ORDER_SHEET_URL the web app's /exec address?)" : "");
+    console.log("order sheet: " + why); return "failed: " + why;
+  } catch (e) { console.log("order sheet: " + e.message); return "failed: " + e.message; }
+}
+
 /* ---- paid: one email, every model, each with its print file ---- */
-function itemBlock(rec, p, origin, modelUrl, attached) {
+function itemBlock(rec, p, origin, modelUrl, attached, tooBig) {
   const d = rec.design || {}, f = d.frame || {}, texts = (f.texts || []).filter((t) => t && t.text).map((t) => t.text + (t.flip === true ? " (flipped 180°)" : ""));
   const facts = [
     ["Size", p.size.name + " (" + p.size.dims + ")"],
     ["Centre", d.sel ? d.sel.lat + ", " + d.sel.lng : "—"],
     ["Area", d.sel ? (d.sel.size / 1000).toFixed(2) + " km square" + (d.sel.rot ? ", turned " + d.sel.rot + "°" : "") : "—"],
     ["Shape", f.outline === "hex" ? "Hexagon" : "Square"],
-    ["Colours", (d.print && d.print.scheme) || "plain"],
-    ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join(" · ") : "") : "No"],
-    ["Route", d.route ? (d.route.name || "Yes") : "No"],
-    ["Icons", String((d.icons || []).length)],
+    ["Colours", coloursLine(d)],
+    ["Frame", f.show ? "Yes" + (texts.length ? ": " + texts.join("\u00a0\u00a0 ") : "") : "No"],
+    ["Loose parts", looseParts(f)],
+    ["Route", routeLine(d, true)],
+    ["Icons", iconsLine(d)],
     ["Price", money(p.subtotal, PRICING.currency)],
   ].map(([k, v]) => `<tr><td style="color:#5B6470;padding-right:12px">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
   return `<div style="margin:22px 0;padding-top:18px;border-top:1px solid #E5E8EE">
 <h3 style="margin:0 0 10px">${esc(rec.name || "A model")}</h3>
 <img src="${origin}/api/items/${rec.id}/preview.jpg" alt="" style="width:100%;max-width:420px;border-radius:12px">
 <table cellpadding="3" style="border-collapse:collapse;margin-top:8px">${facts}</table>
-<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? ` · <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
+<p style="margin:8px 0 0">${attached ? "Print file attached as " + esc(attached) + ". " : tooBig ? "Print file too big to attach (" + (tooBig / 1048576).toFixed(1) + " MB): download it from the link. " : ""}<a href="${modelUrl}">Download the print file</a>${rec.link ? `&nbsp;&nbsp; <a href="${esc(rec.link)}">Open the design in the studio</a>` : ""}</p>
 </div>`;
 }
 async function webhook(request, env) {
@@ -363,20 +496,32 @@ async function webhook(request, env) {
   const sd = (session.collected_information && session.collected_information.shipping_details) || session.shipping_details || {};
   const a = sd.address || cd.address || {};
   const addr = [sd.name || cd.name, a.line1, a.line2, a.city, a.state, a.postal_code, a.country].filter(Boolean).map(esc).join("<br>");
-  let budget = EMAIL_ATTACH_BUDGET; const attachments = [], blocks = [];
+  let budget = EMAIL_ATTACH_BUDGET; const attachments = [], blocks = [], sheetRows = [];
   for (let i = 0; i < order.items.length; i++) {
     const itemId = order.items[i], rec = await readJSON(env, itemKey(itemId)) || { id: itemId };
     const modelUrl = origin + "/api/items/" + itemId + "/model?key=" + await modelKey(env, itemId);
     const head = await env.ORDERS.head("items/" + itemId + "/model.zip");
-    const filename = "misogimodel-" + short + "-" + (i + 1) + ".zip";
+    // the print file goes by the order number: MM-AB12C-1.zip, holding MM-AB12C-1.3mf (see serve)
+    const fileName = short + "-" + (i + 1), filename = fileName + ".zip";
+    if (rec.fileName !== fileName && rec.id) { rec.fileName = fileName; await writeJSON(env, itemKey(itemId), rec); }
     let attached = "";
     if (head && head.size <= budget) { attachments.push({ filename, path: modelUrl }); budget -= head.size; attached = filename; }
-    blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached));
+    blocks.push(itemBlock(rec, p.items[i], origin, modelUrl, attached, head && !attached ? head.size : 0));
+    sheetRows.push(sheetRow(rec, p.items[i], { short, i, n: order.items.length, modelUrl }));
   }
+  // a row for each model on the order sheet, first, so the email can say how that went; it never holds up the order
+  // (if the email then fails, Stripe tries again, and the sheet's script skips rows it already has)
+  const total = money(session.amount_total != null ? session.amount_total : p.total, p.currency);
+  for (const r of sheetRows) Object.assign(r, {
+    "Date": new Date().toISOString().replace("T", " ").slice(0, 16), "Site": siteOf(origin), "Payment": event.livemode ? "Live" : "Test",
+    "Customer": sd.name || cd.name || "", "Email": cd.email || "", "Phone": cd.phone || "",
+    "Delivery": p.shipping.label + " " + money(p.shipping.price, p.currency), "Order total": total,
+    "Address": [a.line1, a.line2, a.city, a.state, a.postal_code, a.country].filter(Boolean).join(", "), "Updates": order.updates ? "Yes" : "No" });
+  const sheetNote = await addToOrderSheet(env, sheetRows);
   const n = order.items.length;
   const html = `<div style="font-family:Inter,Arial,sans-serif;color:#0B0E12;max-width:640px">
 <h2 style="margin:0 0 4px">New order: ${n} ${n === 1 ? "model" : "models"}</h2>
-<p style="margin:0 0 16px;color:#5B6470">Order <b style="color:#0B0E12">${esc(short)}</b> · ${esc(new Date().toUTCString())}<br><span style="font-size:12px">Reference ${esc(id)}</span></p>
+<p style="margin:0 0 16px;color:#5B6470">Order <b style="color:#0B0E12">${esc(short)}</b>&nbsp;&nbsp; ${esc(new Date().toUTCString())}<br><span style="font-size:12px">Reference ${esc(id)}</span></p>
 <h3>Send to</h3><p>${addr || "—"}<br>${esc(cd.email || "")}${cd.phone ? "<br>" + esc(cd.phone) : ""}</p>
 <p style="color:#5B6470">Wants updates by email: ${order.updates ? "yes" : "no"}</p>
 <table cellpadding="4" style="border-collapse:collapse;width:100%">
@@ -384,13 +529,14 @@ ${p.items.map((it, i) => `<tr><td>${i + 1}. ${esc(it.size.name)}${it.extras.leng
 <tr><td>${esc(p.shipping.label + " delivery")}</td><td align="right">${money(p.shipping.price, p.currency)}</td></tr>
 <tr><td><b>Paid</b></td><td align="right"><b>${money(session.amount_total != null ? session.amount_total : p.total, p.currency)}</b></td></tr></table>
 ${blocks.join("\n")}
+<p style="margin:22px 0 0;color:#5B6470;font-size:12px">Order sheet: ${esc(sheetNote)}</p>
 </div>`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
     body: JSON.stringify({
       from: env.ORDER_EMAIL_FROM || "misogimodel orders <orders@send.misogimodel.com>",
-      to: [env.ORDER_EMAIL_TO],
+      to: [env.ORDER_EMAIL_TO], ...copies(emailSetting(await loadSettings(env, siteOf(origin)), "newOrder"), true),
       reply_to: cd.email || undefined,
       subject: "New order " + short + ": " + n + (n === 1 ? " model" : " models") + " — " + money(session.amount_total != null ? session.amount_total : p.total, p.currency),
       html, attachments,
@@ -402,7 +548,7 @@ ${blocks.join("\n")}
     if (rec) { rec.status = "paid"; rec.order = id; await writeJSON(env, itemKey(itemId), rec); }
   }
   Object.assign(order, { status: "emailed", paid: new Date().toISOString(), stripeSession: session.id,
-                         customer: cd, amountPaid: session.amount_total });
+                         customer: cd, amountPaid: session.amount_total, sheet: sheetNote });
   await writeJSON(env, orderKey(id), order);
   // They left "send me updates" ticked: put their address on the mailing list and, if they're new to
   // it, send the same welcome (with its Unsubscribe button) and note to you as the footer's box does.
@@ -427,8 +573,45 @@ async function serve(env, id, file, request) {
   const obj = await env.ORDERS.get("items/" + id + "/" + (file === "model" ? "model.zip" : "preview.jpg"));
   if (!obj) return fail(404, "Not found.");
   const headers = { "content-type": file === "model" ? "application/zip" : "image/jpeg", "cache-control": "private, max-age=3600" };
-  if (file === "model") headers["content-disposition"] = 'attachment; filename="misogimodel-' + id.slice(0, 8) + '.zip"';
-  return new Response(obj.body, { headers });
+  if (file !== "model") return new Response(obj.body, { headers });
+  // once ordered, the file and the print file in it carry the order number, MM-AB12C-1; before that, the model's own number
+  const rec = await readJSON(env, itemKey(id)), name = rec && /^[A-Za-z0-9-]{1,40}$/.test(rec.fileName || "") ? rec.fileName : null;
+  headers["content-disposition"] = 'attachment; filename="' + (name || "misogimodel-" + id.slice(0, 8)) + '.zip"';
+  if (!name) return new Response(obj.body, { headers });
+  return new Response(renameInZip(new Uint8Array(await obj.arrayBuffer()), name), { headers });
+}
+
+/* The zip with each file in it renamed to `base` (keeping its extension; a second file gets -2 and so on).
+   The studio's zips are plain: no comments, extras or trailing descriptors. Anything else, or anything
+   that doesn't add up, comes back untouched, so a download never breaks over a name. */
+export function renameInZip(bytes, base) {
+  try {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), n = bytes.length, enc = new TextEncoder(), dec = new TextDecoder();
+    if (n < 22 || v.getUint32(n - 22, true) !== 0x06054b50) return bytes;
+    const count = v.getUint16(n - 12, true), cenOff = v.getUint32(n - 6, true);
+    const parts = [], central = []; let p = cenOff, offset = 0;
+    for (let k = 0; k < count; k++) {
+      if (v.getUint32(p, true) !== 0x02014b50) return bytes;
+      const nameLen = v.getUint16(p + 28, true), extra = v.getUint16(p + 30, true), comment = v.getUint16(p + 32, true);
+      const flags = v.getUint16(p + 8, true), size = v.getUint32(p + 20, true), local = v.getUint32(p + 42, true);
+      if (extra || comment || (flags & 8) || v.getUint32(local, true) !== 0x04034b50) return bytes;
+      const oldName = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen)), ext = (oldName.match(/\.[A-Za-z0-9]{1,5}$/) || [""])[0];
+      const name = enc.encode(base + (k ? "-" + (k + 1) : "") + ext);
+      const lName = v.getUint16(local + 26, true), lExtra = v.getUint16(local + 28, true);
+      const head = bytes.slice(local, local + 30), hv = new DataView(head.buffer); hv.setUint16(26, name.length, true); hv.setUint16(28, 0, true);
+      const data = bytes.subarray(local + 30 + lName + lExtra, local + 30 + lName + lExtra + size);
+      if (data.length !== size) return bytes;
+      parts.push(head, name, data);
+      const cen = bytes.slice(p, p + 46), cv = new DataView(cen.buffer); cv.setUint16(28, name.length, true); cv.setUint32(42, offset, true);
+      central.push(cen, name);
+      offset += 30 + name.length + size; p += 46 + nameLen + extra + comment;
+    }
+    const cenSize = central.reduce((t, c) => t + c.length, 0), end = bytes.slice(n - 22), ev = new DataView(end.buffer);
+    ev.setUint32(12, cenSize, true); ev.setUint32(16, offset, true);
+    const out = new Uint8Array(offset + cenSize + 22); let at = 0;
+    for (const c of [...parts, ...central, end]) { out.set(c, at); at += c.length; }
+    return out;
+  } catch (e) { return bytes; }
 }
 
 /* How many people are on the list and still subscribed, for the note to you: "12", or "1,000+" past
@@ -494,6 +677,27 @@ async function unsubscribe(request, env, url) {
    the email escaped, so nothing typed can become markup. The hidden "website" box catches bots. */
 const TOPICS = { order: "An order I've placed", design: "Help with a design", custom: "A custom or bulk request", other: "Something else" };
 const clean = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, n);
+/* The contact form's two emails: the message to you, and the short reply to the person who wrote. */
+function contactMessageEmail({ name, email, topic, order, message }) {
+  return { subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
+<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
+<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
+${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
+<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
+<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`,
+    text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message };
+}
+function contactReplyEmail({ name, topic, order }) {
+  const first = name.split(" ")[0], about = TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1);
+  return { subject: "We've got your message",
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
+<p style="margin:0 0 12px">Hi ${esc(first)},</p>
+<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(about)}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
+<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
+<p style="margin:0">misogimodel</p></div>`,
+    text: "Hi " + first + ",\n\nThanks for getting in touch about " + about + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel" };
+}
 async function contact(request, env) {
   if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "The contact form isn't switched on just yet");
   let body;
@@ -508,48 +712,166 @@ async function contact(request, env) {
   if (!name) return fail(400, "Please add your name.");
   if (!EMAIL.test(email)) return fail(400, "That email address doesn't look quite right.");
   if (message.length < 10) return fail(400, "Please write a little more in your message.");
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#0B0E12">
-<h2 style="margin:0 0 12px">${esc(TOPICS[topic])}</h2>
-<p style="margin:0 0 4px"><b>From:</b> ${esc(name)} &lt;${esc(email)}&gt;</p>
-${order ? `<p style="margin:0 0 4px"><b>Order:</b> ${esc(order)}</p>` : ""}
-<p style="margin:16px 0 0;white-space:pre-wrap">${esc(message)}</p>
-<p style="margin:20px 0 0;color:#5B6470;font-size:13px">Sent from the contact page. Reply to this email to answer ${esc(name)}.</p></div>`;
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify({
-      from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
-      to: [env.ORDER_EMAIL_TO], reply_to: email,
-      subject: "Contact: " + TOPICS[topic] + " — " + name + (order ? " (order " + order + ")" : ""),
-      html,
-      text: TOPICS[topic] + "\nFrom: " + name + " <" + email + ">\n" + (order ? "Order: " + order + "\n" : "") + "\n" + message,
-    }),
-  });
+  const settings = await loadSettings(env, siteOf(new URL(request.url).origin));
+  const from = env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>";
+  const r = await resendPost(env, { from, to: [env.ORDER_EMAIL_TO], ...copies(emailSetting(settings, "contactMessage"), true), reply_to: email,
+    ...contactMessageEmail({ name, email, topic, order, message }) });
   if (r.ok) {
-    // A short confirmation to the sender. It deliberately doesn't repeat what they wrote, so the form
-    // can't be used to send someone else's words to a stranger's inbox. If it fails, the message to
-    // you has still gone, so the person is still told it worked.
-    try {
-      const first = name.split(" ")[0];
-      const c = await fetch("https://api.resend.com/emails", {
-        method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-        body: JSON.stringify({
-          from: env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>",
-          to: [email], reply_to: env.ORDER_EMAIL_TO,
-          subject: "We've got your message",
-          html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0B0E12">
-<p style="margin:0 0 12px">Hi ${esc(first)},</p>
-<p style="margin:0 0 12px">Thanks for getting in touch about ${esc(TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1))}${order ? " (order " + esc(order) + ")" : ""}. We've got your message and will reply to this address as soon as we can.</p>
-<p style="margin:0 0 12px">If you think of anything else, just reply to this email.</p>
-<p style="margin:0">misogimodel</p></div>`,
-          text: "Hi " + first + ",\n\nThanks for getting in touch about " + TOPICS[topic].charAt(0).toLowerCase() + TOPICS[topic].slice(1) + (order ? " (order " + order + ")" : "") + ". We've got your message and will reply to this address as soon as we can.\n\nIf you think of anything else, just reply to this email.\n\nmisogimodel",
-        }),
-      });
+    // A short confirmation to the sender, unless it's switched off on the admin page. It deliberately
+    // doesn't repeat what they wrote, so the form can't be used to send someone else's words to a
+    // stranger's inbox. If it fails, the message to you has still gone, so the person is still told it worked.
+    const reply = emailSetting(settings, "contactReply");
+    if (reply.on) try {
+      const c = await resendPost(env, { from, to: [email], ...copies(reply, false), reply_to: env.ORDER_EMAIL_TO, ...contactReplyEmail({ name, topic, order }) });
       if (!c.ok) console.log("contact: the confirmation wasn't sent, Resend said " + c.status);
     } catch (e) { console.log("contact: the confirmation wasn't sent"); }
     return json({ ok: true });
   }
   console.log("contact: Resend said " + r.status + " " + (await r.text().catch(() => "")).slice(0, 200));
   return fail(502, "Your message couldn't be sent just now. Please try again in a little while.");
+}
+
+/* ---- settings (the admin page) ---- */
+const settingsKey = (site) => "settings/" + (site === "Live" ? "live" : "preview") + ".json";
+export async function loadSettings(env, site) {
+  try { const s = env.ORDERS ? await readJSON(env, settingsKey(site)) : null; return sanitise(s || DEFAULT_SETTINGS); }
+  catch (e) { return sanitise(DEFAULT_SETTINGS); }       // a spoilt file never breaks the shop
+}
+/* The price list for this site: the built-in one with the admin page's prices folded in. */
+export async function viewFor(env, request) { return publicView(await loadSettings(env, siteOf(new URL(request.url).origin))); }
+export async function pricingFor(env, request, view) {
+  const P = JSON.parse(JSON.stringify(PRICING));
+  return applyToPricing(P, view || await viewFor(env, request));
+}
+
+/* Cloudflare Access's pass: a token it signs and adds to every request it lets through. Checked here
+   too, so a mistyped rule at the door, or a request sent straight here, still can't change anything. */
+const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+let certCache = { team: null, at: 0, keys: [] };
+export async function verifyAccess(request, env, now = Date.now()) {
+  const team = String(env.ACCESS_TEAM_DOMAIN || "").replace(/^https?:\/\//, "").replace(/\/+$/, ""), aud = String(env.ACCESS_AUD || "");
+  const owner = String(env.ADMIN_EMAIL || env.ORDER_EMAIL_TO || "").trim().toLowerCase();
+  let tok = request.headers.get("cf-access-jwt-assertion") || "";
+  if (!tok) { const m = /(?:^|;\s*)CF_Authorization=([^;]+)/.exec(request.headers.get("cookie") || ""); if (m) tok = m[1]; }
+  if (!team || !aud || !owner) {
+    // Setting up: if Cloudflare has already let you in, say which values its pass carries, so they can be
+    // copied into ACCESS_AUD and ACCESS_TEAM_DOMAIN (neither is secret). Nothing is let through.
+    let hint = "";
+    try { const c = JSON.parse(new TextDecoder().decode(b64u(tok.split(".")[1] || "")));
+      const a = (Array.isArray(c.aud) ? c.aud : [c.aud]).filter(Boolean), t = String(c.iss || "").replace(/^https:\/\//, "");
+      if (a.length && t) hint = " Your Cloudflare sign-in says: ACCESS_AUD = " + a.join(" or ") + ", ACCESS_TEAM_DOMAIN = " + t + "."; } catch (e) {}
+    const missing = [!aud && "ACCESS_AUD", !team && "ACCESS_TEAM_DOMAIN", !owner && "ORDER_EMAIL_TO"].filter(Boolean).join(", ");
+    return { ok: false, why: "The admin lock isn't set up on this site yet (missing: " + missing + ")." + hint };
+  }
+  const bits = tok.split(".");
+  if (bits.length !== 3) return { ok: false, why: "Please sign in." };
+  let head, body;
+  try { head = JSON.parse(new TextDecoder().decode(b64u(bits[0]))); body = JSON.parse(new TextDecoder().decode(b64u(bits[1]))); }
+  catch (e) { return { ok: false, why: "Please sign in." }; }
+  if (head.alg !== "RS256") return { ok: false, why: "Please sign in." };
+  if (certCache.team !== team || now - certCache.at > 3600e3 || !certCache.keys.some((k) => k.kid === head.kid)) {
+    const r = await fetch("https://" + team + "/cdn-cgi/access/certs");
+    if (!r.ok) return { ok: false, why: "Couldn't check your sign-in just now." };
+    certCache = { team, at: now, keys: ((await r.json()).keys) || [] };
+  }
+  const jwk = certCache.keys.find((k) => k.kid === head.kid);
+  if (!jwk) return { ok: false, why: "Please sign in." };
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const good = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64u(bits[2]), new TextEncoder().encode(bits[0] + "." + bits[1]));
+  if (!good) return { ok: false, why: "Please sign in." };
+  const auds = Array.isArray(body.aud) ? body.aud : [body.aud];
+  if (!auds.includes(aud) || body.iss !== "https://" + team) return { ok: false, why: "Please sign in." };
+  if (!(body.exp * 1000 > now) || (body.nbf && body.nbf * 1000 > now + 60e3)) return { ok: false, why: "Your sign-in has run out. Please sign in again." };
+  if (String(body.email || "").trim().toLowerCase() !== owner) return { ok: false, why: "That account can't change these settings." };
+  return { ok: true, email: body.email };
+}
+
+/* "Send me a test" on the admin page: one email, filled in with made-up details, to you alone (never
+   to its copies or to anyone else), with "[Test]" in front of its subject. It goes whether the email is
+   switched on or not, so you can look before you switch it on. The new order email can't be faked this
+   way: a test order on Preview sends the real thing. */
+export const TESTABLE = ["contactMessage", "contactReply", "welcome", "signupNote"];
+async function testEmail(env, origin, key) {
+  if (!TESTABLE.includes(key)) return fail(400, key === "newOrder" ? "Place a test order on the Preview site to see this one." : "There's no email called that.");
+  if (!env.RESEND_API_KEY || !env.ORDER_EMAIL_TO) return fail(503, "Emails aren't set up on this site (RESEND_API_KEY and ORDER_EMAIL_TO).");
+  const sample = { name: "Sam Walker", email: "sam@example.com", topic: "design", order: "MM-AB12C",
+                   message: "Hello! This is a test message from the admin page, so you can see how the email looks." };
+  const unsub = origin + "/api/unsubscribe?test=1";
+  const to = { to: [env.ORDER_EMAIL_TO] }, tag = (m) => ({ ...m, subject: "[Test] " + m.subject });
+  const contactFrom = env.CONTACT_EMAIL_FROM || "misogimodel contact <contact@send.misogimodel.com>", newsFrom = env.NEWS_EMAIL_FROM || "misogimodel <hello@send.misogimodel.com>";
+  let ok;
+  if (key === "contactMessage") ok = (await resendPost(env, { from: contactFrom, ...to, ...tag(contactMessageEmail(sample)) })).ok;
+  else if (key === "contactReply") ok = (await resendPost(env, { from: contactFrom, ...to, ...tag(contactReplyEmail(sample)) })).ok;
+  else if (key === "welcome") ok = await sendTemplated(env, { from: newsFrom, ...to, subject: "[Test] You're on the list" },
+    { id: env.NEWS_WELCOME_TEMPLATE || "newsletter-welcome", variables: { GREETING: "Hi Sam,", UNSUBSCRIBE_URL: unsub } }, tag(welcomePlain("Sam", unsub)), "test welcome");
+  else ok = await sendTemplated(env, { from: newsFrom, ...to, subject: "[Test] New sign-up: sam@example.com" },
+    { id: env.NEWS_NOTE_TEMPLATE || "newsletter-signup-note", variables: { SIGNUP_EMAIL: "sam@example.com", SIGNUP_NAME: " (Sam)", SIGNUP_SOURCE: "the website", SUBSCRIBER_COUNT: "42" } },
+    tag(signupNotePlain("sam@example.com", "Sam", "website", "42")), "test sign-up note");
+  return ok ? json({ ok: true, sentTo: "your inbox" }) : fail(502, "Resend didn't send it. Please try again in a minute.");
+}
+/* ---- the history: every save and copy on either site's admin page, kept in the ORDERS bucket under
+   audit/, one small file each. The file names count down with time, so listing them gives the newest
+   first. Each holds when, which site, who (the Cloudflare Access sign-in), what was done, the changes
+   in plain words, and the settings as they were left, so any earlier version could be brought back. ---- */
+const auditKey = () => "audit/" + String(9999999999999 - Date.now()).padStart(13, "0") + "-" + crypto.randomUUID().slice(0, 8) + ".json";
+export async function recordChange(env, { site, who, action, section, before, after }) {
+  const changes = describeChanges(before, after);
+  if (!changes.length) return null;                     // saved with nothing changed: nothing to record
+  const entry = { at: new Date().toISOString(), site, who: who || "", action, ...(section ? { section } : {}),
+                  changes: changes.slice(0, 300), more: Math.max(0, changes.length - 300), settings: sanitise(after) };
+  try { await writeJSON(env, auditKey(), entry); } catch (e) { console.log("history: couldn't record the change"); }
+  return entry;
+}
+async function history(env, url) {
+  const before = String(url.searchParams.get("before") || ""), limit = Math.min(50, Math.max(1, +url.searchParams.get("limit") || 30));
+  const list = await env.ORDERS.list({ prefix: "audit/", limit: limit + 1, ...(before.startsWith("audit/") ? { startAfter: before } : {}) });
+  const keys = list.objects.map((o) => o.key), page = keys.slice(0, limit);
+  const entries = (await Promise.all(page.map(async (key) => { const e = await readJSON(env, key).catch(() => null);
+    if (!e) return null; const { settings, ...rest } = e; return { key, ...rest }; }))).filter(Boolean);
+  return json({ entries, next: keys.length > limit ? page[page.length - 1] : null });
+}
+async function adminView(env, site) {
+  const other = site === "Live" ? "Preview" : "Live";
+  const mine = await loadSettings(env, site), theirs = await loadSettings(env, other);
+  const savedObj = env.ORDERS ? await env.ORDERS.head(settingsKey(site)) : null;
+  return json({ site, other, settings: mine, otherSettings: theirs, same: sameSections(mine, theirs), sections: SECTIONS,
+                saved: savedObj && savedObj.uploaded ? new Date(savedObj.uploaded).toISOString() : null });
+}
+async function adminRoute(request, env, parts, m) {
+  const who = await verifyAccess(request, env);
+  if (!who.ok) return fail(403, who.why);
+  if (!env.ORDERS) return fail(503, "The settings storage (ORDERS) isn't connected on this site.");
+  const site = siteOf(new URL(request.url).origin);
+  if (parts[1] === "settings" && parts.length === 2) {
+    if (m === "GET") return adminView(env, site);
+    if (m === "PUT") {
+      let body; try { body = await request.json(); } catch (e) { return fail(400, "Those settings didn't come through properly."); }
+      if (!body || typeof body.settings !== "object") return fail(400, "There were no settings.");
+      const wrong = checkSettings(body.settings);
+      if (wrong.length) return fail(400, wrong[0].msg);
+      const was = await loadSettings(env, site), now = sanitise(body.settings);
+      await writeJSON(env, settingsKey(site), now);
+      await recordChange(env, { site, who: who.email, action: "save", before: was, after: now });
+      return adminView(env, site);
+    }
+    return fail(405, "Not allowed.");
+  }
+  if (parts[1] === "history" && parts.length === 2 && m === "GET") return history(env, new URL(request.url));
+  if (parts[1] === "test-email" && parts.length === 2 && m === "POST") {
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    return testEmail(env, new URL(request.url).origin, String((body && body.email) || ""));
+  }
+  if (parts[1] === "copy" && parts.length === 2 && m === "POST") {
+    if (site !== "Live") return fail(400, "Copying only goes from Preview to Live, on the live site's admin page.");
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    const section = String((body && body.section) || "");
+    if (section !== "all" && !SECTIONS.includes(section)) return fail(400, "There's no section called that.");
+    const live = await loadSettings(env, "Live"), preview = await loadSettings(env, "Preview"), now = copySections(live, preview, section);
+    await writeJSON(env, settingsKey("Live"), now);
+    await recordChange(env, { site: "Live", who: who.email, action: "copy", section, before: live, after: now });
+    return adminView(env, site);
+  }
+  return fail(404, "Not found.");
 }
 
 export async function onRequest(context) {
@@ -564,6 +886,13 @@ export async function onRequest(context) {
     if (m !== "GET" && m !== "POST") return fail(405, "Not allowed.");
     try { return await unsubscribe(request, env, url); }
     catch (err) { return page(502, "Please try again", "<h1>That didn't work just now</h1><p>Please try again in a little while.</p>"); }
+  }
+  if (parts[0] === "settings" && parts.length === 1) {         // what's on offer: anyone may read it
+    if (m !== "GET") return fail(405, "Not allowed.");
+    return json(publicView(await loadSettings(env, siteOf(url.origin))));
+  }
+  if (parts[0] === "admin") {                                  // the admin page's: only with your Cloudflare Access pass
+    try { return await adminRoute(request, env, parts, m); } catch (err) { return fail(500, "The settings couldn't be saved: " + (err && err.message ? err.message : "unknown")); }
   }
   if (parts[0] === "newsletter" && parts.length === 1) {       // needs none of the ordering set-up
     if (m !== "POST") return fail(405, "Not allowed.");
@@ -583,6 +912,7 @@ export async function onRequest(context) {
   try {
     if (parts[0] === "stripe-webhook" && m === "POST") return await webhook(request, env);
     if (parts[0] === "checkout" && m === "POST") return await checkout(request, env);
+    if (parts[0] === "basket-check" && m === "POST") return await basketCheck(request, env);
     if (parts[0] !== "items") return fail(404, "Not found.");
     if (parts.length === 1 && m === "POST") return await createItem(request, env);
     const id = parts[1] || "";

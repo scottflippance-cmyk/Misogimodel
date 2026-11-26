@@ -25,10 +25,17 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .item .pic img{display:block;width:100%;height:100%;object-fit:cover}
 .item h2{margin:2px 0 6px;font-size:18px;letter-spacing:-0.01em}
 .item .what{margin:0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#3A424C}
+/* (26 Nov) Under the name its cost lines, worded as in the studio (Custom 3D route, Custom icons ×3…);
+   Edit and the bin stay at the bottom of the card however long the list */
+.item .bd{margin-top:2px}
+.item .bd table{width:100%;border-collapse:collapse;font-size:13.5px;color:#3A424C}
+.item .bd td{padding:4px 0;border-bottom:1px solid rgba(0,0,0,.07)}
+.item .bd td:last-child{text-align:right;white-space:nowrap;padding-left:14px}
+.item .nosize{margin:8px 0 0;font-size:13.5px;color:#9B231C}
 /* Edit and a bin, the same pair the studio's lists use: a small outlined Edit button, then a grey
    bin that turns red under the pointer. */
 /* Price at the top right; Edit and the bin under it, their bottom level with the bottom of the picture. */
-.item .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;height:calc(148px * 3 / 4)}
+.item .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;align-self:stretch;min-height:calc(148px * 3 / 4)}
 .item .acts{display:flex;align-items:center;gap:4px;margin-right:-6px}
 .item .acts a.edit{font:inherit;font-size:13px;font-weight:500;color:#0B0E12;background:#FFFFFF;border:1px solid #D9DEE4;
   border-radius:6px;padding:4px 10px;cursor:pointer;text-decoration:none;transition:background .12s ease,border-color .12s ease}
@@ -45,15 +52,35 @@ h1{margin:0;font-size:clamp(34px,5vw,48px);letter-spacing:-0.03em;line-height:1.
 .ship label:has(input:checked){outline:2px solid #E4572E}
 .ship label > span:nth-of-type(1){white-space:nowrap}
 .ship small{color:#5B6470}
+.item .gone{margin:8px 0 0;padding:7px 10px;border-radius:8px;background:#FDECEA;color:#9B231C;font-size:13.5px;line-height:1.4}
+.item .gone a{color:inherit;font-weight:600}
+.free-note{margin:10px 2px 0;font-size:13.5px;color:#5B6470}.free-note.got{color:#1E7A3A;font-weight:600}
 .ship .p{margin-left:auto;font-weight:600}
 .sums{width:100%;border-collapse:collapse;margin-top:18px;font-size:15px}
 .sums td{padding:5px 0}
 .sums td:last-child{text-align:right;white-space:nowrap}
 .sums tr.total td{padding-top:12px;border-top:1px solid #DDE1E7;font-size:18px;font-weight:700}
-.placeholder{margin:10px 0 0;font-size:12.5px;color:#B26B00}
 /* "Send me updates": ticked to start with; unticking it keeps them off the mailing list. */
 .updates{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
 .updates input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
+.updates{padding:0 12px;margin-top:12px}
+.updates small{display:block;font-size:12px;color:#8A93A1;margin-top:1px}
+/* (26 Nov) The acknowledgements: must be ticked to check out. Pressing Checkout without it turns the
+   box red and says so; the link opens them in a pop-up, their words set on the admin page. */
+.ack{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:10px 12px;border-radius:12px;background:#FFFFFF;border:2px solid transparent;
+  font-size:13.5px;line-height:1.45;color:#3A424C;cursor:pointer}
+.ack input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:#E4572E;cursor:pointer}
+.ack a{color:#C9461F;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.ack.need{border-color:#C9461F;background:#FDECEA}
+.ack-msg{margin:6px 2px 0;font-size:13px;color:#9B231C;font-weight:600}
+#ackDlg{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,14,18,.45)}
+#ackDlg[hidden]{display:none}
+#ackDlg .card{position:relative;background:#fff;border-radius:20px;padding:26px 28px 22px;width:min(520px,100%);max-height:calc(100vh - 48px);overflow:auto;
+  font-size:15px;line-height:1.55;color:#3A424C;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#ackDlg h2{margin:0 40px 12px 0;font-size:22px;color:#0B0E12}
+#ackDlg ul{margin:0 0 18px;padding-left:20px} #ackDlg li{margin:0 0 8px}
+#ackDlg .x{position:absolute;top:14px;right:14px;width:34px;height:34px;padding:0;border-radius:999px;border:0;background:#F2F3F5;font-size:20px;line-height:1;cursor:pointer}
+#ackDlg .ok{display:block;width:100%}
 #checkout{display:block;width:100%;margin-top:14px;font-size:16px;padding:13px 24px;cursor:pointer}
 #checkout:disabled{opacity:.6;cursor:progress}
 .msg{margin:10px 0 0;font-size:13.5px;color:#5B6470}
@@ -109,9 +136,38 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   .track{padding:12px 16px 36px;margin:-12px -16px -32px;scroll-padding-inline:16px}
   .item{grid-template-columns:96px minmax(0,1fr);gap:12px}
   .item .pic{width:96px}
-  .item .side{grid-column:2;grid-row:1;justify-self:end;height:72px}
+  .item .side{display:contents}                     /* price beside the picture; Edit and the bin under the lines, at the bottom */
+  .item .price{grid-column:2;grid-row:1;justify-self:end}
+  .item .acts{grid-column:1 / -1;grid-row:3;justify-self:end;margin-top:-4px}
   .item .price{font-size:15px}
   .item .body{grid-column:1 / -1}
+}
+/* What's in the box?: a fold-out under the basket, built from what's in it (see renderBox) */
+.box{margin-top:40px}
+.box summary{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;list-style:none;padding:18px 22px;border-radius:16px;background:#F5F5F7;transition:background .2s ease}
+.box summary::-webkit-details-marker{display:none}
+.box summary:hover{background:#FDF1EC}
+.box summary:focus-visible{outline:3px solid var(--accent,#E4572E);outline-offset:2px}
+.box-q{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.box-chev{flex:none;width:12px;height:12px;border-right:2.5px solid #0B0E12;border-bottom:2.5px solid #0B0E12;transform:translateY(-3px) rotate(45deg);transition:transform .25s ease}
+.box[open] .box-chev{transform:translateY(3px) rotate(-135deg)}
+.box-sub{margin:22px 0 0;font-size:16px;color:#5B6470}
+.box-parts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:28px}
+.part{background:#F5F5F7;border-radius:20px;padding:20px 22px 24px;display:flex;flex-direction:column}
+.part-pic{display:block;width:100%;height:auto;aspect-ratio:712/475;border-radius:12px;margin:-4px 0 8px}
+.part h3{margin:8px 0 0;font-size:18px;letter-spacing:-.02em}
+.part p{margin:10px 0 0;font-size:14.5px;line-height:1.55;color:#3A424C}
+.part-list{margin:12px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.5;color:#3A424C;display:grid;grid-template-columns:max-content max-content;gap:4px 14px}   /* Square on the left, Hexagon on the right */
+.part-list li{position:relative;padding-left:16px;white-space:nowrap}
+.part-list li::before{content:"";position:absolute;left:1px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--accent,#E4572E)}
+.part-list:empty{display:none}
+/* the cards keep the same size however many show: four to a row (model, frame, pins, staples), and a
+   lone model card is one of four; two to a row on middling screens, one on a phone */
+@media (max-width:1100px) and (min-width:761px){ .box-parts{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:760px){
+  .box{margin-top:28px}
+  .box-q{font-size:18px}
+  .box-parts{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -154,17 +210,49 @@ main:has(> #empty:not([hidden])){padding-top:53px;padding-bottom:28px}   /* 25 p
   <aside class="summary" aria-label="Order summary">
     <h2>Delivery</h2>
     <div class="ship" id="ship" role="radiogroup" aria-label="Delivery"></div>
+    <p class="free-note" id="freeNote" role="status" hidden></p>
     <table class="sums">
       <tr><td id="subLabel">Models</td><td id="subtotal"></td></tr>
       <tr><td id="shipLabel">Delivery</td><td id="shipping"></td></tr>
       <tr class="total"><td>Total</td><td id="total"></td></tr>
     </table>
-    <p class="placeholder" id="placeholder" hidden>Example prices: these aren't final yet.</p>
-    <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases. You can unsubscribe at any time.</span></label>
+    <label class="ack" id="ackRow"><input type="checkbox" id="ack" aria-describedby="ackMsg"><span>I have read and accept the <a href="#" id="ackOpen">acknowledgements</a>.</span></label>
+    <p class="ack-msg" id="ackMsg" role="alert" hidden>Please tick to accept the acknowledgements before checking out.</p>
+    <label class="updates"><input type="checkbox" id="updates" checked><span>Email me about updates and new product releases.<small>You can unsubscribe at any time.</small></span></label>
     <button class="cta" id="checkout">Checkout</button>
     <p class="msg" id="msg" role="status"></p>
   </aside>
 </div>
+<div id="ackDlg" hidden role="dialog" aria-modal="true" aria-labelledby="ackTitle">
+  <div class="card">
+    <button class="x" id="ackClose" type="button" aria-label="Close">×</button>
+    <h2 id="ackTitle">Acknowledgements</h2>
+    <ul id="ackBody"></ul>
+    <button class="cta ok" id="ackOk" type="button">Got it</button>
+  </div>
+</div>
+<details id="box" class="box">
+<summary><span class="box-q">What's in the box?</span><span class="box-chev" aria-hidden="true"></span></summary>
+<p class="box-sub" id="boxSub">Printed to order for you, and put together by hand in a minute or two.</p>
+<div class="box-parts" id="boxParts">
+  <article class="part" id="boxModel">
+    <img class="part-pic" src="/images/box/model.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3></h3><p class="part-text"></p>
+  </article>
+  <article class="part" id="boxFrame">
+    <img class="part-pic" src="/images/box/frame.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3></h3><p class="part-text"></p><ul class="part-list"></ul>
+  </article>
+  <article class="part" id="boxPins">
+    <img class="part-pic" src="/images/box/pin.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3>Locking pins</h3><p class="part-text"></p>
+  </article>
+  <article class="part" id="boxStaples">
+    <img class="part-pic" src="/images/box/staple.webp" width="712" height="475" loading="lazy" decoding="async" alt="">
+    <h3>Staples</h3><p class="part-text"></p>
+  </article>
+</div>
+</details>
 </section>
 <section class="empty" id="empty" hidden>
 <h1>Your basket is empty.</h1>
@@ -187,22 +275,66 @@ const local = location.protocol === "file:";
 const origin = local ? "https://misogimodel.com" : location.origin;
 const P = await import(local ? "/order-pricing.js" : "/order-pricing.js");
 const { PRICING, priceItem, priceCart, money, readCart, writeCart } = P;
+// a cost line worded as in the studio's Your model: "Custom icons ×3", anything else counted "2 × …"
+const lineLabel = (l) => l.key === "icon" ? (l.qty > 1 ? l.label + "s \u00d7" + l.qty : l.label) : l.qty > 1 ? l.qty + " \u00d7 " + l.label : l.label;
+/* The prices and delivery rules set on the admin page, folded into the price list before anything is
+   shown. If they can't be fetched, the built-in list stands (the server would say so at checkout). */
+try {
+  let view = window.MISOGI_SETTINGS || null;
+  if (!view && !local) { const r = await fetch(origin + "/api/settings", { cache: "no-store" }); if (r.ok) view = await r.json(); }
+  if (view) (await import("/site-settings.js")).applyToPricing(PRICING, view);
+} catch (e) { /* keep the built-in prices */ }
 const $ = (id) => document.getElementById(id);
+/* The acknowledgements' words: the admin page's, else the page's own (each line one point). */
+const ACK = (async () => {                            // fetched alongside, never holding the page up
+  const S = await import("/site-settings.js"), row = (k) => S.TEXT.find((t) => t.key === k).text;
+  let t = {}; try { const v = await (window.MISOGI_SITE || Promise.resolve(null)); t = (v && v.text) || {}; } catch (e) { /* the page's own words */ }
+  if (!Object.keys(t).length) try { const v = window.MISOGI_SETTINGS || (!local && await fetch(origin + "/api/settings", { cache: "no-store" }).then((r) => r.ok ? r.json() : null)); t = (v && v.text) || {}; } catch (e) { /* as written */ }
+  const pick = (k) => (typeof t[k] === "string" && t[k].trim() ? t[k] : row(k));
+  return { title: pick("basket.ack.title"), points: pick("basket.ack.body").split("\n").map((x) => x.trim()).filter(Boolean) };
+})();
+async function openAck(e) {
+  if (e) e.preventDefault();
+  const A = await ACK;
+  $("ackTitle").textContent = A.title;
+  $("ackBody").replaceChildren(...A.points.map((x) => { const li = document.createElement("li"); li.textContent = x; return li; }));
+  $("ackDlg").hidden = false; $("ackOk").focus();
+}
+const closeAck = () => { $("ackDlg").hidden = true; $("ackOpen").focus(); };
+$("ackOpen").addEventListener("click", openAck);
+$("ackClose").addEventListener("click", closeAck); $("ackOk").addEventListener("click", closeAck);
+$("ackDlg").addEventListener("click", (e) => { if (e.target === $("ackDlg")) closeAck(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("ackDlg").hidden) closeAck(); });
+$("ack").addEventListener("change", () => { if ($("ack").checked) { $("ackRow").classList.remove("need"); $("ackMsg").hidden = true; } });
 const studioLink = (link) => {                       // the saved design, opened in this site's own studio
   const i = (link || "").indexOf("#design=");
   return "/studio/" + (i >= 0 ? link.slice(i) : "");
 };
+/* Models holding something switched off on the admin page since they went in the basket, by id. */
+let gone = {};
+async function checkBasket() {
+  const cart = readCart(); if (!cart.items.length) return;
+  try {
+    let data;
+    if (window.MISOGI_BASKET_CHECK) data = await window.MISOGI_BASKET_CHECK(cart.items);     // the checks stand in for the server
+    else if (!local) { const r = await fetch(origin + "/api/basket-check", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })) }) }); if (!r.ok) return; data = await r.json(); }
+    if (!data) return;
+    gone = Object.fromEntries((data.items || []).map((x) => [x.id, x.problems || []]));
+    render();
+  } catch (e) { /* the server checks again at checkout */ }
+}
 function say(t, bad) { $("msg").textContent = t || ""; $("msg").classList.toggle("bad", !!bad); }
 
 /* Models to start from, shown under an empty cart. Each opens in the studio, framed and built. */
 const SUGGESTIONS = [
-  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania · 5,895 m", say: "Africa's highest peak. A volcano rising out of the plains." },
-  { key: "everest", name: "Everest", where: "Nepal & China · 8,849 m", say: "The highest point in the world. The first documented ascent in 1953." },
-  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA · 1.8 km deep", say: "Carved by the Colorado River over millions of years." },
-  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia · 4,884 m", say: "Oceania's highest peak. A limestone wall above the rainforest." },
-  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England · 978 m", say: "England's highest mountain, at the head of Wasdale." },
+  { key: "kilimanjaro", name: "Kilimanjaro", where: "Tanzania\u00a0\u00a0 5,895 m", say: "Africa's highest peak. A volcano rising out of the plains." },
+  { key: "everest", name: "Everest", where: "Nepal & China\u00a0\u00a0 8,849 m", say: "The highest point in the world. The first documented ascent in 1953." },
+  { key: "grand-canyon", name: "Grand Canyon", where: "Arizona, USA\u00a0\u00a0 1.8 km deep", say: "Carved by the Colorado River over millions of years." },
+  { key: "puncak-jaya", name: "Puncak Jaya", where: "Papua, Indonesia\u00a0\u00a0 4,884 m", say: "Oceania's highest peak. A limestone wall above the rainforest." },
+  { key: "scafell-pike", name: "Scafell Pike", where: "Lake District, England\u00a0\u00a0 978 m", say: "England's highest mountain, at the head of Wasdale." },
   { key: "yosemite", name: "Yosemite Valley", where: "California, USA", say: "A glacier-carved valley between El Capitan and Half Dome." },
-  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy · 1,281 m", say: "The volcano that buried Pompeii in AD 79, above the Bay of Naples." },
+  { key: "vesuvius", name: "Mount Vesuvius", where: "Campania, Italy\u00a0\u00a0 1,281 m", say: "The volcano that buried Pompeii in AD 79, above the Bay of Naples." },
 ];
 /* The row moves along one model every 3 seconds, round and round: a second set of the cards follows
    the first (hidden from screen readers and the keyboard), and once the row has moved a whole set
@@ -286,19 +418,37 @@ function render() {
   catch (e) { bill = null; }
   const n = cart.items.length;
   const list = $("items"); list.innerHTML = "";
+  let customN = 0;
   cart.items.forEach((it, i) => {
     let p = null; try { p = priceItem(it.item, PRICING); } catch (e) { /* off the price list now */ }
     const li = document.createElement("li"); li.className = "item"; li.dataset.id = it.id;
     li.innerHTML = `<div class="pic"></div><div class="body"><h2></h2><ul class="what"></ul></div>
       <div class="side"><div class="price"></div><div class="acts"><a class="edit">Edit</a><button class="remove" type="button" aria-label="Remove this model" title="Remove this model"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Zm4 2v8h1.6v-8H10Zm2.4 0v8H14v-8h-1.6Z" fill="currentColor"/></svg></button></div></div>`;
     if (it.picture) { const img = document.createElement("img"); img.src = it.picture; img.alt = ""; li.querySelector(".pic").append(img); }
-    li.querySelector("h2").textContent = it.name || "Your place";
-    const what = li.querySelector(".what");
-    // Size, Shape and Colours as labelled lines; the shape drops the "… km of ground across".
-    const facts = (it.facts || []).filter((f) => !/web address on the back/i.test(f))
-      .map((f) => { const m = /^(Square|Hexagon|Circle|Round)\b.*of ground across$/i.exec(f); return m ? "Shape: " + m[1] : f; });
-    const lines = [p ? "Size: " + p.size.name + " (" + p.size.dims + ")" + (p.size.tiles ? " · " + p.size.tiles : "") : "This size is no longer offered"].concat(facts);
-    for (const l of lines) { const x = document.createElement("li"); x.textContent = l; what.append(x); }
+    // (26 Nov) a place picked from the inspiration tiles and left as it was keeps its name; any other is
+    // a Custom model, numbered down the basket
+    li.querySelector("h2").textContent = it.inspired && it.name ? it.name : "Custom Model " + (++customN);
+    // (26 Nov) no tags: the name, then the Cost breakdown, worded as in the studio
+    li.querySelector(".what").remove();
+    if (p) {
+      const bd = document.createElement("div"); bd.className = "bd";   // the cost lines, always shown, no heading (26 Nov)
+      bd.innerHTML = "<table aria-label=\"Cost breakdown\"></table>";
+      for (const l of p.lines) {
+        const tr = document.createElement("tr"); tr.dataset.key = l.key; tr.innerHTML = "<td></td><td></td>";
+        tr.children[0].textContent = lineLabel(l);
+        tr.children[1].textContent = (l.key === "size" ? "" : "+ ") + money(l.amount, PRICING.currency);
+        bd.querySelector("table").append(tr);
+      }
+      li.querySelector(".body").append(bd);
+    } else {
+      const x = document.createElement("p"); x.className = "nosize"; x.textContent = "This size is no longer offered."; li.querySelector(".body").append(x);
+    }
+    if (gone[it.id] && gone[it.id].length) {           // switched off since it went in the basket
+      const g = document.createElement("p"); g.className = "gone"; g.textContent = gone[it.id].join(" ") + " ";
+      if (it.link) { const a = document.createElement("a"); a.href = studioLink(it.link); a.textContent = "Change it in the studio"; g.append(a, "."); }
+      else g.append("Please remove it and design it again.");
+      li.querySelector(".body").append(g);
+    }
     li.querySelector(".price").textContent = p ? money(p.subtotal, PRICING.currency) : "—";
     const edit = li.querySelector(".edit");
     if (it.link) edit.href = studioLink(it.link); else edit.remove();
@@ -314,29 +464,91 @@ function render() {
     lab.innerHTML = `<input type="radio" name="ship"><span></span><small></small><span class="p"></span>`;
     const r = lab.firstChild; r.value = opt.id; r.checked = opt.id === cart.shipping;
     lab.children[1].textContent = opt.label; lab.children[2].textContent = opt.note;
-    lab.children[3].textContent = money(opt.price, PRICING.currency);
+    const freeHere = bill && bill.freeDelivery.applies && bill.freeDelivery.shippingId === opt.id;
+    lab.children[3].textContent = freeHere ? "Free" : money(opt.price, PRICING.currency);
     r.addEventListener("change", () => { const c = readCart(); c.shipping = opt.id; writeCart(c); render(); });
     ship.append(lab);
+  }
+  // free delivery over a set spend: how far off it is, or that it's been reached
+  const fd = bill && bill.freeDelivery, fdOpt = fd && fd.on && PRICING.shipping.find((s) => s.id === fd.shippingId);
+  $("freeNote").hidden = !fdOpt;
+  if (fdOpt) {
+    $("freeNote").classList.toggle("got", fd.applies);
+    $("freeNote").textContent = fd.applies ? "You've got free " + fdOpt.label + " delivery."
+      : "Spend " + money(fd.remaining, PRICING.currency) + " more for free " + fdOpt.label + " delivery.";
   }
   $("subLabel").textContent = n === 1 ? "1 model" : n + " models";
   $("subtotal").textContent = bill ? money(bill.subtotal, bill.currency) : "—";
   $("shipLabel").textContent = bill ? bill.shipping.label + " delivery" : "Delivery";
-  $("shipping").textContent = bill ? money(bill.shipping.price, bill.currency) : "—";
+  $("shipping").textContent = bill ? (bill.shipping.free ? "Free" : money(bill.shipping.price, bill.currency)) : "—";
   $("total").textContent = bill ? money(bill.total, bill.currency) : "—";
-  $("placeholder").hidden = !PRICING.placeholder;
-  $("checkout").disabled = !bill;
+  const blocked = cart.items.some((it) => gone[it.id] && gone[it.id].length);
+  $("checkout").disabled = !bill || blocked;
+  if (blocked) say("Something in your basket isn't available at the moment. Change it in the studio, or remove it, to check out.", true);
+  renderBox(cart.items);
   if (!bill) say("One of these models can't be priced any more. Please remove it and add it again.", true);
+}
+
+/* What's in the box?: built from what's actually in the basket. The models always; the frame card
+   and the pins only when at least one model has a frame, and the staples only when one of the
+   framed models is on a smaller size (the Misogi has none), all counted from the basket. */
+function renderBox(items) {
+  const n = items.length, framed = items.filter((x) => x.item && x.item.frame);
+  const hex = (x) => /^(Shape: )?Hexagon\b/i.test((x.facts || [])[0] || "");   // "Shape: Hexagon", or an older basket's "Hexagon, …"
+  const big = (x) => x.item && x.item.sizeMM >= 500;
+  const set = (card, h, text) => { const c = $(card); c.querySelector("h3").textContent = h; c.querySelector(".part-text").textContent = text; };
+  // the model(s)
+  const extras = [items.some((x) => x.item && x.item.route) && "your route", items.some((x) => x.item && x.item.icons > 0) && "icons"].filter(Boolean);
+  let mt = (n === 1 ? "Your custom 3D model, printed in the colours you picked" : "Your custom 3D models, each printed in the colours you picked")
+    + (extras.length ? ", with " + extras.join(" and ") + " raised on the surface." : ".");
+  const bigs = items.filter(big).length;
+  if (bigs) mt += bigs === 1 ? " The Misogi comes as four tiles, with the 8 dowels that join them."
+                             : " Each Misogi comes as four tiles, with the 8 dowels that join them.";
+  set("boxModel", n + (n === 1 ? " custom model" : " custom models"), mt);
+  $("boxModel").querySelector("img").alt = n === 1 ? "A printed model" : "Printed models";
+  // the frame(s): only when at least one model has one
+  const f = framed.length; $("boxFrame").hidden = $("boxPins").hidden = !f;
+  if (f) {
+    let ft = (f === 1 && n === 1 ? "Printed to fit your model" : "Printed to fit your models")
+      + ", with your own words along its sides. The frame\u2019s ledge supports the model and is secured in place with locking pins.";
+    const bigF = framed.filter(big).length;
+    if (bigF) ft += bigF === 1 ? " The Misogi\u2019s frame comes in sections that lock together." : " The Misogi frames come in sections that lock together.";
+    set("boxFrame", f + (f === 1 ? " custom frame" : " custom frames"), ft);
+    $("boxFrame").querySelector("img").alt = "A square frame and a hexagon frame";
+    const list = $("boxFrame").querySelector(".part-list"); list.innerHTML = "";
+    const sq = framed.filter((x) => !hex(x)).length, hx = f - sq;     // how many of each shape
+    for (const [k, label] of [[sq, "Square"], [hx, "Hexagon"]]) { if (!k) continue; const li = document.createElement("li"); li.textContent = k + "\u00d7 " + label; list.append(li); }
+    const pins = framed.reduce((t, x) => t + (hex(x) ? 6 : 4), 0);     // one on each side of every frame
+    set("boxPins", pins + " locking pins", "One on each side of the frame. Push into the frame, give it a quarter turn to the line, and it locks the frame to the model.");
+    $("boxPins").querySelector("img").alt = "Two locking pins, one standing up and one lying on its side";
+  }
+  // staples: one for each wall of a frame on the smaller sizes, as the print file makes them
+  const staples = framed.reduce((t, x) => t + (x.item && !big(x) ? (hex(x) ? 6 : 4) : 0), 0);
+  $("boxStaples").hidden = !staples;
+  if (staples) {
+    set("boxStaples", staples + " staples", "Join framed models of the same size and shape side by side: push a staple up into the two holes under the join. Tweezers in the round pocket pull one out again.");
+    $("boxStaples").querySelector("img").alt = "Two staples, one standing up and one lying flat";
+  }
+  $("boxParts").dataset.n = 1 + (f ? 2 : 0) + (staples ? 1 : 0);
 }
 
 async function checkout() {
   const cart = readCart();
   if (!cart.items.length) return render();
+  if (!$("ack").checked) {                           // the acknowledgements must be ticked first
+    $("ackRow").classList.add("need"); $("ackMsg").hidden = false;
+    $("ackRow").scrollIntoView({ block: "nearest", behavior: "smooth" }); $("ack").focus();
+    return;
+  }
   if (!PRICING.shipping.some((s) => s.id === cart.shipping)) cart.shipping = PRICING.shipping[0].id;
   $("checkout").disabled = true; say("Off to the payment page…");
   try {
     const r = await fetch(origin + "/api/checkout", { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ items: cart.items.map((x) => ({ id: x.id, token: x.token })), shipping: cart.shipping, updates: $("updates").checked }) });
     let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
+    if (r.status === 409 && data && Array.isArray(data.unavailable)) {   // switched off just now: show which, on each model
+      for (const x of data.unavailable) gone[x.id] = x.problems; render(); return;
+    }
     if (!r.ok || !data || !data.url) throw new Error((data && data.error) || "the server said no (" + r.status + ")");
     window.__checkoutGoingTo = data.url;
     location.assign(data.url);
@@ -357,6 +569,7 @@ if (new URLSearchParams(location.search).get("checkout") === "cancelled") {
   try { history.replaceState(null, "", location.pathname); } catch (e) { /* a file has no history to tidy */ }
 }
 render();
+checkBasket();
 window.__cartReady = true;
 </script>
 <!-- banner-contours -->
@@ -558,7 +771,7 @@ window.__cartReady = true;
       anim = 0;
       if (leaving) {
         fade = Math.max(0, 1 - (performance.now() - leaving) / FADE_MS);
-        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); return; }
+        if (fade === 0) { leaving = 0; lit = false; last = null; sg.clearRect(0, 0, seen.width, seen.height); paint(); fade = 1; return; }   // gone; the next visit draws at full strength
         anim = requestAnimationFrame(frame);
       }
       paint();
@@ -596,7 +809,8 @@ window.__cartReady = true;
     const bot = attach(footer, { cls: "site-footer__contours", ink: "228, 87, 46", lineA: 0.30, indexA: 0.48, oy: 977,
                                  knock: (el, W, H, dpr) => footerKnock(el, W, H, dpr, shapes) });
     const mt = footer.querySelector(".site-footer__mountain");
-    const url = mt && (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/);
+    // the lines stop at the mountain's whole silhouette, not just its white, so none show through the dark rock
+    const url = mt && (mt.dataset.silhouette ? [0, mt.dataset.silhouette] : (getComputedStyle(mt).webkitMaskImage || getComputedStyle(mt).maskImage || "").match(/url\(["']?(.*?)["']?\)/));
     if (url) { shapes.footer = new Image(); shapes.footer.onload = () => bot.reknock(); shapes.footer.src = url[1]; }
     window.__footerContours = bot;
   }

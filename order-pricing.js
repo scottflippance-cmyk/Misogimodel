@@ -15,14 +15,15 @@ export const PRICING = {
     500: { name: "The Misogi",     dims: "50 cm × 50 cm", tiles: "Four interlocking tiles", price: 19900 },   // printed as four tiles that join
   },
   extras: {
-    route: { label: "Your route, raised on the model", short: "route", price: 200 },
-    frame: { label: "Frame with your engraved text", short: "frame", price: 800 },
-    icon:  { label: "Icon", short: "icon", price: 100 },  // charged per icon
+    route: { label: "Custom 3D route", short: "route", price: 200 },
+    frame: { label: "Custom frame with engraved text", short: "frame", price: 800 },
+    icon:  { label: "Custom icon", short: "icon", price: 100 },  // charged per icon
   },
-  /* Print colours, by how many filaments the scheme uses: one colour is included, two or four cost more. */
+  /* Print colours, by how many filaments the scheme uses: one colour is included, more cost more. */
   colours: {
     1: { label: "One colour", short: "", price: 0 },
     2: { label: "Two-colour print", short: "two colours", price: 500 },
+    3: { label: "Three-colour print", short: "three colours", price: 750 },
     4: { label: "Four-colour print", short: "four colours", price: 1000 },
   },
   schemeColours: { solid: 1, water: 2, green: 2, natural: 4, bold: 4 },  // the studio's schemes, by colours used
@@ -30,10 +31,22 @@ export const PRICING = {
     { id: "uk-standard", label: "UK standard", note: "3–5 working days", price: 395, days: [3, 5] },
     { id: "uk-express",  label: "UK express",  note: "1–2 working days", price: 795, days: [1, 2] },
   ],
+  freeDelivery: null,                                   // { threshold, shippingId } once switched on (admin page)
   countries: ["GB"],                                    // where Stripe will accept a delivery address
   maxItems: 20,                                         // models in one order
   maxIcons: 3,                                          // icons on one model
 };
+
+/* The staples that come with a frame, to join framed models side by side: every frame on the three
+   smaller sizes has two staple holes in each wall and comes with one staple for each wall (two frames
+   side by side share a wall's two). None on the Misogi, which is too big to join, or without a frame.
+   They're part of the frame: nothing extra to pay. The studio's print file counts them the same way. */
+export const STAPLE_SIZES = [100, 150, 250];
+export function staplesFor(frame) {
+  const f = frame || {}, mm = Math.round(+f.modelMM || 0);
+  if (f.show !== true || !STAPLE_SIZES.includes(mm)) return 0;
+  return f.outline === "hex" ? 6 : 4;
+}
 
 /* What one model is, read from a design as the studio saves it (its collectState()). */
 export function itemFromDesign(design) {
@@ -44,6 +57,7 @@ export function itemFromDesign(design) {
     frame: !!frame.show,
     icons: Math.max(0, Math.min(50, ((design && design.icons) || []).length)),
     scheme: (design && design.print && design.print.on && design.print.scheme) || "solid",
+    staples: staplesFor(frame),
   };
 }
 
@@ -67,7 +81,8 @@ export function priceItem(item, pricing = PRICING) {
   const col = pricing.colours[nCol];
   if (col && col.price > 0) lines.push({ key: "colours", label: col.label, unit: col.price, qty: 1, amount: col.price });
   const extras = [item.route && "route", item.frame && "frame",
-                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons")), col && col.short].filter(Boolean);
+                  item.icons > 0 && (item.icons + (item.icons === 1 ? " icon" : " icons")),
+                  col && col.short].filter(Boolean);
   return { size, lines, extras, subtotal: lines.reduce((t, l) => t + l.amount, 0) };
 }
 
@@ -84,7 +99,18 @@ export function priceCart(items, shipping, pricing = PRICING) {
   if (!ship) throw new Error("That delivery option isn't on the price list.");
   const priced = items.map((it) => priceItem(it, pricing));
   const subtotal = priced.reduce((t, p) => t + p.subtotal, 0);
-  return { currency: pricing.currency, items: priced, shipping: ship, subtotal, total: subtotal + ship.price };
+  const free = freeDeliveryFor(subtotal, pricing);
+  const sh = free.applies && free.shippingId === ship.id ? { ...ship, price: 0, free: true } : ship;
+  return { currency: pricing.currency, items: priced, shipping: sh, subtotal, total: subtotal + sh.price, freeDelivery: free };
+}
+
+/* Free delivery over a set spend (set on the admin page): whether the models alone reach it, and if
+   not, how much more would. Off unless the price list carries a freeDelivery rule. */
+export function freeDeliveryFor(subtotal, pricing = PRICING) {
+  const f = pricing.freeDelivery;
+  if (!f || !(f.threshold >= 0)) return { on: false, applies: false, remaining: null, shippingId: null, threshold: null };
+  const applies = subtotal >= f.threshold;
+  return { on: true, applies, remaining: applies ? 0 : f.threshold - subtotal, shippingId: f.shippingId, threshold: f.threshold };
 }
 
 export const money = (pence, currency = "gbp") =>
