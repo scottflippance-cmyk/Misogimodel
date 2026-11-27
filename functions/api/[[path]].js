@@ -60,6 +60,7 @@
        POST /api/admin/copy                { section } (or "all"): Live only, copies that section from Preview.
        POST /api/admin/test-email          { email }: a test of one email, to you alone.
        GET  /api/admin/history             the history of saves and copies, newest first (?before=<key> for more).
+       GET  /api/admin/orders/<id>/files   an order's print-file links, for /admin/combine/ to join in the browser.
        POST /api/basket-check              { items: [{ id, token }] } -> which models hold something switched off
                                            since they went in the basket (and so can't be checked out).
      The admin ones need Cloudflare Access's signed pass for ADMIN_EMAIL, checked here as well as at the door. */
@@ -528,6 +529,7 @@ async function webhook(request, env) {
 ${p.items.map((it, i) => `<tr><td>${i + 1}. ${esc(it.size.name)}${it.extras.length ? ", with " + esc(it.extras.join(", ")) : ""}</td><td align="right">${money(it.subtotal, p.currency)}</td></tr>`).join("")}
 <tr><td>${esc(p.shipping.label + " delivery")}</td><td align="right">${money(p.shipping.price, p.currency)}</td></tr>
 <tr><td><b>Paid</b></td><td align="right"><b>${money(session.amount_total != null ? session.amount_total : p.total, p.currency)}</b></td></tr></table>
+${n > 1 ? `<p style="margin:18px 0 0;padding:12px 14px;border-radius:10px;background:#FDF1EC"><b>All ${n} models in one print file:</b> <a href="${esc(origin)}/admin/combine/?order=${esc(id)}" style="color:#C9461F;font-weight:600">join them into one 3MF</a><br><span style="color:#5B6470;font-size:12px">Opens with your admin sign-in and makes ${esc(short)}-all.3mf in your browser, each model's parts set side by side.</span></p>` : ""}
 ${blocks.join("\n")}
 <p style="margin:22px 0 0;color:#5B6470;font-size:12px">Order sheet: ${esc(sheetNote)}</p>
 </div>`;
@@ -857,6 +859,20 @@ async function adminRoute(request, env, parts, m) {
     return fail(405, "Not allowed.");
   }
   if (parts[1] === "history" && parts.length === 2 && m === "GET") return history(env, new URL(request.url));
+  // (26 Nov) an order's print files, for the page that joins them into one (/admin/combine/?order=…):
+  // only links are handed out; the joining happens in your browser, never here
+  if (parts[1] === "orders" && parts.length === 4 && parts[3] === "files" && m === "GET") {
+    const id = parts[2];
+    if (!/^[0-9a-f-]{36}$/.test(id)) return fail(400, "That isn't an order number.");
+    const order = await readJSON(env, orderKey(id));
+    if (!order) return fail(404, "No such order.");
+    const origin = new URL(request.url).origin, short = order.number || id.slice(0, 8), files = [];
+    for (let i = 0; i < order.items.length; i++) {
+      const itemId = order.items[i];
+      files.push({ n: i + 1, name: short + "-" + (i + 1), url: origin + "/api/items/" + itemId + "/model?key=" + await modelKey(env, itemId) });
+    }
+    return json({ order: short, files });
+  }
   if (parts[1] === "test-email" && parts.length === 2 && m === "POST") {
     let body; try { body = await request.json(); } catch (e) { body = {}; }
     return testEmail(env, new URL(request.url).origin, String((body && body.email) || ""));

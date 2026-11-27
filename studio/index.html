@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studio: misogimodel</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>/* (26 Nov) the preview site wears the black icon, the live site the orange one (as the server tells them apart) */(function(){var h=location.hostname;if(/^[^.]+\.[^.]+\.pages\.dev$/.test(h)||/^(localhost|127\.)/.test(h)||location.protocol==="file:")document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]').forEach(function(l){l.setAttribute("href",l.getAttribute("href").replace(/\.png$/,"-preview.png"));});})();</script>
 <link rel="stylesheet" href="/site.css">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -2728,13 +2729,14 @@ function setPlaceChosen(v) {
 /* (26 Nov) Where the area came from: an inspiration tile, picked and left as it was, keeps its name in
    the basket (Kilimanjaro); anything else (a search, a route, moving or resizing the area) is a Custom model. */
 let inspiredFrom = null;
+let editingId = new URLSearchParams(location.search).get("edit") || null;   // opened from the basket's Edit: see openFromHash
 function stillInspired(st) {
   const f = inspiredFrom;
   return !!(f && !st.route && Math.abs(st.sel.lat - f.lat) < 2e-6 && Math.abs(st.sel.lng - f.lng) < 2e-6
     && Math.abs(st.sel.size - f.size) < 1 && !(st.sel.rot || 0));
 }
 function pick(row) {
-  inspiredFrom = null;
+  inspiredFrom = null; editingId = null;          // a new place: a new model
   const wasName = sel.name;
   sel.lat = +row.lat; sel.lng = +row.lon;
   sel.name = row.display_name.split(", ").slice(0, 2).join(", ");
@@ -9613,7 +9615,70 @@ function backStamp(S, W, z0, centre) {
     const v = edge || !mask ? 0 : clamp(mask(i / (gx - 1), 1 - j / (gy - 1)), 0, 1);
     return z0 - 0.05 + (BACK_DEPTH_MM + 0.05) * v;
   };
-  return S(S(solidOf(S, heightBlock(gx, gy, X, Y, Z, z0 - 1)).rotate([0, 0, backArtAngle(W) * 180 / Math.PI])).translate([cx, cy, 0]));
+  if (BACK_STAMP_GRID) return S(S(solidOf(S, heightBlock(gx, gy, X, Y, Z, z0 - 1)).rotate([0, 0, backArtAngle(W) * 180 / Math.PI])).translate([cx, cy, 0]));
+  /* (26 Nov) The artwork's outlines, traced at half depth on the same grid, pushed straight up 2 mm.
+     The same cut as the grid of heights it replaces (whose walls lean across one grid step), with a
+     few thousand corners instead of hundreds of thousands, so it is quick to make and to cut. */
+  const v = new Float32Array(gx * gy);
+  for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) v[j * gx + i] = (Z(i, j) - (z0 - 0.05)) / (BACK_DEPTH_MM + 0.05);
+  const polys = contoursOf(v, gx, gy, 0.5).map((ring) => simplifyRing(ring.map(([i, j]) => [X(i), Y(j)]), step * 0.15)).filter((r) => r.length >= 3);
+  if (!polys.length) return S(manifoldLib.Manifold.cube([0.001, 0.001, 0.001]).translate([cx, cy, z0 - 10]));
+  const cs = S(new manifoldLib.CrossSection(polys, "EvenOdd"));
+  return S(S(S(S(cs.extrude(BACK_DEPTH_MM + 0.05)).translate([0, 0, z0 - 0.05])).rotate([0, 0, backArtAngle(W) * 180 / Math.PI])).translate([cx, cy, 0]));
+}
+let BACK_STAMP_GRID = false;                         // the old grid of heights, kept for the checks that compare the two
+/* Where a grid of values crosses `th`: closed rings of grid positions (i, j), each corner placed along
+   its cell's edge where the value crosses. Marching squares; the grid's own edge must be below `th`. */
+function contoursOf(v, gx, gy, th) {
+  const at = (i, j) => v[j * gx + i], pt = new Map(), nb = new Map();
+  const edgeH = (i, j) => (j * gx + i) * 2, edgeV = (i, j) => (j * gx + i) * 2 + 1;
+  const place = (id) => {
+    if (pt.has(id)) return; const h = !(id & 1), k = id >> 1, i = k % gx, j = (k - i) / gx;
+    const a = at(i, j), b = h ? at(i + 1, j) : at(i, j + 1), t = (th - a) / (b - a);
+    pt.set(id, h ? [i + t, j] : [i, j + t]);
+  };
+  const link = (p, q) => { place(p); place(q); (nb.get(p) || nb.set(p, []).get(p)).push(q); (nb.get(q) || nb.set(q, []).get(q)).push(p); };
+  for (let j = 0; j < gy - 1; j++) for (let i = 0; i < gx - 1; i++) {
+    const a = at(i, j) > th, b = at(i + 1, j) > th, c = at(i + 1, j + 1) > th, d = at(i, j + 1) > th;
+    const n = a | (b << 1) | (c << 2) | (d << 3); if (n === 0 || n === 15) continue;
+    const e = [edgeH(i, j), edgeV(i + 1, j), edgeH(i, j + 1), edgeV(i, j)];   // bottom, right, top, left
+    const mid = (at(i, j) + at(i + 1, j) + at(i + 1, j + 1) + at(i, j + 1)) / 4 > th;
+    switch (n) {
+      case 1: case 14: link(e[3], e[0]); break;
+      case 2: case 13: link(e[0], e[1]); break;
+      case 3: case 12: link(e[3], e[1]); break;
+      case 4: case 11: link(e[1], e[2]); break;
+      case 6: case 9: link(e[0], e[2]); break;
+      case 7: case 8: link(e[2], e[3]); break;
+      case 5: if (mid) { link(e[0], e[1]); link(e[2], e[3]); } else { link(e[3], e[0]); link(e[1], e[2]); } break;
+      case 10: if (mid) { link(e[3], e[0]); link(e[1], e[2]); } else { link(e[0], e[1]); link(e[2], e[3]); } break;
+    }
+  }
+  const seen = new Set(), rings = [];
+  for (const start of nb.keys()) {
+    if (seen.has(start)) continue;
+    const ring = []; let prev = -1, cur = start;
+    while (cur !== undefined && !seen.has(cur)) {
+      seen.add(cur); ring.push(pt.get(cur));
+      const next = nb.get(cur).find((q) => q !== prev && !seen.has(q)); prev = cur; cur = next;
+    }
+    if (ring.length >= 3) rings.push(ring);
+  }
+  return rings;
+}
+/* A closed ring with its corners thinned out wherever they lie within `eps` of a straight line. */
+function simplifyRing(r, eps) {
+  if (r.length < 8) return r;
+  const keep = new Uint8Array(r.length), e2 = eps * eps;
+  const rdp = (a, b) => {
+    let best = -1, far = e2; const [ax, ay] = r[a], [bx, by] = r[b], dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1e-12;
+    for (let k = a + 1; k < b; k++) { const t = Math.max(0, Math.min(1, ((r[k][0] - ax) * dx + (r[k][1] - ay) * dy) / L));
+      const px = ax + t * dx - r[k][0], py = ay + t * dy - r[k][1], d = px * px + py * py; if (d > far) { far = d; best = k; } }
+    if (best >= 0) { keep[best] = 1; rdp(a, best); rdp(best, b); }
+  };
+  const h = r.length >> 1; keep[0] = keep[h] = keep[r.length - 1] = 1;
+  rdp(0, h); rdp(h, r.length - 1);
+  return r.filter((_, k) => keep[k]);
 }
 
 /* The hole a pin goes up: a recess for the head, a keyhole for the shaft and the lugs, and above
@@ -10354,29 +10419,30 @@ function treesSolid(S, toSTL, k) {
 
 async function buildPrintFile(opts) {
   const as3mf = opts && opts.format === "3mf";
+  const say = opts && opts.quiet ? () => {} : progress;   // quiet: made in the background, no cover over the page
   if (!current || !three || !three.geom) return null;
   try {
-    progress(true, "Getting your model ready…", 15);
+    say(true, "Getting your model ready…", 15);
     await backArtReady();                            // the logo on the back needs its mark and lettering in
     await new Promise((r) => setTimeout(r, 30));
     const data = current, G = three.geom, W = frameVals.modelMM, k = W / WORLD;   // k = mm per model unit
     const withFrame = $("stlFrame").checked && $("showFrame").checked;   // only a frame that was asked for
     const z0 = withFrame ? frameVals.d : 0, baseMM = Math.abs(G.baseY) * k;
     const toSTL = (x, y, z) => [(x + WORLD / 2) * k, (WORLD / 2 - z) * k, z0 + baseMM + y * k];
-    progress(true, "Fetching the cutting tools…", 18);
+    say(true, "Fetching the cutting tools…", 18);
     await manifoldReady();
     const S = partsScope();
     let bodies, groups;
     try {
     const t = frameVals.t, Ht = frameVals.d + baseMM + frameVals.h;
-    progress(true, "Colouring the top…", 22); await new Promise((r) => setTimeout(r, 20));
+    say(true, "Colouring the top…", 22); await new Promise((r) => setTimeout(r, 20));
     const plan = await topPlan(data, W), cells = plan && cellColours(plan, data);   // colour 1 throughout, the others on the top 1 mm
-    progress(true, "Shaping the ground…", 30); await new Promise((r) => setTimeout(r, 20));
+    say(true, "Shaping the ground…", 30); await new Promise((r) => setTimeout(r, 20));
     let model = modelSolid(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, withFrame, t, cells);
     const tops = cells ? topParts(S, data, W, z0, baseMM, G.hScale * k, (G.lift || 0) * k, cells, plan) : [];
     let routePiece = null;
     if ($("stlRoute").checked && route) {             // the route prints on its own and clicks into a groove
-      progress(true, "Cutting the route's groove…", 40); await new Promise((r) => setTimeout(r, 20));
+      say(true, "Cutting the route's groove…", 40); await new Promise((r) => setTimeout(r, 20));
       const rad = Math.max(0.05, routeStyle.mm * (WORLD / W) / 2), sweeps = [];
       for (const run of routeRuns(data.bounds)) {
         const sw = sweepRoute(run, routeStyle.profile, rad, G.groundY);
@@ -10394,7 +10460,7 @@ async function buildPrintFile(opts) {
     }
     const extras = [];                               // the parts that ride on the ground: roads, paths, route, icons
     if ((show.roads || show.paths) && roadOpts.on && roadsAllowed()) {   // raised roads, on their own account
-      progress(true, "Adding roads…", 45);
+      say(true, "Adding roads…", 45);
       const roadTris = [], pathTris = [];
       for (const s of roadSweeps(await areaTiles(data.bounds), G)) {
         const into = s.path ? pathTris : roadTris;
@@ -10406,7 +10472,7 @@ async function buildPrintFile(opts) {
     const iconParts = $("stlIcons").checked ? stlIcons(G, toSTL) : [];
     for (const e of [...extras, ...iconParts]) { orientOutward(e.tris); e.colour = extraColour(e); }
     if ($("show3dTrees").checked && show.woodland && three.treeList && three.treeList.length) {   // trees print when they're shown
-      progress(true, "Planting the trees…", 48); await new Promise((r) => setTimeout(r, 0));
+      say(true, "Planting the trees…", 48); await new Promise((r) => setTimeout(r, 0));
       let trees = treesSolid(S, toSTL, k);
       if (trees) {                                    // they fill only the air: the ground keeps its own plastic
         trees = S(trees.subtract(model)); for (const tp of [...tops, { solid: routePiece }]) if (tp.solid) trees = S(trees.subtract(tp.solid));
@@ -10417,7 +10483,7 @@ async function buildPrintFile(opts) {
     // the raised icons print on their own and click into pockets, as the route does
     const iconPieces = [];
     for (const n of [...new Set(iconParts.map((e) => e.icon))]) {
-      progress(true, "Cutting the icons' pockets…", 50); await new Promise((r) => setTimeout(r, 0));
+      say(true, "Cutting the icons' pockets…", 50); await new Promise((r) => setTimeout(r, 0));
       const { groove, bodies: ib } = iconClip(S, iconParts.filter((e) => e.icon === n), z0);
       if (groove) { model = S(model.subtract(groove)); for (const tp of tops) tp.solid = S(tp.solid.subtract(groove)); }
       const fit = (m) => (modelOutline === "square" ? m : S(m.intersect(prismOf(S, outlineCS(S, W), z0 - 1, z0 + 1e4))));
@@ -10425,7 +10491,7 @@ async function buildPrintFile(opts) {
       if (kept.length) iconPieces.push({ n: iconPieces.length + 1, bodies: kept });
     }
 
-    progress(true, "Cutting the parts…", 60); await new Promise((r) => setTimeout(r, 20));
+    say(true, "Cutting the parts…", 60); await new Promise((r) => setTimeout(r, 20));
     const ring = outlineMM(W);
     const inRing = (x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
       const a = ring[i], b = ring[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
@@ -10465,7 +10531,7 @@ async function buildPrintFile(opts) {
     }
     groups.push(...routeGroups);
     if (withFrame) {
-      progress(true, "Making the frame…", 72); await new Promise((r) => setTimeout(r, 20));
+      say(true, "Making the frame…", 72); await new Promise((r) => setTimeout(r, 20));
       const frame = frameSolid(S, W, t, Ht, frameVals.d), ink = FINISH[$("frameColour").value][1].toUpperCase();
       // the lettering stands above the frame's top: that part prints in the lettering's own colour
       const above = S(S(manifoldLib.Manifold.cube([W + 400, W + 400, 1e4], false)).translate([-200, -200, Ht]));
@@ -10492,7 +10558,7 @@ async function buildPrintFile(opts) {
     layOut(groups);
     bodies = groups.flatMap((g) => g.bodies.map((b) => ({ name: b.name, group: g.name, colour: b.colour, tris: b.laid })));
     bodies.assembled = assembled;
-    progress(true, "Wrapping it up…", 85);
+    say(true, "Wrapping it up…", 85);
     let vol = 0;
     for (const b of bodies) vol += orientOutward(b.tris);
     let mx = [Infinity, Infinity, Infinity], Mx = [-Infinity, -Infinity, -Infinity];
@@ -10515,7 +10581,7 @@ async function buildPrintFile(opts) {
     return { blob, name: slug() + (as3mf ? ".3mf" : ".stl") };
   } catch (err) {
     console.error(err); throw err;
-  } finally { progress(false); }
+  } finally { say(false); }
 }
 
 /* ============================================================
@@ -10783,7 +10849,9 @@ async function openOrder() {
   $("odImg").src = pic || ""; $("odImg").hidden = !pic;
   try { await renderOrder(); }
   catch (err) { console.error(err); toast("That couldn't open just now. Please try again.", true); return; }
+  $("odPay").textContent = (await editingItem()) ? "Update in basket" : "Add to basket";   // edited from the basket: it replaces the original
   $("orderDlg").hidden = false; $("odPay").focus();
+  setTimeout(startPrebuild, 250);                    // once the panel has painted
 }
 function closeOrder() { $("orderDlg").hidden = true; }
 async function sendJSON(url, opts) {
@@ -10791,6 +10859,27 @@ async function sendJSON(url, opts) {
   let data = null; try { data = await r.json(); } catch (e) { /* no body */ }
   if (!r.ok) { const e = new Error((data && data.error) || "the server said no (" + r.status + ")"); e.status = r.status; e.data = data; throw e; }
   return data;
+}
+/* (26 Nov) The print file is started as soon as Your model opens, quietly, while the customer looks
+   at the picture and the costs, so Add to basket mostly has only the upload left. It is used only if
+   nothing about the design has changed since; otherwise it's made again, as before. */
+let prebuilt = null;
+const buildSig = () => JSON.stringify([collectState(), $("stlRoute").checked, $("stlFrame").checked, $("show3dTrees").checked]);
+function startPrebuild() {
+  if (!current || !three || !three.geom) return;
+  const sig = buildSig();
+  if (prebuilt && prebuilt.sig === sig && prebuilt.data === current) return;      // already made, or on its way
+  const after = prebuilt ? prebuilt.file.catch(() => null) : Promise.resolve();   // one at a time
+  const file = after.then(() => buildPrintFile({ format: "3mf", quiet: true }));
+  file.catch(() => { /* made again when added */ });
+  prebuilt = { sig, data: current, file };
+}
+async function printFileForCart() {
+  const sig = buildSig(), pre = prebuilt;
+  if (pre && pre.sig === sig && pre.data === current) {
+    try { const f = await pre.file; if (f) return f; } catch (e) { /* made again below */ }
+  } else if (pre) { try { await pre.file; } catch (e) { /* not needed */ } }      // let it finish first: one build at a time
+  return buildPrintFile({ format: "3mf" });
 }
 async function addToCart() {
   const say = (t, bad) => { $("odMsg").textContent = t; $("odMsg").classList.toggle("bad", !!bad); };
@@ -10801,7 +10890,7 @@ async function addToCart() {
     if (cart.items.length >= P.PRICING.maxItems) throw new Error("your basket is full (" + P.PRICING.maxItems + " models at most)");
     say("Packing up your mountain…");
     const st = collectState();
-    const file = await buildPrintFile({ format: "3mf" });   // a 3MF: each colour its own part (an STL can't carry colour)
+    const file = await printFileForCart();             // a 3MF: each colour its own part (an STL can't carry colour), usually made already
     if (!file) throw new Error("there's no model to print yet");
     const zip = await zipFile([{ name: file.name, data: new Uint8Array(await file.blob.arrayBuffer()) }]);
     const big = $("odImg").src && $("odImg").src.startsWith("data:") ? $("odImg").src : "";
@@ -10816,13 +10905,20 @@ async function addToCart() {
     await sendJSON(base + "/model" + q, { method: "PUT", headers: { "content-type": "application/zip" }, body: zip });
     if (pic) await sendJSON(base + "/preview" + q, { method: "PUT", headers: { "content-type": "image/jpeg" }, body: pic });
     const fresh = P.readCart();                       // read again: another tab may have changed it meanwhile
-    fresh.items.push({ id: made.id, token: made.token, name: st.sel.name || "Your place", item: P.itemFromDesign(st),
-                       facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now(),
-                       inspired: stillInspired(st) });        // the basket calls the rest Custom model 1, 2…
+    const entry = { id: made.id, token: made.token, name: st.sel.name || "Your place", item: P.itemFromDesign(st),
+                    facts: orderFacts(st), picture: await shrinkPicture(big), link, added: Date.now(),
+                    inspired: stillInspired(st) };       // the basket calls the rest Custom Model 1, 2…
+    const at = editingId ? fresh.items.findIndex((x) => x.id === editingId) : -1;
+    if (at >= 0) fresh.items[at] = entry; else fresh.items.push(entry);   // edited from the basket: it takes the original's place
+    const replaced = at >= 0;
     if (!P.writeCart(fresh)) throw new Error("this browser wouldn't let us save your basket");
     const n = fresh.items.length;
     $("odBefore").hidden = true; $("odAfter").hidden = false; $("odTitle").textContent = "In your basket";
-    $("odAdded").textContent = "Added to your basket. You have " + n + (n === 1 ? " model" : " models") + " in it.";
+    $("odAdded").textContent = (replaced ? "Updated in your basket. " : "Added to your basket. ") + "You have " + n + (n === 1 ? " model" : " models") + " in it.";
+    if (replaced || editingId) {                        // go on editing this one: the next add replaces it again
+      editingId = made.id;
+      try { const u = new URL(location.href); u.searchParams.set("edit", made.id); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) { /* a file has no history */ }
+    }
     $("odCart").focus();
   } catch (err) {
     console.error(err);
@@ -11014,10 +11110,24 @@ async function decodeDesign(str) {
                              : new TextDecoder().decode(bytes);
   return JSON.parse(text);
 }
+/* (26 Nov) Opened from the basket's Edit (/studio/?edit=<its id>#design=…): adding it to the basket
+   again replaces that model, where it was, rather than adding a second. Opening another design or
+   choosing a new place makes it a new model again. */
+async function editingItem() {
+  if (!editingId) return null;
+  try { const P = await pricingModule(); return P.readCart().items.find((x) => x.id === editingId) || null; } catch (e) { return null; }
+}
 async function openFromHash() {
   const m = location.hash.match(/^#design=(.+)$/);
-  if (!m) return;
-  try { await applyState(await decodeDesign(m[1]), "shared"); }
+  if (!m) { editingId = null; return; }
+  try {
+    const keep = editingId;
+    await applyState(await decodeDesign(m[1]), "shared");
+    editingId = keep;
+    const it = await editingItem();
+    if (!it) editingId = null;
+    else if (it.inspired) inspiredFrom = { lat: sel.lat, lng: sel.lng, size: sel.size };   // still the inspiration tile's place, unless it's changed
+  }
   catch (err) { console.error(err); toast("That share link couldn't be opened: " + err.message + ".", true); }
 }
 
@@ -11039,7 +11149,7 @@ function renderDesigns() {
     const when = document.createElement("small"); when.textContent = new Date(d.saved).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
     nm.append(when);
     const open = document.createElement("button"); open.textContent = "Open";
-    open.addEventListener("click", () => applyState(d.state, "saved").catch((e) => toast("Couldn't open it: " + e.message, true)));
+    open.addEventListener("click", () => { editingId = null; applyState(d.state, "saved").catch((e) => toast("Couldn't open it: " + e.message, true)); });
     const del = document.createElement("button"); del.textContent = "Delete"; del.className = "ghost";
     del.addEventListener("click", () => {             // two clicks, no pop-up
       if (del.dataset.armed) { saveStore(loadStore().filter((x) => x.name !== d.name)); renderDesigns(); toast("Deleted “" + d.name + "”."); return; }
